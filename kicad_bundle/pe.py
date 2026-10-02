@@ -11,7 +11,9 @@ _DIRS = [pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"],
 def deps(binary: Path) -> list[str]:
     pe = pefile.PE(str(binary), fast_load=True)
     try:
-        pe.parse_data_directories(directories=_DIRS)
+        # DLL names only: with symbols, pefile stops at its import-symbol limit and silently drops
+        # the remaining DLLs (_eeschema.dll imports thousands of wx symbols first).
+        pe.parse_data_directories(directories=_DIRS, import_dllnames_only=True)
         entries = getattr(pe, "DIRECTORY_ENTRY_IMPORT", []) + getattr(pe, "DIRECTORY_ENTRY_DELAY_IMPORT", [])
         return [e.dll.decode() for e in entries]
     finally:

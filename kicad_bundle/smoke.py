@@ -52,6 +52,10 @@ def check(cli: list[str]) -> None:
                                 env=kicad_env(Path(tmp)), capture_output=True, text=True)
         if result.returncode != 0 or not out.exists():
             raise RuntimeError(f"kicad-cli failed ({result.returncode}): {result.stderr.strip()[-2000:]}")
+        # KiCad logs some problems (missing data files, libraries) as errors yet still exports.
+        errors = [line for line in result.stderr.splitlines() if "Error:" in line]
+        if errors:
+            raise RuntimeError("kicad-cli reported errors:\n" + "\n".join(errors))
         nets = netlist_nets(out.read_text())
     if nets != EXPECTED:
         raise RuntimeError(f"unexpected nets {nets}, wanted {EXPECTED}")
