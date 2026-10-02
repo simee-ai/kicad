@@ -1,0 +1,78 @@
+name: package
+# Repackage an official KiCad release into trimmed kicad-cli bundles and publish them as a
+# release (cli-<version>-<n>). simee-core pins a release; simee-kicad-watcher triggers this monthly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      kicad_version:
+        description: Official KiCad release to package, e.g. 10.0.6
+        required: true
+      publish:
+        description: Publish a release (off = build and smoke-test only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+env:
+  KICAD_VERSION: ${{ inputs.kicad_version }}
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Rosetta (to smoke-test the x86_64 bundle on this arm64 runner)
+        run: softwareupdate --install-rosetta --agree-to-license
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/kicad-bundle
+          key: kicad-installers-macos-${{ inputs.kicad_version }}
+      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/kicad-bundle
+          key: kicad-installers-windows-${{ inputs.kicad_version }}
+      - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  release:
+    needs: [macos, windows]
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach the corresponding KiCad source (GPL)
+        run: >
+          curl -fsSL -o "dist/kicad-$KICAD_VERSION-source.tar.gz"
+          "https://github.com/KiCad/kicad-source-mirror/archive/refs/tags/$KICAD_VERSION.tar.gz"
+      - name: Publish
+        run: |
+          gh release list --limit 500 --json tagName -q '.[].tagName' > tags.txt
+          tag=$(uv run python -m kicad_bundle.publish --kicad-version "$KICAD_VERSION" --dist dist \
+                --tags tags.txt --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          gh release create "$tag" dist/* --target "$GITHUB_SHA" \
+            --title "kicad-cli $KICAD_VERSION (${tag##*-})" --notes-file notes.md
+          echo "Published $tag" >> "$GITHUB_STEP_SUMMARY"
