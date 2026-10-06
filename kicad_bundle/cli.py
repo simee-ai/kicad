@@ -3,9 +3,9 @@ import hashlib
 import sys
 from pathlib import Path
 
-from kicad_bundle import macos, windows
+from kicad_bundle import linux, macos, windows
 
-PACKAGERS = {"macos": macos.package, "windows": windows.package}
+PACKAGERS = {"linux": linux.package, "macos": macos.package, "windows": windows.package}
 
 
 def sha256(path: Path) -> str:

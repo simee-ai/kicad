@@ -8,6 +8,8 @@ from pathlib import Path
 
 SCHEMATIC = Path(__file__).parent / "smoke" / "rc_filter.kicad_sch"
 EXPECTED = [["C1.1"], ["C1.2", "R1.2"], ["R1.1"]]
+# Where KiCad writes config, documents and caches; point them at a private dir.
+KICAD_HOMES = ("KICAD_CONFIG_HOME", "KICAD_DOCUMENTS_HOME", "KICAD_CACHE_HOME")
 TOKEN = re.compile(r'\(|\)|"(?:\\.|[^"\\])*"|[^\s()]+')
 
 
@@ -40,8 +42,7 @@ def netlist_nets(text: str) -> list[list[str]]:
 
 def kicad_env(home: Path) -> dict[str, str]:
     """Keep KiCad's config, document and cache dirs out of the user's home."""
-    return {**os.environ, **{k: str(home / k) for k in ("KICAD_CONFIG_HOME", "KICAD_DOCUMENTS_HOME",
-                                                       "KICAD_CACHE_HOME")}}
+    return {**os.environ, **{k: str(home / k) for k in KICAD_HOMES}}
 
 
 def check(cli: list[str]) -> None:

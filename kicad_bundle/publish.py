@@ -28,8 +28,12 @@ def release_notes(version: str, run_url: str, assets: list[str]) -> str:
     listed = "\n".join(f"- `{a}`" for a in sorted(assets))
     return f"""Trimmed `kicad-cli` from the official, unmodified KiCad {version} release: just what
 `kicad-cli sch ...` needs (the schematic module and its shared libraries), re-signed ad hoc on macOS.
-Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows: `bin\\kicad-cli.exe`).
+Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows: `bin\\kicad-cli.exe`;
+Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
 Set `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` to keep it out of the user's home.
+
+The Linux binaries come from the official `kicad/kicad:{version}` Docker image (Debian packages,
+sources at https://sources.debian.org), with every library but glibc in `lib/`.
 
 {listed}
 

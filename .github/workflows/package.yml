@@ -53,8 +53,19 @@ jobs:
           name: windows
           path: dist/*
 
+  linux:
+    runs-on: ubuntu-latest  # has docker: the official kicad/kicad image, smoke-tested in ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
   release:
-    needs: [macos, windows]
+    needs: [macos, windows, linux]
     if: inputs.publish
     runs-on: ubuntu-latest
     steps:

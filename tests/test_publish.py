@@ -21,3 +21,10 @@ def test_release_notes_name_the_source_and_assets():
     assert "https://gitlab.com/kicad/code/kicad/-/tags/10.0.6" in text
     assert "kicad-cli-10.0.6-macos-arm64.tar.gz" in text
     assert "https://run/1" in text
+
+
+def test_release_notes_say_how_to_run_each_platform():
+    text = release_notes("10.0.6", "https://run/1", [])
+    for how in ("KiCad.app/Contents/MacOS/kicad-cli", "bin\\kicad-cli.exe", "bin/kicad-cli", "glibc 2.39"):
+        assert how in text
+    assert "kicad/kicad:10.0.6" in text  # where the Linux binaries come from
