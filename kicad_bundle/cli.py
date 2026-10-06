@@ -3,7 +3,7 @@ import hashlib
 import sys
 from pathlib import Path
 
-from kicad_bundle import linux, macos, windows
+from kicad_bundle import cache, linux, macos, windows
 
 PACKAGERS = {"linux": linux.package, "macos": macos.package, "windows": windows.package}
 
@@ -29,6 +29,7 @@ def main(argv=None) -> int:
     built = PACKAGERS[args.platform](args.kicad_version, args.out, args.cache, args.work, not args.no_smoke)
     for path in built:
         print(f"{sha256(path)}  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")
+    cache.prune(args.cache, built=args.kicad_version)
     return 0
 
 

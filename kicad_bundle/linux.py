@@ -19,6 +19,7 @@ from typing import BinaryIO
 
 from kicad_bundle import debian, elf, smoke
 from kicad_bundle.bundle import archive
+from kicad_bundle.cache import DEBIAN_SOURCES
 from kicad_bundle.closure import closure
 
 IMAGE = "kicad/kicad"
@@ -186,4 +187,4 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         smoke.check(smoke_command(root))
         print(f"  smoke test passed ({SMOKE_IMAGE})")
     bundle = archive(root, out_dir, "tar.gz")
-    return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / "debian-sources")]
+    return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / DEBIAN_SOURCES)]

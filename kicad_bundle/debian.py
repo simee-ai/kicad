@@ -99,6 +99,8 @@ def _cached_file(name: str, sha1: str, cache: Path, fetch: Callable[[str], bytes
         if hashlib.sha1(data).hexdigest() != sha1:
             raise RuntimeError(f"{name}: download doesn't match its sha1 {sha1}")
         write_atomically(dest, lambda f: f.write(data))
+    else:
+        dest.touch()  # marks it used, so cache.prune keeps it
     return dest
 
 
