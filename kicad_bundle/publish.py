@@ -32,8 +32,10 @@ Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows
 Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
 Set `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` to keep it out of the user's home.
 
-The Linux binaries come from the official `kicad/kicad:{version}` Docker image (Debian packages,
-sources at https://sources.debian.org), with every library but glibc in `lib/`.
+The Linux binaries come from the official `kicad/kicad:{version}` Docker image, with every library but
+glibc in `lib/`. Its `THIRD-PARTY.txt` names the Debian package each library comes from, with that
+package's licence in `share/doc/<package>/copyright`; `kicad-cli-{version}-linux-x86_64-sources.tar`
+holds the exact Debian source of every one of them.
 
 {listed}
 

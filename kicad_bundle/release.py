@@ -6,6 +6,7 @@ import os
 import shutil
 import urllib.request
 from pathlib import Path
+from typing import BinaryIO, Callable
 
 API = "https://api.github.com/repos/KiCad/kicad-source-mirror/releases"
 
@@ -32,9 +33,15 @@ def cached_asset(version: str, pattern: str, cache: Path) -> Path:
     url = asset_url(version, pattern)
     dest = cache / version / url.rsplit("/", 1)[1]
     if not (dest.exists() and dest.stat().st_size > 0):
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        part = dest.with_name(dest.name + ".part")
-        with urllib.request.urlopen(_get(url), timeout=600) as resp, part.open("wb") as f:
-            shutil.copyfileobj(resp, f, length=1 << 20)
-        part.replace(dest)
+        with urllib.request.urlopen(_get(url), timeout=600) as resp:
+            write_atomically(dest, lambda f: shutil.copyfileobj(resp, f, length=1 << 20))
     return dest
+
+
+def write_atomically(dest: Path, write: Callable[[BinaryIO], None]) -> None:
+    """write(f) into dest.part, then rename it to dest, so an interrupted download leaves no dest."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    part = dest.with_name(dest.name + ".part")
+    with part.open("wb") as f:
+        write(f)
+    part.replace(dest)

@@ -28,3 +28,9 @@ def test_release_notes_say_how_to_run_each_platform():
     for how in ("KiCad.app/Contents/MacOS/kicad-cli", "bin\\kicad-cli.exe", "bin/kicad-cli", "glibc 2.39"):
         assert how in text
     assert "kicad/kicad:10.0.6" in text  # where the Linux binaries come from
+
+
+def test_release_notes_point_at_the_third_party_notices_and_sources():
+    text = release_notes("10.0.6", "https://run/1", [])
+    assert "THIRD-PARTY.txt" in text
+    assert "kicad-cli-10.0.6-linux-x86_64-sources.tar" in text

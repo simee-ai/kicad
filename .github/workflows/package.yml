@@ -58,6 +58,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - uses: actions/cache@v4  # the Debian sources, keyed by sha1, so most carry over between releases
+        with:
+          path: ~/.cache/kicad-bundle
+          key: debian-sources-${{ inputs.kicad_version }}
+          restore-keys: debian-sources-
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist
       - uses: actions/upload-artifact@v4
         with:

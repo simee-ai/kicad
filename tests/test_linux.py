@@ -4,6 +4,8 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+import pytest
+
 from kicad_bundle import linux
 from tiny_elf import make_elf
 
@@ -30,22 +32,36 @@ def _tar(entries: dict[str, str | None], links: dict[str, str]) -> io.BytesIO:
 def test_extract_keeps_only_what_the_closure_can_need(tmp_path):
     stream = _tar({"usr/bin/kicad-cli": "cli", "usr/bin/kicad": "gui", "usr/lib/x86_64-linux-gnu/libfoo.so.1": "foo",
                    "usr/share/kicad/schemas/api.v1.schema.json": "{}", "usr/share/kicad/symbols/Device.kicad_sym": "",
-                   "usr/share/doc/README": "", "etc/passwd": ""},
+                   "usr/share/doc/libfoo1/copyright": "MIT", "usr/share/man/man1/kicad.1": "",
+                   "var/lib/dpkg/status": "", "var/lib/dpkg/info/libfoo1.list": "", "etc/passwd": ""},
                   {"lib": "usr/lib", "lib64": "usr/lib64", "etc/alternatives/x": "/usr/bin/kicad"})
     linux.extract(stream, tmp_path)
     found = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*") if not p.is_dir() or p.is_symlink())
     assert found == ["etc/alternatives/x", "lib", "lib64", "usr/bin/kicad-cli",
-                     "usr/lib/x86_64-linux-gnu/libfoo.so.1", "usr/share/kicad/schemas/api.v1.schema.json"]
+                     "usr/lib/x86_64-linux-gnu/libfoo.so.1", "usr/share/doc/libfoo1/copyright",
+                     "usr/share/kicad/schemas/api.v1.schema.json", "var/lib/dpkg/info/libfoo1.list",
+                     "var/lib/dpkg/status"]
 
 
-def _image(rootfs):
-    """A fake extracted image: kicad-cli -> libkicommon -> libc, plus the kiface and schemas."""
+def _image(rootfs, extra_lib: str | None = None):
+    """A fake extracted image: kicad-cli -> libkicommon -> libc, the kiface -> libgit2 (from Debian's
+    libgit2-1.9, whose copyright file is reached through a symlinked doc dir), plus the schemas."""
     libdir = rootfs / "usr/lib/x86_64-linux-gnu"
+    info = rootfs / "var/lib/dpkg/info"
+    info.mkdir(parents=True)
+    (rootfs / "var/lib/dpkg/status").write_text(
+        "Package: libgit2-1.9\nStatus: install ok installed\nSource: libgit2\nVersion: 1.9.0+ds-2+deb13u1\n")
+    (info / "libgit2-1.9:amd64.list").write_text(f"/usr/lib/x86_64-linux-gnu/libgit2.so.1.9.0\n")
+    (rootfs / "usr/share/doc/libgit2-common").mkdir(parents=True)
+    (rootfs / "usr/share/doc/libgit2-common/copyright").write_text("GPL-2 with linking exception")
+    os.symlink("libgit2-common", rootfs / "usr/share/doc/libgit2-1.9")
     make_elf(libdir / "libkicommon.so.10.0.6", needed=("libc.so.6",), soname="libkicommon.so.10.0.6")
     make_elf(libdir / "libgit2.so.1.9.0", soname="libgit2.so.1.9")
     os.symlink("libgit2.so.1.9.0", libdir / "libgit2.so.1.9")
     make_elf(rootfs / "usr/bin/kicad-cli", needed=("libkicommon.so.10.0.6", "libc.so.6")).chmod(0o755)
-    make_elf(rootfs / "usr/bin/_eeschema.kiface", needed=("libgit2.so.1.9",))
+    make_elf(rootfs / "usr/bin/_eeschema.kiface", needed=("libgit2.so.1.9", *([extra_lib] if extra_lib else [])))
+    if extra_lib:
+        make_elf(libdir / extra_lib)
     (rootfs / "usr/share/kicad/schemas").mkdir(parents=True)
     (rootfs / "usr/share/kicad/schemas/api.v1.schema.json").write_text("{}")
     os.symlink("usr/lib", rootfs / "lib")
@@ -54,11 +70,31 @@ def _image(rootfs):
 def test_assemble_lays_out_a_relocatable_bundle(tmp_path):
     rootfs, root = tmp_path / "rootfs", tmp_path / "kicad-cli-10.0.6-linux-x86_64"
     _image(rootfs)
-    linux.assemble(rootfs, root)
+    sources = linux.assemble(rootfs, root, "10.0.6")
     found = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
-    assert found == ["bin/kicad-cli", "lib/libgit2.so.1.9", "lib/libkicommon.so.10.0.6", "libexec/_eeschema.kiface",
-                     "libexec/kicad-cli", "share/kicad/schemas/api.v1.schema.json"]
+    assert found == ["THIRD-PARTY.txt", "bin/kicad-cli", "lib/libgit2.so.1.9", "lib/libkicommon.so.10.0.6",
+                     "libexec/_eeschema.kiface", "libexec/kicad-cli", "share/doc/libgit2-1.9/copyright",
+                     "share/kicad/schemas/api.v1.schema.json"]
     assert os.access(root / "bin/kicad-cli", os.X_OK) and os.access(root / "libexec/kicad-cli", os.X_OK)
+    assert sources == {("libgit2", "1.9.0+ds-2+deb13u1")}
+
+
+def test_assemble_lists_every_shipped_library_with_its_licence_and_source(tmp_path):
+    rootfs, root = tmp_path / "rootfs", tmp_path / "kicad-cli-10.0.6-linux-x86_64"
+    _image(rootfs)
+    linux.assemble(rootfs, root, "10.0.6")
+    assert (root / "share/doc/libgit2-1.9/copyright").read_text() == "GPL-2 with linking exception"
+    notice = (root / "THIRD-PARTY.txt").read_text()
+    assert "lib/libgit2.so.1.9\tlibgit2-1.9 1.9.0+ds-2+deb13u1\tlibgit2 1.9.0+ds-2+deb13u1" in notice
+    assert "kicad-cli-10.0.6-linux-x86_64-sources.tar" in notice
+    assert "kicad-10.0.6-source.tar.gz" in notice  # KiCad's own files: kicad-cli, the kiface, libkicommon
+
+
+def test_assemble_refuses_a_library_no_debian_package_owns(tmp_path):
+    rootfs = tmp_path / "rootfs"
+    _image(rootfs, extra_lib="libmystery.so.1")
+    with pytest.raises(RuntimeError, match="libmystery.so.1"):
+        linux.assemble(rootfs, tmp_path / "kicad-cli-10.0.6-linux-x86_64", "10.0.6")
 
 
 def test_wrapper_points_kicad_cli_at_the_bundle_even_through_a_symlink(tmp_path):

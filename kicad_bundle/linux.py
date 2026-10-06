@@ -3,6 +3,8 @@
 KiCad publishes no relocatable Linux build, but every release gets an official image
 (kicad/kicad:<version>, Debian, amd64). Its kicad-cli and the shared-library closure, minus glibc,
 go into lib/; bin/kicad-cli is a wrapper that points the loader and KiCad's stock data there.
+Every library but KiCad's own comes from a Debian package: the bundle ships each package's copyright
+file, and <bundle>-sources.tar (a separate release asset) the exact Debian source of each.
 """
 
 import os
@@ -11,10 +13,11 @@ import subprocess
 import tarfile
 import tempfile
 from collections import defaultdict
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import BinaryIO
 
-from kicad_bundle import elf, smoke
+from kicad_bundle import debian, elf, smoke
 from kicad_bundle.bundle import archive
 from kicad_bundle.closure import closure
 
@@ -26,8 +29,27 @@ SMOKE_IMAGE = "ubuntu:24.04"
 ROOTS = ("usr/bin/kicad-cli", "usr/bin/_eeschema.kiface")
 # Data kicad-cli reads at startup (it logs an error without the API schema).
 DATA = ("usr/share/kicad/schemas",)
-# What to unpack from the image: the roots, every library and the symlinks leading to them.
-EXTRACT = (*ROOTS, "usr/lib/", "lib", "lib64", "etc/alternatives/", *(f"{d}/" for d in DATA))
+# KiCad's own libraries (no Debian package owns them; the KiCad source covers them).
+KICAD_LIBS = "libki*"
+# What to unpack from the image: the roots, every library and the symlinks leading to them, and
+# dpkg's records and copyright files to say which package each library comes from.
+EXTRACT = (*ROOTS, "usr/lib/", "lib", "lib64", "etc/alternatives/", *(f"{d}/" for d in DATA),
+           debian.DPKG_STATUS, f"{debian.DPKG_INFO}/", "usr/share/doc/")
+
+NOTICE = """kicad-cli {version} for Linux x86_64, repackaged from the official kicad/kicad:{version} Docker image.
+
+KiCad (libexec/kicad-cli, libexec/_eeschema.kiface and lib/{kicad_libs}) is GPL-3.0-or-later. Its source is
+kicad-{version}-source.tar.gz, attached to the same GitHub release.
+
+Every other file in lib/ comes unmodified from the Debian package listed below. Each package's
+licence and copyright notices are in share/doc/<package>/copyright. The complete corresponding
+source of each package, exactly as Debian built it, is in
+{sources}, attached to the same release:
+unpack it and run `dpkg-source -x <source>_<version>/*.dsc` (the version without its epoch).
+
+file\tpackage version\tsource version
+{rows}
+"""
 
 WRAPPER = """#!/bin/sh
 # kicad-cli from the official KiCad Docker image, using the shared libraries and data in this bundle.
@@ -69,9 +91,14 @@ def write_wrapper(path: Path) -> None:
     path.chmod(0o755)
 
 
-def assemble(rootfs: Path, root: Path) -> None:
-    """root/{bin/kicad-cli (wrapper), libexec/ (kicad-cli + kiface), lib/ (closure), share/kicad/}.
-    Each library is stored under the DT_NEEDED name(s) the loader looks it up by."""
+def sources_name(root: Path) -> str:
+    return f"{root.name}-sources.tar"
+
+
+def assemble(rootfs: Path, root: Path, version: str) -> set[tuple[str, str]]:
+    """root/{bin/kicad-cli (wrapper), libexec/ (kicad-cli + kiface), lib/ (closure), share/kicad/,
+    share/doc/<package>/copyright, THIRD-PARTY.txt}. Each library is stored under the DT_NEEDED
+    name(s) the loader looks it up by. Returns the Debian (source, version)s the libraries come from."""
     names: dict[Path, set[str]] = defaultdict(set)
     base = elf.make_resolver(rootfs)
 
@@ -87,20 +114,35 @@ def assemble(rootfs: Path, root: Path) -> None:
     if missing:
         raise RuntimeError(f"unresolved libraries: {missing}")
 
+    libs = sorted(keep - set(roots))
+    owned, unowned = debian.provenance(rootfs, libs)
+    if strays := [lib.name for lib in unowned if not fnmatch(lib.name, KICAD_LIBS)]:
+        raise RuntimeError(f"libraries no Debian package owns, so their licence and source are unknown: {strays}")
+
     for d in ("bin", "libexec", "lib"):
         (root / d).mkdir(parents=True, exist_ok=True)
     for src, rel in zip(roots, ROOTS):
         shutil.copy2(src, root / "libexec" / Path(rel).name)
-    for lib in sorted(keep - set(roots)):
+    rows = []
+    for lib in libs:
         first, *others = sorted(names[lib])
         shutil.copy2(lib, root / "lib" / first)
         for other in others:
             os.symlink(first, root / "lib" / other)
+        if pkg := owned.get(lib):
+            rows.append(f"lib/{first}\t{pkg.name} {pkg.version}\t{pkg.source} {pkg.source_version}")
+    for pkg in {p.name: p for p in owned.values()}.values():
+        dest = root / "share/doc" / pkg.name / "copyright"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(elf.resolve_in(rootfs, f"usr/share/doc/{pkg.name}/copyright"), dest)
+    (root / "THIRD-PARTY.txt").write_text(NOTICE.format(version=version, kicad_libs=KICAD_LIBS,
+                                                        sources=sources_name(root), rows="\n".join(sorted(rows))))
     for data in DATA:
         shutil.copytree(elf.resolve_in(rootfs, data), root / "share" / Path(data).relative_to("usr/share"),
                         symlinks=True)
     write_wrapper(root / "bin" / "kicad-cli")
-    print(f"  {len(keep)} files from the image")
+    print(f"  {len(keep)} files from the image, {len(owned)} of them from {len(set(owned.values()))} Debian packages")
+    return {(p.source, p.source_version) for p in owned.values()}
 
 
 def smoke_command(root: Path) -> list[str]:
@@ -132,15 +174,16 @@ def _export_image(version: str, rootfs: Path) -> None:
 
 
 def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True) -> list[Path]:
-    """cache is unused: docker keeps the pulled image."""
+    """The bundle and its Debian sources. cache holds the sources; docker keeps the pulled image."""
     rootfs = work / "linux-image"
     root = work / f"kicad-cli-{version}-linux-x86_64"
     for d in (rootfs, root):
         if d.exists():
             shutil.rmtree(d)
     _export_image(version, rootfs)
-    assemble(rootfs, root)
+    sources = assemble(rootfs, root, version)
     if run_smoke:
         smoke.check(smoke_command(root))
         print(f"  smoke test passed ({SMOKE_IMAGE})")
-    return [archive(root, out_dir, "tar.gz")]
+    bundle = archive(root, out_dir, "tar.gz")
+    return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / "debian-sources")]
