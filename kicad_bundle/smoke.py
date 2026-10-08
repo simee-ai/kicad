@@ -10,6 +10,7 @@ SCHEMATIC = Path(__file__).parent / "smoke" / "rc_filter.kicad_sch"
 EXPECTED = [["C1.1"], ["C1.2", "R1.2"], ["R1.1"]]
 # Where KiCad writes config, documents and caches; point them at a private dir.
 KICAD_HOMES = ("KICAD_CONFIG_HOME", "KICAD_DOCUMENTS_HOME", "KICAD_CACHE_HOME")
+UNESCAPE = re.compile(r"\\(.)")
 TOKEN = re.compile(r'\(|\)|"(?:\\.|[^"\\])*"|[^\s()]+')
 
 
@@ -22,7 +23,7 @@ def parse_sexpr(text: str) -> list:
             done = stack.pop()
             stack[-1].append(done)
         else:
-            stack[-1].append(tok[1:-1] if tok.startswith('"') else tok)
+            stack[-1].append(UNESCAPE.sub(r"\1", tok[1:-1]) if tok.startswith('"') else tok)
     return stack[0][0]
 
 
@@ -38,6 +39,13 @@ def netlist_nets(text: str) -> list[list[str]]:
         if pins:
             nets.append(pins)
     return sorted(nets)
+
+
+def netlist_components(text: str) -> dict[str, str]:
+    """Components (ref -> value) of a kicadsexpr netlist; KiCad leaves power symbols out."""
+    comps = _children(parse_sexpr(text), "components")
+    return {_children(c, "ref")[0][1]: _children(c, "value")[0][1]
+            for c in (_children(comps[0], "comp") if comps else [])}
 
 
 def kicad_env(home: Path) -> dict[str, str]:

@@ -1,0 +1,92 @@
+{
+ "source": "Logic_Level_Bidirectional.sch",
+ "format": "eagle",
+ "origin": "https://github.com/sparkfun/Logic_Level_Bidirectional/blob/5abaf6fa3b2a42696c7ace98af2d68c9b5e9780c/Hardware/Logic_Level_Bidirectional.sch",
+ "licence": "CC-BY-SA-3.0 (SparkFun Electronics, per README.md)",
+ "licence_file": "LICENSE-CC-BY-SA-3.0.txt",
+ "checked": "components and nets read from the Eagle 6.4 XML by tests/eagle_nets.py: four BSS138 channels, each with 10k pull-ups to LV and HV",
+ "components": {
+  "JP1": "M06SIP",
+  "JP2": "M06SIP",
+  "JP3": "FIDUCIALUFIDUCIAL",
+  "JP4": "FIDUCIALUFIDUCIAL",
+  "LOGO1": "SFE_LOGO_FLAME.1_INCH",
+  "LOGO2": "OSHW-LOGOS",
+  "Q1": "BSS138",
+  "Q2": "BSS138",
+  "Q3": "BSS138",
+  "Q4": "BSS138",
+  "R1": "10K",
+  "R10": "10K",
+  "R2": "10K",
+  "R3": "10K",
+  "R4": "10K",
+  "R5": "10K",
+  "R6": "10K",
+  "R7": "10K"
+ },
+ "nets": [
+  [
+   "JP1.1",
+   "Q2.2",
+   "R6.2"
+  ],
+  [
+   "JP1.2",
+   "Q4.2",
+   "R1.2"
+  ],
+  [
+   "JP1.3",
+   "JP2.4"
+  ],
+  [
+   "JP1.4",
+   "Q1.1",
+   "Q2.1",
+   "Q3.1",
+   "Q4.1",
+   "R1.1",
+   "R2.1",
+   "R3.1",
+   "R6.1"
+  ],
+  [
+   "JP1.5",
+   "Q3.2",
+   "R2.2"
+  ],
+  [
+   "JP1.6",
+   "Q1.2",
+   "R3.2"
+  ],
+  [
+   "JP2.1",
+   "Q1.3",
+   "R4.2"
+  ],
+  [
+   "JP2.2",
+   "Q3.3",
+   "R10.2"
+  ],
+  [
+   "JP2.3",
+   "R10.1",
+   "R4.1",
+   "R5.1",
+   "R7.1"
+  ],
+  [
+   "JP2.5",
+   "Q4.3",
+   "R5.2"
+  ],
+  [
+   "JP2.6",
+   "Q2.3",
+   "R7.2"
+  ]
+ ]
+}

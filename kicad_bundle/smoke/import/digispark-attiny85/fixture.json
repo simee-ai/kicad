@@ -1,0 +1,106 @@
+{
+ "source": "ATTiny85.SchDoc",
+ "format": "altium",
+ "origin": "https://github.com/yasir-shahzad/Digispark-ATTINY85/blob/98ad05c3af666577e37e6065dfea6969bdd86c8b/hardware/ATTiny85.SchDoc",
+ "licence": "GPL-3.0 (Yasir Shahzad)",
+ "licence_file": "LICENSE",
+ "checked": "every net checked by hand against the repo's own Altium export, images/ATtiny85-schematic.png (78M05 regulator, ATtiny85, USB with 66.5R series resistors, 1K5 pull-up and 3V6 zeners on D-/D+, two LEDs); components are the 17 placed parts of the repo's pick-and-place file plus Altium's title block, which the SchDoc holds as a component and KiCad keeps under ref '*'",
+ "components": {
+  "*": "TitleBlock",
+  "C1": "4.7uF",
+  "C2": "100nF",
+  "CN1": "USB ConnectorsUSBMINIB - Surface Mount Female Mini-B USB Connector 4UConnector: 06564   By microbuilder.euThru-hole RA Female Mini-B USB Connector 4UConnector: 18732   By ladyada.net",
+  "D1": "BZT52C3V6S",
+  "D2": "BZT52C3V6S",
+  "D3": "1N5819",
+  "J1": "Header 6",
+  "J2": "Header 3",
+  "LED1": "LED Red",
+  "LED2": "LED Green",
+  "R1": "1.5kΩ",
+  "R2": "66.5Ω",
+  "R3": "66.5Ω",
+  "R4": "1kΩ",
+  "R5": "1kΩ",
+  "U1": "78M05",
+  "U2": "ATTINY85-20SU"
+ },
+ "nets": [
+  [
+   "C1.1",
+   "C2.1",
+   "D3.1",
+   "J2.3",
+   "LED1.A",
+   "R1.2",
+   "U1.2",
+   "U2.8"
+  ],
+  [
+   "C1.2",
+   "C2.2",
+   "CN1.4",
+   "D1.A",
+   "D2.A",
+   "J2.2",
+   "R4.2",
+   "R5.2",
+   "U1.3",
+   "U2.4"
+  ],
+  [
+   "CN1.1",
+   "D3.2"
+  ],
+  [
+   "CN1.2",
+   "D1.K",
+   "R1.1",
+   "R2.1"
+  ],
+  [
+   "CN1.3",
+   "D2.K",
+   "R3.2"
+  ],
+  [
+   "J1.1",
+   "U2.1"
+  ],
+  [
+   "J1.2",
+   "R3.1",
+   "U2.3"
+  ],
+  [
+   "J1.3",
+   "R2.2",
+   "U2.2"
+  ],
+  [
+   "J1.4",
+   "U2.7"
+  ],
+  [
+   "J1.5",
+   "LED2.A",
+   "U2.6"
+  ],
+  [
+   "J1.6",
+   "U2.5"
+  ],
+  [
+   "J2.1",
+   "U1.1"
+  ],
+  [
+   "LED1.C",
+   "R5.1"
+  ],
+  [
+   "LED2.C",
+   "R4.1"
+  ]
+ ]
+}

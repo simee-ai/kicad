@@ -1,0 +1,90 @@
+{
+ "source": "Adafruit BME280.sch",
+ "format": "eagle",
+ "origin": "https://github.com/adafruit/Adafruit-BME280-Breakout-PCB/blob/93e2b97928ba906ba19b265e9f2d0024d29472f0/Adafruit%20BME280.sch",
+ "licence": "CC-BY-SA-3.0 (Adafruit Industries, designed by Limor Fried/Ladyada); README.md must travel with it",
+ "licence_file": "license.txt",
+ "checked": "components and nets read from the Eagle 6.4 XML by tests/eagle_nets.py (Eagle's own <net>/<pinref>/<connect> data); matches the BME280, 10k pull-ups, MIC5225-3.3 LDO and BSS138 level shifters of the product page",
+ "components": {
+  "C1": "10uF",
+  "C3": "10uF",
+  "D2": "1N4148",
+  "JP2": "HEADER-1X770MIL",
+  "Q3": "BSS138",
+  "Q4": "BSS138",
+  "R1": "10K",
+  "R2": "10K",
+  "R4": "10K",
+  "R7": "10K",
+  "R8": "10K",
+  "U$15": "FIDUCIAL\"\"",
+  "U$5": "FIDUCIAL\"\"",
+  "U$7": "MOUNTINGHOLE2.0",
+  "U$8": "MOUNTINGHOLE2.0",
+  "U1": "BME280",
+  "U2": "MIC5225-3.3"
+ },
+ "nets": [
+  [
+   "C1.1",
+   "JP2.1",
+   "R7.2",
+   "R8.2",
+   "U2.1",
+   "U2.3"
+  ],
+  [
+   "C1.2",
+   "C3.2",
+   "JP2.3",
+   "U1.1",
+   "U1.7",
+   "U2.2"
+  ],
+  [
+   "C3.1",
+   "JP2.2",
+   "Q3.1",
+   "Q4.1",
+   "R1.2",
+   "R2.2",
+   "R4.2",
+   "U1.6",
+   "U1.8",
+   "U2.5"
+  ],
+  [
+   "D2.A",
+   "U1.2"
+  ],
+  [
+   "D2.C",
+   "JP2.7"
+  ],
+  [
+   "JP2.4",
+   "Q3.3",
+   "R7.1"
+  ],
+  [
+   "JP2.5",
+   "R4.1",
+   "U1.5"
+  ],
+  [
+   "JP2.6",
+   "Q4.3",
+   "R8.1"
+  ],
+  [
+   "Q3.2",
+   "R2.1",
+   "U1.4"
+  ],
+  [
+   "Q4.2",
+   "R1.1",
+   "U1.3"
+  ]
+ ]
+}

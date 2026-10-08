@@ -1,0 +1,104 @@
+{
+ "source": "coax-power-supply-fixed-voltage.json",
+ "format": "easyeda",
+ "origin": "https://github.com/IgrikXD/Easy-SDR/blob/d4c7fbef2343fdd067bec22806192f44cf650b4a/Coax%20power%20supply/Fixed%20voltage/SMD/EasyEDA/1-Schematic_Coax%20power%20supply%2C%20fixed%20voltage%20(SMD%2C%20ENCLOSURE).json",
+ "licence": "MIT (Ihar Yatsevich)",
+ "licence_file": "LICENSE",
+ "checked": "every net checked by hand against the repo's EasyEDA PDF export (Schematics/Schematic_Coax power supply, fixed voltage (SMD, ENCLOSURE)_2020-09-29_10-58-02.pdf): USB-B through PTC and switch, LC filter, LP5907 3.3 V LDO, TCBT-14+ bias tee; +5V, +3.3V and POWER FILTER are joined by name through EasyEDA circle flags; 'NO' is EasyEDA's title block, which the file holds as a part",
+ "components": {
+  "C1": "4.7u",
+  "C2": "100n",
+  "C3": "4.7u",
+  "C4": "100n",
+  "C5": "100n",
+  "F1": "PTC, 750mA, 6V",
+  "J1": "SMA ANTENNA/LNA",
+  "J2": "SMA RF OUT",
+  "L1": "ACH32C-104-T001",
+  "LED1": "GREEN",
+  "NO": "Coax power supply, fixed voltage (SMD, ENCLOSURE): Main module",
+  "R1": "100R",
+  "R2": "3k",
+  "R3": "1M",
+  "SW1": "MTS-101/102-C3",
+  "U1": "LP5907MFX-3.3/NOPB",
+  "U2": "TCBT-14+",
+  "USB1": "USB-B"
+ },
+ "nets": [
+  [
+   "C1.1",
+   "C2.2",
+   "L1.3",
+   "U1.1",
+   "U1.3"
+  ],
+  [
+   "C1.2",
+   "C2.1",
+   "C3.1",
+   "C4.1",
+   "C5.1",
+   "J1.GND@0",
+   "J1.GND@1",
+   "J1.GND@2",
+   "J1.GND@3",
+   "J2.GND@0",
+   "J2.GND@1",
+   "J2.GND@2",
+   "J2.GND@3",
+   "L1.2",
+   "LED1.2",
+   "R3.1",
+   "SW1.4",
+   "SW1.5",
+   "U1.2",
+   "U2.5",
+   "USB1.2"
+  ],
+  [
+   "C3.2",
+   "C4.2",
+   "R2.2",
+   "U1.5",
+   "U2.3"
+  ],
+  [
+   "C5.2",
+   "R3.2",
+   "USB1.5"
+  ],
+  [
+   "F1.1",
+   "USB1.1"
+  ],
+  [
+   "F1.2",
+   "SW1.2"
+  ],
+  [
+   "J1.SIG",
+   "U2.1"
+  ],
+  [
+   "J2.SIG",
+   "U2.2"
+  ],
+  [
+   "L1.1",
+   "SW1.1"
+  ],
+  [
+   "LED1.1",
+   "R2.1"
+  ],
+  [
+   "R1.1",
+   "USB1.3"
+  ],
+  [
+   "R1.2",
+   "USB1.4"
+  ]
+ ]
+}
