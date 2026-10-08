@@ -17,7 +17,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import BinaryIO
 
-from kicad_bundle import debian, elf, smoke
+from kicad_bundle import debian, elf, linux_build, sch_import, smoke
 from kicad_bundle.bundle import archive
 from kicad_bundle.cache import DEBIAN_SOURCES
 from kicad_bundle.closure import closure
@@ -37,7 +37,7 @@ KICAD_LIBS = "libki*"
 EXTRACT = (*ROOTS, "usr/lib/", "lib", "lib64", "etc/alternatives/", *(f"{d}/" for d in DATA),
            debian.DPKG_STATUS, f"{debian.DPKG_INFO}/", "usr/share/doc/")
 
-NOTICE = """kicad-cli {version} for Linux x86_64, repackaged from the official kicad/kicad:{version} Docker image.
+NOTICE = """kicad-cli {version} for Linux x86_64, repackaged from the official kicad/kicad:{version} Docker image.{simee}
 
 KiCad (libexec/kicad-cli, libexec/_eeschema.kiface and lib/{kicad_libs}) is GPL-3.0-or-later. Its source is
 kicad-{version}-source.tar.gz, attached to the same GitHub release.
@@ -96,7 +96,12 @@ def sources_name(root: Path) -> str:
     return f"{root.name}-sources.tar"
 
 
-def assemble(rootfs: Path, root: Path, version: str) -> set[tuple[str, str]]:
+SIMEE_NOTICE = """
+KiCad's own files (libexec/, lib/{kicad_libs}) are KiCad {version} with simee's changes, built on that image
+with its Debian libraries from simee-kicad commit {sha}."""
+
+
+def assemble(rootfs: Path, root: Path, version: str, simee_sha: str | None = None) -> set[tuple[str, str]]:
     """root/{bin/kicad-cli (wrapper), libexec/ (kicad-cli + kiface), lib/ (closure), share/kicad/,
     share/doc/<package>/copyright, THIRD-PARTY.txt}. Each library is stored under the DT_NEEDED
     name(s) the loader looks it up by. Returns the Debian (source, version)s the libraries come from."""
@@ -136,7 +141,8 @@ def assemble(rootfs: Path, root: Path, version: str) -> set[tuple[str, str]]:
         dest = root / "share/doc" / pkg.name / "copyright"
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(elf.resolve_in(rootfs, f"usr/share/doc/{pkg.name}/copyright"), dest)
-    (root / "THIRD-PARTY.txt").write_text(NOTICE.format(version=version, kicad_libs=KICAD_LIBS,
+    simee = SIMEE_NOTICE.format(kicad_libs=KICAD_LIBS, sha=simee_sha, version=version) if simee_sha else ""
+    (root / "THIRD-PARTY.txt").write_text(NOTICE.format(version=version, kicad_libs=KICAD_LIBS, simee=simee,
                                                         sources=sources_name(root), rows="\n".join(sorted(rows))))
     for data in DATA:
         shutil.copytree(elf.resolve_in(rootfs, data), root / "share" / Path(data).relative_to("usr/share"),
@@ -157,7 +163,8 @@ def smoke_command(root: Path) -> list[str]:
             SMOKE_IMAGE, str(root / "bin" / "kicad-cli")]
 
 
-def _export_image(version: str, rootfs: Path) -> None:
+def _export_image(version: str, rootfs: Path) -> str:
+    """Unpack the image's EXTRACT parts into rootfs; returns its digest."""
     docker, image = _docker(), f"{IMAGE}:{version}"
     subprocess.run([docker, "pull", "--quiet", "--platform", PLATFORM, image], check=True)
     digest = subprocess.run([docker, "image", "inspect", "--format", "{{index .RepoDigests 0}}", image],
@@ -172,19 +179,33 @@ def _export_image(version: str, rootfs: Path) -> None:
             raise RuntimeError(f"docker export failed ({proc.returncode})")
     finally:
         subprocess.run([docker, "rm", container], check=False, capture_output=True)
+    return digest
 
 
-def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True) -> list[Path]:
-    """The bundle and its Debian sources. cache holds the sources; docker keeps the pulled image."""
+def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True,
+            simee_ref: str | None = None) -> list[Path]:
+    """The bundle and its Debian sources. cache holds the sources; docker keeps the pulled image.
+    With simee_ref (a simee-kicad branch such as simee/10.0.6), KiCad's own files are built from it
+    (linux_build), and its source tarball is one of the results."""
     rootfs = work / "linux-image"
     root = work / f"kicad-cli-{version}-linux-x86_64"
     for d in (rootfs, root):
         if d.exists():
             shutil.rmtree(d)
-    _export_image(version, rootfs)
-    sources = assemble(rootfs, root, version)
+    digest = _export_image(version, rootfs)
+    sha = linux_build.resolve_ref(simee_ref) if simee_ref else None
+    sources = assemble(rootfs, root, version, sha)
+    extra = []
+    if sha:
+        print(f"  building KiCad's own files from simee-kicad {sha} ({simee_ref})")
+        src = linux_build.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
+        print("  replaced " + ", ".join(linux_build.overlay(root, linux_build.build(digest, rootfs, src, work))))
+        extra.append(src)
     if run_smoke:
         smoke.check(smoke_command(root))
-        print(f"  smoke test passed ({SMOKE_IMAGE})")
+        if sha:
+            for fixture in sch_import.fixtures():
+                sch_import.check(smoke_command(root), fixture)
+        print(f"  smoke test passed ({SMOKE_IMAGE}{', sch import' if sha else ''})")
     bundle = archive(root, out_dir, "tar.gz")
-    return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / DEBIAN_SOURCES)]
+    return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / DEBIAN_SOURCES), *extra]

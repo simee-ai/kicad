@@ -88,6 +88,16 @@ def test_assemble_lists_every_shipped_library_with_its_licence_and_source(tmp_pa
     assert "lib/libgit2.so.1.9\tlibgit2-1.9 1.9.0+ds-2+deb13u1\tlibgit2 1.9.0+ds-2+deb13u1" in notice
     assert "kicad-cli-10.0.6-linux-x86_64-sources.tar" in notice
     assert "kicad-10.0.6-source.tar.gz" in notice  # KiCad's own files: kicad-cli, the kiface, libkicommon
+    assert "simee-kicad" not in notice
+
+
+def test_assemble_of_a_simee_build_names_the_commit_its_kicad_files_come_from(tmp_path):
+    rootfs, root = tmp_path / "rootfs", tmp_path / "kicad-cli-10.0.6-linux-x86_64"
+    _image(rootfs)
+    linux.assemble(rootfs, root, "10.0.6", simee_sha="4e18395976" + "0" * 30)
+    first, second = (root / "THIRD-PARTY.txt").read_text().splitlines()[1:3]
+    assert "simee-kicad commit 4e18395976" in first + second
+    assert max(len(first), len(second)) <= 100
 
 
 def test_assemble_refuses_a_library_no_debian_package_owns(tmp_path):

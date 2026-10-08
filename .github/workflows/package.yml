@@ -1,6 +1,7 @@
 name: package
 # Repackage an official KiCad release into trimmed kicad-cli bundles and publish them as a
 # release (cli-<version>-<n>). simee-core pins a release; simee-kicad-watcher triggers this monthly.
+# With simee_ref, KiCad's own files are built from that simee-kicad branch instead (see README).
 
 on:
   workflow_dispatch:
@@ -8,6 +9,10 @@ on:
       kicad_version:
         description: Official KiCad release to package, e.g. 10.0.6
         required: true
+      simee_ref:
+        description: simee-kicad branch to build KiCad's own files from, e.g. simee/10.0.6 (empty = official binaries)
+        required: false
+        default: ""
       publish:
         description: Publish a release (off = build and smoke-test only)
         type: boolean
@@ -21,7 +26,25 @@ env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
+  ref:  # one commit for every platform, even if the branch moves during the run
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - id: resolve
+        env:
+          SIMEE_REF: ${{ inputs.simee_ref }}
+        run: |
+          if [ -n "$SIMEE_REF" ]; then
+            sha=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" "$SIMEE_REF" | cut -f1 | head -1)
+            [ -n "$sha" ] || { echo "no ref $SIMEE_REF" >&2; exit 1; }
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          fi
+
   macos:
+    needs: ref
+    env:
+      SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +62,16 @@ jobs:
             ~/.cache/kicad-bundle/homebrew-bottles
           key: macos-sources-${{ inputs.kicad_version }}
           restore-keys: macos-sources-
-      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist
+      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
       - uses: actions/upload-artifact@v4
         with:
           name: macos
           path: dist/*
 
   windows:
+    needs: ref
+    env:
+      SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,13 +87,16 @@ jobs:
             ~/.cache/kicad-bundle/vcpkg-registries
           key: windows-sources-${{ inputs.kicad_version }}
           restore-keys: windows-sources-
-      - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist
+      - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist $(if ($env:SIMEE_SHA) { "--simee-ref", $env:SIMEE_SHA })
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: dist/*
 
   linux:
+    needs: ref
+    env:
+      SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     runs-on: ubuntu-latest  # has docker: the official kicad/kicad image, smoke-tested in ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
@@ -77,14 +106,16 @@ jobs:
           path: ~/.cache/kicad-bundle
           key: debian-sources-${{ inputs.kicad_version }}
           restore-keys: debian-sources-
-      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist
+      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
       - uses: actions/upload-artifact@v4
         with:
           name: linux
           path: dist/*
 
   release:
-    needs: [macos, windows, linux]
+    needs: [ref, macos, windows, linux]
+    env:
+      SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     if: inputs.publish
     runs-on: ubuntu-latest
     steps:
@@ -94,7 +125,8 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Attach the corresponding KiCad source (GPL)
+      - name: Attach the corresponding KiCad source (GPL; a simee build already made it)
+        if: needs.ref.outputs.sha == ''
         run: >
           curl -fsSL -o "dist/kicad-$KICAD_VERSION-source.tar.gz"
           "https://github.com/KiCad/kicad-source-mirror/archive/refs/tags/$KICAD_VERSION.tar.gz"
@@ -102,7 +134,8 @@ jobs:
         run: |
           gh release list --limit 500 --json tagName -q '.[].tagName' > tags.txt
           tag=$(uv run python -m kicad_bundle.publish --kicad-version "$KICAD_VERSION" --dist dist \
-                --tags tags.txt --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+                --tags tags.txt --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+                ${SIMEE_SHA:+--simee-sha "$SIMEE_SHA"})
           gh release create "$tag" dist/* --target "$GITHUB_SHA" \
             --title "kicad-cli $KICAD_VERSION (${tag##*-})" --notes-file notes.md
           echo "Published $tag" >> "$GITHUB_STEP_SUMMARY"

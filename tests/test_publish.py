@@ -39,3 +39,14 @@ def test_release_notes_point_at_the_third_party_notices_and_sources():
     assert "Contents/Resources/Licenses" in text
     assert "kicad-cli-10.0.6-windows-x86_64-sources.tar" in text
     assert "share\\doc\\<port>" in text
+
+
+def test_release_notes_of_a_simee_build_say_what_changed_and_where_the_source_is():
+    sha = "4e18395976" + "0" * 30
+    text = release_notes("10.0.6", "https://run/1", [], simee_sha=sha)
+    assert "unmodified" not in text
+    assert f"https://github.com/simee-ai/simee-kicad/commit/{sha}" in text
+    assert "kicad-cli sch import" in text
+    assert "kicad-10.0.6-source.tar.gz" in text
+    assert "https://gitlab.com/kicad/code/kicad/-/tags/10.0.6" not in text
+    assert "unmodified" in release_notes("10.0.6", "https://run/1", [])

@@ -24,9 +24,19 @@ def sha256sums(dist: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def release_notes(version: str, run_url: str, assets: list[str]) -> str:
+def release_notes(version: str, run_url: str, assets: list[str], simee_sha: str | None = None) -> str:
+    """simee_sha: the simee-kicad commit KiCad's own files were built from (none: official binaries)."""
     listed = "\n".join(f"- `{a}`" for a in sorted(assets))
-    return f"""Trimmed `kicad-cli` from the official, unmodified KiCad {version} release: just what
+    if simee_sha:
+        commit = f"https://github.com/simee-ai/simee-kicad/commit/{simee_sha}"
+        origin = (f"KiCad {version} with simee's changes (`kicad-cli sch import` among them), its own files built\n"
+                  f"from simee-kicad {commit}, on the official release's libraries")
+        source = f"`kicad-{version}-source.tar.gz` is attached: the source of {commit}"
+    else:
+        origin = f"the official, unmodified KiCad {version} release"
+        source = (f"`kicad-{version}-source.tar.gz` is attached, and the same tag is upstream at\n"
+                  f"https://gitlab.com/kicad/code/kicad/-/tags/{version}")
+    return f"""Trimmed `kicad-cli` from {origin}: just what
 `kicad-cli sch ...` needs (the schematic module and its shared libraries), re-signed ad hoc on macOS.
 Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows 10 or newer: `bin\\kicad-cli.exe`;
 Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
@@ -51,8 +61,7 @@ files, shipped as KiCad ships them.
 
 {listed}
 
-Source: `kicad-{version}-source.tar.gz` is attached, and the same tag is upstream at
-https://gitlab.com/kicad/code/kicad/-/tags/{version}. KiCad is GPL-3.0-or-later; the bundled
+Source: {source}. KiCad is GPL-3.0-or-later; the bundled
 third-party libraries keep their own licenses.
 
 Built by {run_url}
@@ -66,11 +75,12 @@ def main(argv=None) -> int:
     parser.add_argument("--tags", type=Path, required=True, help="file with existing release tags, one per line")
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--notes", type=Path, default=Path("notes.md"))
+    parser.add_argument("--simee-sha", help="simee-kicad commit KiCad's own files were built from")
     args = parser.parse_args(argv)
 
     (args.dist / "SHA256SUMS").write_text(sha256sums(args.dist))
     assets = [p.name for p in args.dist.iterdir() if p.is_file()]
-    args.notes.write_text(release_notes(args.kicad_version, args.run_url, assets))
+    args.notes.write_text(release_notes(args.kicad_version, args.run_url, assets, args.simee_sha))
     print(next_tag(args.kicad_version, args.tags.read_text().split()))
     return 0
 
