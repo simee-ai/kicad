@@ -28,7 +28,7 @@ def release_notes(version: str, run_url: str, assets: list[str]) -> str:
     listed = "\n".join(f"- `{a}`" for a in sorted(assets))
     return f"""Trimmed `kicad-cli` from the official, unmodified KiCad {version} release: just what
 `kicad-cli sch ...` needs (the schematic module and its shared libraries), re-signed ad hoc on macOS.
-Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows: `bin\\kicad-cli.exe`;
+Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows 10 or newer: `bin\\kicad-cli.exe`;
 Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
 Set `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` to keep it out of the user's home.
 
@@ -42,6 +42,12 @@ what KiCad's macOS builder builds itself (its wxWidgets fork, ngspice, Python). 
 `THIRD-PARTY.txt` names the component of every library, with its licence files in
 `KiCad.app/Contents/Resources/Licenses/<component>/`; `kicad-cli-{version}-macos-sources.tar` (both
 architectures) holds the source of every one of them, with Homebrew's formula and patches.
+
+The Windows DLLs are built by KiCad with vcpkg, from the ports and versions KiCad's source pins. The Windows
+bundle's `THIRD-PARTY.txt` names the vcpkg port of every DLL, with its licence files in `share\\doc\\<port>\\`;
+`kicad-cli-{version}-windows-x86_64-sources.tar` holds the upstream source archives each port downloads, with
+the port itself (portfile and patches). The Microsoft Visual C++ runtime DLLs are Microsoft's redistributable
+files, shipped as KiCad ships them.
 
 {listed}
 

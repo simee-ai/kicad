@@ -1,5 +1,5 @@
 """Keep the download cache bounded: official installers live in <cache>/<version>/ (1 to 2 GB per
-version); the Debian and macOS sources, and what each Homebrew bottle holds, in folders of their own
+version); the Debian, macOS and Windows sources, and what each Homebrew bottle holds, in folders of their own
 (mostly shared between releases)."""
 
 import re
@@ -10,6 +10,8 @@ from pathlib import Path
 DEBIAN_SOURCES = "debian-sources"
 HOMEBREW_BOTTLES = "homebrew-bottles"  # what each bottle holds (UUIDs, formula, SBOM), not the bottle
 MACOS_SOURCES = "macos-sources"
+WINDOWS_SOURCES = "windows-sources"  # vcpkg ports' downloads and port folders
+VCPKG_REGISTRIES = "vcpkg-registries"  # treeless clones, a few MB each; not pruned
 SOURCES_MAX_AGE_DAYS = 90  # monthly builds, so a source no build used in three months is gone from KiCad's image
 
 _VERSION = re.compile(r"\d+(\.\d+)*")
@@ -27,7 +29,7 @@ def prune(cache: Path, built: str) -> None:
     others = [d for d in versions if d.name != built]
     for stale in others[:-1]:
         shutil.rmtree(stale)
-    for sources in (DEBIAN_SOURCES, HOMEBREW_BOTTLES, MACOS_SOURCES):
+    for sources in (DEBIAN_SOURCES, HOMEBREW_BOTTLES, MACOS_SOURCES, WINDOWS_SOURCES):
         _prune_unused(cache / sources, time.time() - SOURCES_MAX_AGE_DAYS * 24 * 3600)
 
 

@@ -1,9 +1,13 @@
-"""PE (Windows) helpers: DLL imports and resolution against the shipped bin directory."""
+"""PE (Windows) helpers: DLL imports, resolution against the shipped bin directory, version info."""
 
+import re
 from pathlib import Path
 
 import pefile
 
+# The Universal CRT is part of Windows 10 and later, which always loads its own copy and ignores one
+# next to the program (and resolves api-ms-win-* API sets itself), so KiCad's app-local copy isn't shipped.
+UCRT = re.compile(r"api-ms-win-.+\.dll|ucrtbase\.dll", re.I)
 _DIRS = [pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"],
          pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT"]]
 
@@ -22,11 +26,23 @@ def deps(binary: Path) -> list[str]:
 
 def make_resolver(search_dirs: list[Path]):
     """DLL names resolve case-insensitively to files KiCad ships; anything else is a Windows
-    system DLL (KERNEL32, api-ms-win-*, ...) and returns None. A DLL that's genuinely missing also
+    system DLL (KERNEL32, the UCRT, ...) and returns None. A DLL that's genuinely missing also
     returns None, which the Windows smoke test catches."""
     index = {p.name.lower(): p for d in search_dirs for p in d.iterdir() if p.is_file()}
 
     def resolve(name: str, _binary: Path) -> Path | None:
-        return index.get(name.lower())
+        return None if UCRT.fullmatch(name) else index.get(name.lower())
 
     return resolve
+
+
+def version_info(binary: Path) -> dict[str, str]:
+    """The strings of a binary's version resource (FileVersion, CompanyName, ...), if it has one."""
+    pe = pefile.PE(str(binary), fast_load=True)
+    try:
+        pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]])
+        return {k.decode(errors="replace"): v.decode(errors="replace")
+                for info in getattr(pe, "FileInfo", None) or [] for entry in info
+                for table in getattr(entry, "StringTable", None) or [] for k, v in table.entries.items()}
+    finally:
+        pe.close()

@@ -52,8 +52,15 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/kicad-bundle
+          path: ~/.cache/kicad-bundle/${{ inputs.kicad_version }}
           key: kicad-installers-windows-${{ inputs.kicad_version }}
+      - uses: actions/cache@v4  # vcpkg ports' sources and the registry clones, mostly shared between releases
+        with:
+          path: |
+            ~/.cache/kicad-bundle/windows-sources
+            ~/.cache/kicad-bundle/vcpkg-registries
+          key: windows-sources-${{ inputs.kicad_version }}
+          restore-keys: windows-sources-
       - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist
       - uses: actions/upload-artifact@v4
         with:

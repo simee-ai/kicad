@@ -1,14 +1,15 @@
-"""Windows: official NSIS installer -> trimmed kicad-cli folder (zip)."""
+"""Windows: official NSIS installer -> trimmed kicad-cli folder (zip), with the licences of its
+third-party DLLs, and one archive of their sources (see windows_third_party)."""
 
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
-from kicad_bundle import pe, smoke
+from kicad_bundle import pe, smoke, third_party, windows_third_party
 from kicad_bundle.bundle import archive
 from kicad_bundle.closure import closure
-from kicad_bundle.release import cached_asset
+from kicad_bundle.release import cached_asset, published_at
 
 # Data kicad-cli reads at startup (it logs an error without the API schema).
 DATA = ("share/kicad/schemas",)
@@ -51,6 +52,10 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         if (extracted / data).is_dir():
             shutil.copytree(extracted / data, root / data)
     print(f"  {len(keep)} files from the installer")
+    sources = f"{root.name}-sources.tar"
+    third = windows_third_party.collect(root, [root / f.relative_to(extracted) for f in keep], version,
+                                        published_at(version)[:4], cache)
+    windows_third_party.write_notices(third, root, version, sources)
 
     if run_smoke:
         if os.name == "nt":
@@ -58,4 +63,4 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
             print("  smoke test passed")
         else:
             print("  smoke test skipped: needs Windows")
-    return [archive(root, out_dir, "zip")]
+    return [archive(root, out_dir, "zip"), third_party.sources_archive(third.components, out_dir / sources)]

@@ -1,43 +1,15 @@
-import io
-import tarfile
 from pathlib import Path
 
 import pytest
 
 import tiny_macho
+from archives import targz
 from kicad_bundle import homebrew, macbuilder, macos_third_party
 from kicad_bundle.homebrew import Bottle
 from kicad_bundle.macbuilder import GitSource, Pins
-from kicad_bundle.macos_third_party import Component
 
 GLIB_ARM, GLIB_INTEL = "7AD804A6-C91B-3A8F-81DB-2E0726D3D42E", "00000000-0000-0000-0000-000000000001"
 UNTIL = "2026-08-29T15:43:28Z"
-
-
-def _targz(path: Path, files: dict[str, bytes]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(path, "w:gz") as tar:
-        for name, data in files.items():
-            info = tarfile.TarInfo(name)
-            info.size = len(data)
-            tar.addfile(info, io.BytesIO(data))
-    return path
-
-
-def test_licences_are_the_licence_files_near_the_top_of_the_source_and_its_submodules(tmp_path):
-    archive = _targz(tmp_path / "wx.tar.gz", {
-        "wx-1/LICENSE": b"top", "wx-1/COPYING-LGPL-2.1": b"lgpl", "wx-1/docs/FTL.TXT": b"ftl",
-        "wx-1/docs/GPLv2.TXT": b"gpl", "wx-1/LICENSES/Apache-2.0.txt": b"apache", "wx-1/README": b"no",
-        "wx-1/src/deep/LICENSE": b"too deep", "wx-1/.gitmodules": b'[submodule "png"]\n\tpath = src/png\n',
-        "wx-1/src/png/LICENSE": b"png", "wx-1/src/png/contrib/x/LICENSE": b"too deep"})
-    assert macos_third_party.licences(archive) == {
-        "LICENSE": b"top", "COPYING-LGPL-2.1": b"lgpl", "docs/FTL.TXT": b"ftl", "docs/GPLv2.TXT": b"gpl",
-        "LICENSES/Apache-2.0.txt": b"apache", "src/png/LICENSE": b"png"}
-
-
-def test_licences_refuses_a_source_without_any(tmp_path):
-    with pytest.raises(RuntimeError, match="no licence"):
-        macos_third_party.licences(_targz(tmp_path / "x.tar.gz", {"x-1/README": b""}))
 
 
 def _app(contents: Path, extra: str | None = None) -> list[Path]:
@@ -59,13 +31,13 @@ def _app(contents: Path, extra: str | None = None) -> list[Path]:
 @pytest.fixture
 def builders(tmp_path, monkeypatch):
     """Homebrew and kicad-mac-builder answered locally: glib's bottles, the 10.0 pins, sources."""
-    glib_src = _targz(tmp_path / "src/glib-2.88.3.tar.xz", {"glib-2.88.3/COPYING": b"LGPL"})
-    wx_src = _targz(tmp_path / "src/wx.tar.gz", {"wxWidgets-f9c61658f683/docs/licence.txt": b"wxWindows",
+    glib_src = targz(tmp_path / "src/glib-2.88.3.tar.xz", {"glib-2.88.3/COPYING": b"LGPL"})
+    wx_src = targz(tmp_path / "src/wx.tar.gz", {"wxWidgets-f9c61658f683/docs/licence.txt": b"wxWindows",
                                                  "wxWidgets-f9c61658f683/include/wx/version.h":
                                                      b"#define wxMAJOR_VERSION      3\n#define wxMINOR_VERSION      2\n"
                                                      b"#define wxRELEASE_NUMBER     8\n"})
-    ngspice_src = _targz(tmp_path / "src/ngspice.tar.gz", {"ngspice-aaaaaaaaaaaa/COPYING": b"BSD"})
-    python_src = _targz(tmp_path / "src/Python-3.9.13.tar.xz", {"Python-3.9.13/LICENSE": b"PSF"})
+    ngspice_src = targz(tmp_path / "src/ngspice.tar.gz", {"ngspice-aaaaaaaaaaaa/COPYING": b"BSD"})
+    python_src = targz(tmp_path / "src/Python-3.9.13.tar.xz", {"Python-3.9.13/LICENSE": b"PSF"})
     calls = []
 
     def match(name, arch, libs, until, cache, fetch):
@@ -136,16 +108,3 @@ def test_write_notices_lists_each_file_and_ships_each_components_licences(tmp_pa
     assert (licences / "glib/COPYING").read_bytes() == b"LGPL"
     assert (licences / "wxWidgets/docs/licence.txt").read_bytes() == b"wxWindows"
     assert (licences / "Python/LICENSE").read_bytes() == b"PSF"
-
-
-def test_sources_archive_holds_one_folder_per_component(tmp_path):
-    (tmp_path / "a.tar.xz").write_bytes(b"src")
-    (tmp_path / "p.diff").write_bytes(b"patch")
-    glib = Component("glib", "2.88.3", "glib-2.88.3", tmp_path / "a.tar.xz",
-                     (("glib-2.88.3.tar.xz", tmp_path / "a.tar.xz"), ("patches/01-p.diff", tmp_path / "p.diff")))
-    out = macos_third_party.sources_archive([glib], tmp_path / "out/kicad-cli-10.0.6-macos-sources.tar")
-    with tarfile.open(out) as tar:
-        assert sorted(tar.getnames()) == [
-            "kicad-cli-10.0.6-macos-sources", "kicad-cli-10.0.6-macos-sources/glib-2.88.3",
-            "kicad-cli-10.0.6-macos-sources/glib-2.88.3/glib-2.88.3.tar.xz",
-            "kicad-cli-10.0.6-macos-sources/glib-2.88.3/patches/01-p.diff"]

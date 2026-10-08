@@ -8,7 +8,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from kicad_bundle import macho, macos_third_party, smoke
+from kicad_bundle import macho, macos_third_party, smoke, third_party
 from kicad_bundle.bundle import archive, copy_tree, prune
 from kicad_bundle.closure import closure
 from kicad_bundle.release import cached_asset, published_at
@@ -80,4 +80,4 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
                 smoke.check(cli)
                 print(f"  smoke test passed ({arch})")
         built.append(archive(root, out_dir, "tar.gz"))
-    return [*built, macos_third_party.sources_archive(third.components, out_dir / sources)]
+    return [*built, third_party.sources_archive(third.components, out_dir / sources)]
