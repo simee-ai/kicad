@@ -104,3 +104,24 @@ def test_git_repo_fetches_commits_and_trees_it_is_asked_about(tmp_path):
     assert repo.show(head, "versions/baseline.json") == b"{}"
     assert repo.tree(old_tree) == {"portfile.cmake": b"old"}  # from an older commit than the one fetched
     assert GitRepo(f"file://{remote}", tmp_path / "cache").show(head, "ports/zlib/portfile.cmake") == b"new"
+
+
+def test_git_repo_reads_files_byte_for_byte_whatever_the_users_line_ending_config(tmp_path, monkeypatch):
+    # GitHub's Windows runners set core.autocrlf=true, which made git archive hand back the ports'
+    # patches with CRLF line endings, so their hashes no longer matched what vcpkg built from.
+    remote = tmp_path / "remote"
+    (remote / "ports/zlib").mkdir(parents=True)
+    (remote / "ports/zlib/fix.patch").write_bytes(b"--- a\n+++ b\n")
+    _git("init", "-q", cwd=remote)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "add", ".", cwd=remote)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "1", cwd=remote)
+    head, tree = _git("rev-parse", "HEAD", "HEAD:ports/zlib", cwd=remote).split()
+    for key in ("uploadpack.allowFilter", "uploadpack.allowAnySHA1InWant"):
+        _git("config", key, "true", cwd=remote)
+    config = tmp_path / "gitconfig"
+    config.write_text("[core]\n\tautocrlf = true\n\teol = crlf\n")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+
+    repo = GitRepo(f"file://{remote}", tmp_path / "cache")
+    assert repo.show(head, "ports/zlib/fix.patch") == b"--- a\n+++ b\n"
+    assert repo.tree(tree) == {"fix.patch": b"--- a\n+++ b\n"}

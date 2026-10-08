@@ -88,7 +88,10 @@ class GitRepo:
         self.dir = cache / re.sub(r"[^\w.-]+", "_", url.split("://", 1)[-1]).strip("_")
 
     def _git(self, *args: str) -> bytes:
-        return subprocess.run(["git", "-C", str(self.dir), *args], capture_output=True, check=True).stdout
+        # The files are hashed, so read them as committed: no CRLF conversion (Windows' git defaults to
+        # core.autocrlf=true, and git archive applies it).
+        return subprocess.run(["git", "-c", "core.autocrlf=false", "-C", str(self.dir), *args],
+                              capture_output=True, check=True).stdout
 
     def _commit(self, commit: str) -> None:
         if not self.dir.exists():
