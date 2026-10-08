@@ -2,6 +2,7 @@
 
 import shutil
 import tarfile
+import time
 from pathlib import Path
 
 
@@ -41,3 +42,21 @@ def copy_tree(src: Path, dest: Path, exclude: tuple[str, ...] = ()) -> None:
         return {n for n in names if str(rel / n) in exclude}
 
     shutil.copytree(src, dest, symlinks=True, ignore=ignore)
+
+
+def remove(path: Path, tries: int = 5) -> None:
+    """rmtree that also removes read-only files and folders (Homebrew bottles ship some), retried
+    because Finder may drop a .DS_Store into a folder while it's being deleted."""
+    def writable(func, name, _):
+        Path(name).parent.chmod(0o755)
+        Path(name).chmod(0o755)
+        func(name)
+
+    for attempt in range(tries):
+        try:
+            shutil.rmtree(path, onerror=writable)
+            return
+        except OSError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(1)

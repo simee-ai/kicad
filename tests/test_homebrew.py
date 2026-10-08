@@ -207,3 +207,19 @@ def test_sources_of_a_bottle_without_an_sbom_use_its_formulas_url(tmp_path, rb):
     files = dict(homebrew.sources(bottle, tmp_path / "sources", web))
     assert files["glib-2.88.3.tar.xz"].read_bytes() == SOURCE
     assert files["patches/01-fix.patch"].read_bytes() == PATCH
+
+
+def test_archive_keeps_the_bottle_for_pouring(tmp_path):
+    web = FakeWeb()
+    bottle = homebrew.match("glib", "arm64", {"libglib-2.0.0.dylib": Slice(OLD, (14, 0))},
+                            "2026-08-29T15:43:28Z", tmp_path, web)
+    path = homebrew.archive(bottle, tmp_path, web)
+    assert path.read_bytes() == _bottle("2.88.3", OLD)
+    web.calls.clear()
+    assert homebrew.archive(bottle, tmp_path, web) == path
+    assert not web.calls
+
+
+def test_bottle_at_is_the_newest_bottle_for_the_tag_before_a_date(tmp_path):
+    bottle = homebrew.bottle_at("glib", "arm64_sonoma", "2026-08-29T15:43:28Z", tmp_path, FakeWeb())
+    assert (bottle.version, bottle.tag, bottle.commit) == ("2.88.4", "arm64_sonoma", "c3")

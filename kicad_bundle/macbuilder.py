@@ -32,6 +32,14 @@ class Pins:
     wxwidgets: GitSource
     ngspice: GitSource
     python: str  # python.org version
+    wx_cmake: str = ""  # its wx.cmake, which says how it configures and builds wxWidgets
+
+
+@dataclass(frozen=True)
+class WxBuild:
+    env: dict[str, str]
+    configure: list[str]  # ./configure's arguments
+    make: list[str]  # make's arguments (KiCad release builds)
 
 
 def _project(path: str) -> str:
@@ -59,11 +67,25 @@ def pins(version: str, until: str, fetch: Fetch) -> Pins:
     def read(path: str) -> str:
         return fetch(f"{_project(BUILDER)}/files/{urllib.parse.quote(path, safe='')}/raw?ref={commit}").decode()
 
-    wx = external_projects(read("kicad-mac-builder/wx.cmake"))["wxwidgets"]
+    wx_cmake = read("kicad-mac-builder/wx.cmake")
+    wx = external_projects(wx_cmake)["wxwidgets"]
     ngspice = external_projects(read("kicad-mac-builder/ngspice.cmake"))["ngspice"]
     python = re.search(r"set\(\s*PYTHON_VERSION\s+(\S+)\s*\)", read("kicad-mac-builder/CMakeLists.txt")).group(1)
     https = GitSource(re.sub(r"^git://", "https://", ngspice.url), ngspice.ref)  # git:// is often firewalled
-    return Pins(commit, wx, https, python)
+    return Pins(commit, wx, https, python, wx_cmake)
+
+
+def wx_build(cmake: str, minos: str, prefix: str) -> WxBuild:
+    """How kicad-mac-builder's wx.cmake configures and makes wxWidgets for a release build."""
+    def expand(text: str) -> str:
+        return text.replace("${MACOS_MIN_VERSION}", minos).replace("${wxwidgets_INSTALL_DIR}", prefix)
+
+    body = re.search(r"ExternalProject_Add\(\s*wxwidgets\b(.*?)\n\s*\)", cmake, re.S).group(1)
+    command = re.search(r"CONFIGURE_COMMAND\s+(.*?)\n\s*[A-Z_]+_COMMAND\b", body, re.S).group(1).split()
+    at = command.index("./configure")
+    env = dict(expand(word).split("=", 1) for word in command[:at])
+    make_args = re.search(r'STREQUAL\s+"Release"\s*\)\s*set\(\s*wxwidgets_MAKE_ARGS\s+"([^"]*)"', cmake).group(1)
+    return WxBuild(env, [expand(word) for word in command[at + 1:]], make_args.split())
 
 
 def _ls_remote(url: str, ref: str) -> str:

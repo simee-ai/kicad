@@ -56,7 +56,7 @@ def test_pins_come_from_the_builders_release_branch_as_it_was_at_the_release():
 
     assert macbuilder.pins("10.0.6", "2026-08-29T15:43:28Z", fetch) == Pins(
         "kmb1", GitSource("https://gitlab.com/kicad/code/wxWidgets.git", "kicad/macos-wx-3.2"),
-        GitSource("https://git.code.sf.net/p/ngspice/ngspice", "ngspice-45.2"), "3.9.13")
+        GitSource("https://git.code.sf.net/p/ngspice/ngspice", "ngspice-45.2"), "3.9.13", WX_CMAKE)
 
 
 def test_commit_of_a_tag_is_exact_and_of_a_gitlab_branch_is_its_head_at_the_release():
@@ -108,3 +108,35 @@ def test_git_archive_holds_the_commit_and_its_submodules_without_git_metadata(tm
         names = sorted(m.name for m in tar if m.isfile())
     assert names == [f"wxWidgets-{head[:12]}/{n}" for n in (".gitmodules", "README", "src/png/LICENSE")]
     assert macbuilder.git_archive(GitSource("unused", "main"), head, "wxWidgets", tmp_path / "cache") == archive
+
+
+WX_BUILD = """if (NOT DEFINED KICAD_CMAKE_BUILD_TYPE )
+    message( FATAL_ERROR "KICAD_CMAKE_BUILD_TYPE must be set." )
+elseif ( KICAD_CMAKE_BUILD_TYPE STREQUAL "Release" )
+    set(wxwidgets_MAKE_ARGS "BUILD=release")
+else ( ) # assume debug
+    set(wxwidgets_MAKE_ARGS "BUILD=debug")
+endif()
+
+ExternalProject_Add(
+    wxwidgets
+    GIT_TAG kicad/macos-wx-3.2
+    CONFIGURE_COMMAND   CPPFLAGS=-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=1 MAC_OS_X_VERSION_MIN_REQUIRED=${MACOS_MIN_VERSION} CC=clang CXX=clang++ ./configure
+                        --prefix=${wxwidgets_INSTALL_DIR}
+                        --with-macosx-version-min=${MACOS_MIN_VERSION}
+                        --enable-monolithic
+                        --with-opengl
+    UPDATE_COMMAND ""
+    BUILD_COMMAND make ${wxwidgets_MAKE_ARGS}
+    BUILD_IN_SOURCE 1
+ )
+"""
+
+
+def test_wx_build_is_the_builders_release_configure_and_make_command():
+    build = macbuilder.wx_build(WX_BUILD, minos="11.6", prefix="/w/wx")
+    assert build.env == {"CPPFLAGS": "-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=1",
+                         "MAC_OS_X_VERSION_MIN_REQUIRED": "11.6", "CC": "clang", "CXX": "clang++"}
+    assert build.configure == ["--prefix=/w/wx", "--with-macosx-version-min=11.6", "--enable-monolithic",
+                               "--with-opengl"]
+    assert build.make == ["BUILD=release"]

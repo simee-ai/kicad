@@ -18,10 +18,9 @@ from kicad_bundle.third_party import Component, licences
 KICAD = re.compile(r"libki\w*\..+|kicad-cli|_\w+\.kiface")
 BUILT = {re.compile(r"libwx_.+\.dylib"): "wxWidgets", re.compile(r"libngspice\..+"): "ngspice",
          re.compile(r"Python"): "Python"}
-NOTICE = """kicad-cli {version} for macOS {arch}, repackaged from the official KiCad {version} DMG.
+NOTICE = """kicad-cli {version} for macOS {arch}, {origin}
 
-KiCad (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/_eeschema.kiface and Contents/Frameworks/libki*)
-is GPL-3.0-or-later. Its source is kicad-{version}-source.tar.gz, attached to the same GitHub release.
+{kicad}
 
 Every other library comes unmodified from the component listed below: a Homebrew bottle (the one
 holding a file with the library's Mach-O UUID), or what KiCad's macOS builder, kicad-mac-builder,
@@ -32,6 +31,15 @@ The complete corresponding source of each component, with Homebrew's formula and
 file\tcomponent version\tfrom
 {rows}
 """
+REPACKAGED_KICAD = ("repackaged from the official KiCad {version} DMG.",
+            """KiCad (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/_eeschema.kiface and Contents/Frameworks/libki*)
+is GPL-3.0-or-later. Its source is kicad-{version}-source.tar.gz, attached to the same GitHub release.""")
+REBUILT_KICAD = ("the official KiCad {version} DMG with KiCad's own files rebuilt from simee's modified KiCad.",
+         """KiCad's own files (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/*.kiface and Contents/Frameworks/libki*)
+are built from a modified KiCad {version}: simee-kicad commit {sha}
+(https://github.com/simee-ai/simee-kicad), which adds changes on top of KiCad's {version} tag (see its
+history). KiCad is GPL-3.0-or-later; the modified source is kicad-{version}-source.tar.gz, attached to
+the same GitHub release. They are built against exactly the libraries listed below.""")
 
 
 @dataclass
@@ -39,6 +47,7 @@ class ThirdParty:
     components: list[Component] = field(default_factory=list)
     rows: dict[str, list[tuple[str, str, str]]] = field(default_factory=dict)  # arch -> (file, component, from)
     licences: dict[str, dict[str, bytes]] = field(default_factory=dict)  # component -> its licence files
+    bottles: dict[str, list[homebrew.Bottle]] = field(default_factory=dict)  # arch -> the bottles its files came from
     year: str = ""  # of the KiCad release, for copyright credits
 
 
@@ -113,6 +122,7 @@ def collect(contents: Path, files: Iterable[Path], version: str, until: str, cac
                 raise RuntimeError(f"no {arch} code in {missing}")
             bottle = homebrew.match(name, arch, {f.name: slices[f][arch] for f in libs}, until,
                                     cache / HOMEBREW_BOTTLES, fetch)
+            third.bottles.setdefault(arch, []).append(bottle)
             key = (name, bottle.version)
             if key not in components:
                 srcs = tuple(homebrew.sources(bottle, cache / MACOS_SOURCES, fetch))
@@ -133,10 +143,14 @@ def collect(contents: Path, files: Iterable[Path], version: str, until: str, cac
     return third
 
 
-def write_notices(third: ThirdParty, root: Path, arch: str, version: str, sources: str) -> None:
+def write_notices(third: ThirdParty, root: Path, arch: str, version: str, sources: str,
+                  simee_sha: str | None = None) -> None:
     """root/THIRD-PARTY.txt, and each component's licence files under KiCad.app/Contents/Resources/Licenses/."""
     third_party.write_licences(third.licences, root / "KiCad.app/Contents/Resources/Licenses")
     credits = third_party.credits((c.name for c in third.components), third.year)
     rows = "\n".join(f"KiCad.app/Contents/{f}\t{c}\t{o}" for f, c, o in third.rows[arch])
-    (root / "THIRD-PARTY.txt").write_text(NOTICE.format(version=version, arch=arch, sources=sources,
-                                                        credits=credits, rows=rows))
+    origin, kicad = REBUILT_KICAD if simee_sha else REPACKAGED_KICAD
+    fill = {"version": version, "sha": simee_sha}
+    (root / "THIRD-PARTY.txt").write_text(NOTICE.format(version=version, arch=arch, sources=sources, credits=credits,
+                                                        rows=rows, origin=origin.format(**fill),
+                                                        kicad=kicad.format(**fill)))

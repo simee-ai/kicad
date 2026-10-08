@@ -6,8 +6,8 @@ from pathlib import Path
 from kicad_bundle import cache, linux, macos, windows
 
 PACKAGERS = {"linux": linux.package, "macos": macos.package, "windows": windows.package}
-# Platforms that can build KiCad's own files from a simee-kicad branch (macOS: #11, Windows: #13).
-SIMEE_BUILDS = {"linux"}
+# Platforms that can build KiCad's own files from a simee-kicad branch (Windows: #13).
+SIMEE_BUILDS = {"linux", "macos"}
 
 
 def sha256(path: Path) -> str:

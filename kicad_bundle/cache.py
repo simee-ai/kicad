@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 DEBIAN_SOURCES = "debian-sources"
-HOMEBREW_BOTTLES = "homebrew-bottles"  # what each bottle holds (UUIDs, formula, SBOM), not the bottle
+HOMEBREW_BOTTLES = "homebrew-bottles"  # what each bottle holds (UUIDs, formula, SBOM); the bottle only if poured
 MACOS_SOURCES = "macos-sources"
 WINDOWS_SOURCES = "windows-sources"  # vcpkg ports' downloads and port folders
 VCPKG_REGISTRIES = "vcpkg-registries"  # treeless clones, a few MB each; not pruned

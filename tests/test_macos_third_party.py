@@ -78,6 +78,9 @@ def test_collect_finds_every_librarys_component_per_architecture(tmp_path, build
          f"https://git.code.sf.net/p/ngspice/ngspice ngspice-45.2 at {'a' * 10} (kicad-mac-builder b0b0b0b0b0)")]
     assert third.rows["x86_64"][1] == ("Frameworks/libglib-2.0.0.dylib", "glib 2.88.3",
                                        "Homebrew sonoma bottle, homebrew-core c0ffee0123")
+    # what a build from source pours to compile against the same libraries (macos_build.py)
+    assert {arch: [(b.formula, b.tag) for b in bottles] for arch, bottles in third.bottles.items()} == {
+        "arm64": [("glib", "arm64_sonoma")], "x86_64": [("glib", "sonoma")]}
 
 
 def test_collect_fails_on_a_library_of_unknown_provenance(tmp_path, builders):
@@ -108,3 +111,15 @@ def test_write_notices_lists_each_file_and_ships_each_components_licences(tmp_pa
     assert (licences / "glib/COPYING").read_bytes() == b"LGPL"
     assert (licences / "wxWidgets/docs/licence.txt").read_bytes() == b"wxWindows"
     assert (licences / "Python/LICENSE").read_bytes() == b"PSF"
+
+
+def test_notices_of_a_bundle_built_from_a_simee_branch_say_kicad_is_modified(tmp_path, builders):
+    contents = tmp_path / "full/KiCad.app/Contents"
+    third = macos_third_party.collect(contents, _app(contents), "10.0.6", UNTIL, tmp_path / "cache", fetch=None)
+    root = tmp_path / "kicad-cli-10.0.6-macos-arm64"
+    macos_third_party.write_notices(third, root, "arm64", "10.0.6", "kicad-cli-10.0.6-macos-sources.tar",
+                                    simee_sha="4e183959768bae7846a66b52135087adf24b82d4")
+    text = (root / "THIRD-PARTY.txt").read_text()
+    assert "unmodified" not in text.split("\n\n")[0]
+    assert "simee-kicad commit 4e183959768bae7846a66b52135087adf24b82d4" in text
+    assert "modified" in text

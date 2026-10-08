@@ -17,7 +17,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import BinaryIO
 
-from kicad_bundle import debian, elf, linux_build, sch_import, smoke
+from kicad_bundle import debian, elf, linux_build, sch_import, simee_source, smoke
 from kicad_bundle.bundle import archive
 from kicad_bundle.cache import DEBIAN_SOURCES
 from kicad_bundle.closure import closure
@@ -193,12 +193,12 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         if d.exists():
             shutil.rmtree(d)
     digest = _export_image(version, rootfs)
-    sha = linux_build.resolve_ref(simee_ref) if simee_ref else None
+    sha = simee_source.resolve_ref(simee_ref) if simee_ref else None
     sources = assemble(rootfs, root, version, sha)
     extra = []
     if sha:
         print(f"  building KiCad's own files from simee-kicad {sha} ({simee_ref})")
-        src = linux_build.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
+        src = simee_source.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
         print("  replaced " + ", ".join(linux_build.overlay(root, linux_build.build(digest, rootfs, src, work))))
         extra.append(src)
     if run_smoke:

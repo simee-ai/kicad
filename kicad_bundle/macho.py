@@ -19,6 +19,27 @@ def deps(binary: Path) -> list[str]:
     return [name for name in parse_otool(out) if Path(name) != binary]
 
 
+def parse_rpaths(output: str) -> list[str]:
+    """LC_RPATH paths from `otool -l` output."""
+    lines = [line.split() for line in output.splitlines()]
+    return [lines[i + 2][1] for i, words in enumerate(lines) if words == ["cmd", "LC_RPATH"]]
+
+
+def rpaths(binary: Path) -> list[str]:
+    return parse_rpaths(subprocess.run(["otool", "-l", str(binary)], capture_output=True, text=True, check=True).stdout)
+
+
+def parse_install_id(output: str) -> str | None:
+    """A dylib's install name from `otool -D` output; None for an executable or bundle."""
+    names = output.splitlines()[1:]
+    return names[0].strip() if names and names[0].strip() else None
+
+
+def install_id(binary: Path) -> str | None:
+    return parse_install_id(subprocess.run(["otool", "-D", str(binary)], capture_output=True, text=True,
+                                           check=True).stdout)
+
+
 def make_resolver(contents: Path):
     """Resolve install names against a KiCad.app/Contents directory; system libraries -> None."""
     frameworks = contents / "Frameworks"
@@ -77,8 +98,10 @@ def slices(data: bytes) -> dict[str, Slice]:
 
 def is_macho(path: Path) -> bool:
     with path.open("rb") as f:
-        magic = f.read(4)
-    return magic in (b"\xca\xfe\xba\xbe", b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf")
+        head = f.read(8)
+    if head[:4] == b"\xca\xfe\xba\xbe":  # fat, unless it's a Java class file (same magic, then its version)
+        return len(head) == 8 and 0 < struct.unpack(">I", head[4:])[0] < 32
+    return head[:4] in (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf")
 
 
 def thin(path: Path, arch: str) -> None:

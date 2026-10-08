@@ -74,15 +74,16 @@ def test_source_versions_must_match_the_image():
 
 def test_cli_refuses_simee_ref_where_it_cant_build_it(monkeypatch):
     from kicad_bundle import cli
-    for platform in ("macos", "windows"):
+    for platform in ("windows",):
         monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: pytest.fail("packaged anyway"))
         with pytest.raises(SystemExit):
             cli.main(["--kicad-version", "10.0.6", "--platform", platform, "--simee-ref", "simee/10.0.6"])
 
 
-def test_cli_passes_simee_ref_to_linux(monkeypatch, tmp_path):
+@pytest.mark.parametrize("platform", ["linux", "macos"])
+def test_cli_passes_simee_ref_to_the_packager(monkeypatch, tmp_path, platform):
     from kicad_bundle import cli
     seen = {}
-    monkeypatch.setitem(cli.PACKAGERS, "linux", lambda *a, **k: seen.update(k) or [])
-    cli.main(["--kicad-version", "10.0.6", "--platform", "linux", "--simee-ref", "simee/10.0.6", "--cache", str(tmp_path)])
+    monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: seen.update(k) or [])
+    cli.main(["--kicad-version", "10.0.6", "--platform", platform, "--simee-ref", "simee/10.0.6", "--cache", str(tmp_path)])
     assert seen == {"simee_ref": "simee/10.0.6"}

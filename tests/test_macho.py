@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import tiny_macho
-from kicad_bundle.macho import Slice, make_resolver, parse_otool, slices
+from kicad_bundle.macho import Slice, is_macho, make_resolver, parse_install_id, parse_otool, parse_rpaths, slices
 
 OTOOL = """/x/KiCad.app/Contents/MacOS/kicad-cli:
 \t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)
@@ -43,3 +43,37 @@ def test_slices_reads_each_architectures_uuid_and_minimum_macos():
         "x86_64": Slice("00000000-0000-0000-0000-000000000001", (11, 6))}
     assert slices(arm) == {"arm64": Slice("7AD804A6-C91B-3A8F-81DB-2E0726D3D42E", (14, 0))}
     assert slices(b"#!/bin/sh\n") == {}
+
+
+OTOOL_L = """/x/kicad-cli:
+Load command 12
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name @rpath/libkicommon.10.0.6.dylib (offset 24)
+Load command 40
+          cmd LC_RPATH
+      cmdsize 48
+         path @executable_path/../Frameworks (offset 12)
+Load command 41
+          cmd LC_RPATH
+      cmdsize 64
+         path @executable_path/../Frameworks/Python.framework (offset 12)
+"""
+
+
+def test_parse_rpaths_reads_every_lc_rpath():
+    assert parse_rpaths(OTOOL_L) == ["@executable_path/../Frameworks",
+                                     "@executable_path/../Frameworks/Python.framework"]
+
+
+def test_parse_install_id_is_none_for_an_executable():
+    assert parse_install_id("/x/libnng.1.dylib:\n@rpath/libnng.1.dylib\n") == "@rpath/libnng.1.dylib"
+    assert parse_install_id("/x/kicad-cli:\n") is None
+
+
+def test_is_macho_tells_a_fat_binary_from_a_java_class_file(tmp_path):
+    fat, java = tmp_path / "fat", tmp_path / "TestAWT.class"
+    fat.write_bytes(tiny_macho.fat(("arm64", tiny_macho.thin("arm64", "7AD804A6-C91B-3A8F-81DB-2E0726D3D42E"))))
+    java.write_bytes(b"\xca\xfe\xba\xbe\x00\x00\x00\x34" + b"\0" * 32)  # same magic, then the class file version
+    assert is_macho(fat)
+    assert not is_macho(java)

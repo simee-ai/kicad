@@ -62,6 +62,9 @@ jobs:
             ~/.cache/kicad-bundle/homebrew-bottles
           key: macos-sources-${{ inputs.kicad_version }}
           restore-keys: macos-sources-
+      - name: Build tools (KiCad's own files are built from simee_ref)
+        if: needs.ref.outputs.sha != ''
+        run: brew install swig ninja
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
       - uses: actions/upload-artifact@v4
         with:

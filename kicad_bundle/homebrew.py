@@ -121,6 +121,35 @@ def _history(name: str, until: str, fetch: Fetch):
         yield commit["sha"], fetch(f"{RAW}/{commit['sha']}/{formula_path(name)}").decode()
 
 
+def _blob(name: str, sha256: str, fetch: Fetch) -> bytes:
+    data = fetch(f"{GHCR}/{name.replace('@', '/')}/blobs/sha256:{sha256}")
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise RuntimeError(f"{name}: bottle doesn't match its sha256 {sha256}")
+    return data
+
+
+def archive(bottle: Bottle, cache: Path, fetch: Fetch) -> Path:
+    """cache/<sha256>/bottle.tar.gz: the bottle itself, to pour (brew_prefix.py)."""
+    dest = cache / bottle.sha256 / "bottle.tar.gz"
+    if dest.exists():
+        dest.touch()
+    else:
+        data = _blob(bottle.formula, bottle.sha256, fetch)
+        write_atomically(dest, lambda f: f.write(data))
+    return dest
+
+
+def bottle_at(name: str, tag: str, until: str, cache: Path, fetch: Fetch) -> Bottle:
+    """The newest bottle of formula name for tag (or for every platform: `all`) before until, for a
+    formula KiCad only builds against (header-only, so no bundled file names its bottle)."""
+    for commit, rb in _history(name, until, fetch):
+        shas = bottle_shas(rb)
+        if sha := shas.get(tag) or shas.get("all"):
+            info = _bottle_info(name, sha, cache, fetch)
+            return Bottle(name, (info / "version").read_text(), tag, sha, commit, info)
+    raise RuntimeError(f"{name}: no {tag} bottle before {until}")
+
+
 def _bottle_info(name: str, sha256: str, cache: Path, fetch: Fetch) -> Path:
     """cache/<sha256>/: uuids.json (UUID of each Mach-O file in the bottle -> its path in the keg),
     version, formula.rb (the formula it was built from) and sbom.spdx.json (if it has one). The bottle isn't kept."""
@@ -129,9 +158,7 @@ def _bottle_info(name: str, sha256: str, cache: Path, fetch: Fetch) -> Path:
         for f in info.iterdir():
             f.touch()  # marks it used, so cache.prune keeps it
         return info
-    data = fetch(f"{GHCR}/{name.replace('@', '/')}/blobs/sha256:{sha256}")
-    if hashlib.sha256(data).hexdigest() != sha256:
-        raise RuntimeError(f"{name}: bottle doesn't match its sha256 {sha256}")
+    data = _blob(name, sha256, fetch)
     uuids, extra = {}, {}
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for member in tar:
