@@ -156,7 +156,9 @@ set( KICOMMON_SRCS
     jobs/jobset.cpp
     jobs/job_fp_export_svg.cpp
     jobs/job_fp_upgrade.cpp
+    jobs/job_import_utils.cpp
     jobs/job_pcb_import.cpp
+    jobs/job_sch_import.cpp
     jobs/job_pcb_render.cpp
     jobs/job_pcb_drc.cpp
     jobs/job_rc.cpp
