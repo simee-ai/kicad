@@ -2,25 +2,27 @@
 
 import fnmatch
 import json
-import os
 import shutil
 import urllib.request
 from pathlib import Path
-from typing import BinaryIO, Callable
+
+from kicad_bundle.fetch import request, write_atomically
 
 API = "https://api.github.com/repos/KiCad/kicad-source-mirror/releases"
 
 
-def _get(url: str) -> urllib.request.Request:
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
-    if token := os.environ.get("GITHUB_TOKEN"):
-        req.add_header("Authorization", f"Bearer {token}")
-    return req
+def _release(version: str) -> dict:
+    with urllib.request.urlopen(request(f"{API}/tags/{version}"), timeout=60) as resp:
+        return json.load(resp)
+
+
+def published_at(version: str) -> str:
+    """When KiCad published the release (ISO 8601): its macOS build used what existed by then."""
+    return _release(version)["published_at"]
 
 
 def asset_url(version: str, pattern: str) -> str:
-    with urllib.request.urlopen(_get(f"{API}/tags/{version}"), timeout=60) as resp:
-        assets = json.load(resp)["assets"]
+    assets = _release(version)["assets"]
     matches = [a["browser_download_url"] for a in assets if fnmatch.fnmatch(a["name"], pattern)]
     if len(matches) != 1:
         raise RuntimeError(f"KiCad {version}: expected one asset matching {pattern!r}, found "
@@ -33,15 +35,7 @@ def cached_asset(version: str, pattern: str, cache: Path) -> Path:
     url = asset_url(version, pattern)
     dest = cache / version / url.rsplit("/", 1)[1]
     if not (dest.exists() and dest.stat().st_size > 0):
-        with urllib.request.urlopen(_get(url), timeout=600) as resp:
+        with urllib.request.urlopen(request(url), timeout=600) as resp:
             write_atomically(dest, lambda f: shutil.copyfileobj(resp, f, length=1 << 20))
     return dest
 
-
-def write_atomically(dest: Path, write: Callable[[BinaryIO], None]) -> None:
-    """write(f) into dest.part, then rename it to dest, so an interrupted download leaves no dest."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_name(dest.name + ".part")
-    with part.open("wb") as f:
-        write(f)
-    part.replace(dest)

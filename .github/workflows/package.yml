@@ -30,8 +30,15 @@ jobs:
         run: softwareupdate --install-rosetta --agree-to-license
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/kicad-bundle
+          path: ~/.cache/kicad-bundle/${{ inputs.kicad_version }}
           key: kicad-installers-macos-${{ inputs.kicad_version }}
+      - uses: actions/cache@v4  # third-party sources and Homebrew bottle records, mostly shared between releases
+        with:
+          path: |
+            ~/.cache/kicad-bundle/macos-sources
+            ~/.cache/kicad-bundle/homebrew-bottles
+          key: macos-sources-${{ inputs.kicad_version }}
+          restore-keys: macos-sources-
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist
       - uses: actions/upload-artifact@v4
         with:

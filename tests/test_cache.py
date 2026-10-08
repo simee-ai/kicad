@@ -48,6 +48,26 @@ def test_prune_drops_debian_sources_no_recent_build_used(tmp_path):
     assert (sources / "cd").exists()
 
 
+def test_prune_drops_macos_sources_and_bottle_records_no_recent_build_used(tmp_path):
+    keep = cache.SOURCES_MAX_AGE_DAYS - 1
+    fresh = [_file(tmp_path / cache.MACOS_SOURCES / "git" / "wxWidgets-f9c61658f683.tar.gz", age_days=keep),
+             _file(tmp_path / cache.HOMEBREW_BOTTLES / "ab12" / "uuids.json", age_days=keep)]
+    stale = [_file(tmp_path / cache.MACOS_SOURCES / "ab" / "ab12" / "glib-2.88.2.tar.xz", age_days=keep + 2),
+             _file(tmp_path / cache.HOMEBREW_BOTTLES / "cd34" / "uuids.json", age_days=keep + 2)]
+    cache.prune(tmp_path, built="10.0.6")
+    assert all(f.exists() for f in fresh) and not any(f.parent.exists() for f in stale)
+
+
+def test_reusing_a_bottle_record_marks_all_of_it_used(tmp_path):
+    from kicad_bundle import homebrew
+
+    info = tmp_path / "ab12"
+    for name in ("uuids.json", "version", "formula.rb", "sbom.spdx.json"):
+        os.utime(_file(info / name), (0, 0))
+    homebrew._bottle_info("glib", "ab12", tmp_path, fetch=None)
+    assert all(f.stat().st_mtime > time.time() - DAY for f in info.iterdir())
+
+
 def test_reusing_a_cached_debian_source_marks_it_used(tmp_path):
     data = b"dsc"
     sha1 = hashlib.sha1(data).hexdigest()

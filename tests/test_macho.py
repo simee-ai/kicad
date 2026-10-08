@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from kicad_bundle.macho import make_resolver, parse_otool
+import tiny_macho
+from kicad_bundle.macho import Slice, make_resolver, parse_otool, slices
 
 OTOOL = """/x/KiCad.app/Contents/MacOS/kicad-cli:
 \t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)
@@ -32,3 +33,13 @@ def test_resolver_maps_bundle_paths_and_skips_system(tmp_path):
         contents / "Frameworks" / "libkicommon.10.0.6.dylib"
     plugin = contents / "PlugIns" / "_eeschema.kiface"
     assert resolve("@loader_path/sim/libngspice.0.dylib", plugin) == contents / "PlugIns" / "sim" / "libngspice.0.dylib"
+
+
+def test_slices_reads_each_architectures_uuid_and_minimum_macos():
+    arm = tiny_macho.thin("arm64", "7ad804a6-c91b-3a8f-81db-2e0726d3d42e", (14, 0))
+    intel = tiny_macho.thin("x86_64", "00000000-0000-0000-0000-000000000001", (11, 6))
+    assert slices(tiny_macho.fat(("x86_64", intel), ("arm64", arm))) == {
+        "arm64": Slice("7AD804A6-C91B-3A8F-81DB-2E0726D3D42E", (14, 0)),
+        "x86_64": Slice("00000000-0000-0000-0000-000000000001", (11, 6))}
+    assert slices(arm) == {"arm64": Slice("7AD804A6-C91B-3A8F-81DB-2E0726D3D42E", (14, 0))}
+    assert slices(b"#!/bin/sh\n") == {}

@@ -1,6 +1,9 @@
 """Mach-O helpers: dependency listing, bundle-relative resolution, thinning, ad hoc signing."""
 
+import struct
 import subprocess
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 SYSTEM_PREFIXES = ("/System/", "/usr/lib/")
@@ -34,6 +37,42 @@ def make_resolver(contents: Path):
         return Path(name)
 
     return resolve
+
+
+@dataclass(frozen=True)
+class Slice:
+    uuid: str  # LC_UUID: set by the linker, kept by install_name_tool, lipo and codesign
+    minos: tuple[int, int]  # the macOS a binary was built for; Homebrew builds bottles for the OS it runs on
+
+
+ARCHS = {0x0100000C: "arm64", 0x01000007: "x86_64"}
+LC_UUID, LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX = 0x1B, 0x32, 0x24
+
+
+def _slice(data: bytes, offset: int) -> tuple[str, Slice] | None:
+    magic, cpu, _, _, ncmds = struct.unpack_from("<IiiII", data, offset)
+    if magic != 0xFEEDFACF or cpu not in ARCHS:
+        return None
+    found, minos, at = "", (0, 0), offset + 32
+    for _ in range(ncmds):
+        cmd, size = struct.unpack_from("<II", data, at)
+        if cmd == LC_UUID:
+            found = str(uuid.UUID(bytes=data[at + 8:at + 24])).upper()
+        elif cmd in (LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX):
+            version = struct.unpack_from("<I", data, at + (12 if cmd == LC_BUILD_VERSION else 8))[0]
+            minos = (version >> 16, (version >> 8) & 0xFF)
+        at += size
+    return ARCHS[cpu], Slice(found, minos)
+
+
+def slices(data: bytes) -> dict[str, Slice]:
+    """Each architecture of a 64-bit Mach-O image (thin or fat) -> its UUID and minimum macOS."""
+    if data[:4] == b"\xca\xfe\xba\xbe":
+        count = struct.unpack_from(">I", data, 4)[0]
+        offsets = [struct.unpack_from(">iiI", data, 8 + 20 * i)[2] for i in range(count)]
+    else:
+        offsets = [0]
+    return dict(s for o in offsets if len(data) >= o + 32 and (s := _slice(data, o)))
 
 
 def is_macho(path: Path) -> bool:

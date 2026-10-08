@@ -37,6 +37,12 @@ glibc in `lib/`. Its `THIRD-PARTY.txt` names the Debian package each library com
 package's licence in `share/doc/<package>/copyright`; `kicad-cli-{version}-linux-x86_64-sources.tar`
 holds the exact Debian source of every one of them.
 
+The macOS libraries come from Homebrew bottles (each matched to its bottle by Mach-O UUID) and from
+what KiCad's macOS builder builds itself (its wxWidgets fork, ngspice, Python). Each macOS bundle's
+`THIRD-PARTY.txt` names the component of every library, with its licence files in
+`KiCad.app/Contents/Resources/Licenses/<component>/`; `kicad-cli-{version}-macos-sources.tar` (both
+architectures) holds the source of every one of them, with Homebrew's formula and patches.
+
 {listed}
 
 Source: `kicad-{version}-source.tar.gz` is attached, and the same tag is upstream at

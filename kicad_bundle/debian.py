@@ -1,19 +1,15 @@
 """Debian provenance of files in an extracted image: the packages that own them and the exact source
 of those packages (from snapshot.debian.org), so the Linux bundle can ship licences and sources."""
 
-import hashlib
 import json
 import tarfile
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Iterable
 
-from kicad_bundle.release import write_atomically
+from kicad_bundle.fetch import Fetch, add_dir, cached_file, fetch_url
 
 DPKG_STATUS = "var/lib/dpkg/status"
 DPKG_INFO = "var/lib/dpkg/info"
@@ -80,43 +76,13 @@ def source_files(reply: dict) -> list[tuple[str, str]]:
     return sorted((reply["fileinfo"][r["hash"]][0]["name"], r["hash"]) for r in reply["result"])
 
 
-def fetch_url(url: str, tries: int = 4) -> bytes:
-    for attempt in range(tries):
-        try:
-            with urllib.request.urlopen(url, timeout=600) as resp:
-                return resp.read()
-        except (urllib.error.URLError, TimeoutError):
-            if attempt == tries - 1:
-                raise
-            time.sleep(10 * (attempt + 1))  # snapshot.debian.org throttles bursts
-    raise AssertionError("unreachable")
-
-
-def _cached_file(name: str, sha1: str, cache: Path, fetch: Callable[[str], bytes]) -> Path:
-    dest = cache / sha1[:2] / sha1 / name
-    if not dest.exists():
-        data = fetch(f"{SNAPSHOT}/file/{sha1}")
-        if hashlib.sha1(data).hexdigest() != sha1:
-            raise RuntimeError(f"{name}: download doesn't match its sha1 {sha1}")
-        write_atomically(dest, lambda f: f.write(data))
-    else:
-        dest.touch()  # marks it used, so cache.prune keeps it
-    return dest
-
-
-def _source_package(source: str, version: str, cache: Path, fetch: Callable[[str], bytes]) -> list[Path]:
+def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
     reply = json.loads(fetch(srcfiles_url(source, version)))
-    return [_cached_file(name, sha1, cache, fetch) for name, sha1 in source_files(reply)]
-
-
-def _add_dir(tar: tarfile.TarFile, name: str) -> None:
-    info = tarfile.TarInfo(name)
-    info.type, info.mode = tarfile.DIRTYPE, 0o755
-    tar.addfile(info)
+    return [cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1") for name, sha1 in source_files(reply)]
 
 
 def sources_archive(sources: Iterable[tuple[str, str]], dest: Path, cache: Path,
-                    fetch: Callable[[str], bytes] = fetch_url) -> Path:
+                    fetch: Fetch = fetch_url) -> Path:
     """dest (a .tar) holding <dest stem>/<source>_<version>/<every file of that Debian source package>,
     unpackable with `dpkg-source -x <the .dsc>`. Files are cached by sha1 under cache."""
     wanted = sorted(set(sources))
@@ -125,10 +91,10 @@ def sources_archive(sources: Iterable[tuple[str, str]], dest: Path, cache: Path,
     top = dest.name.removesuffix(".tar")
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(dest, "w") as tar:  # the files are compressed already
-        _add_dir(tar, top)
+        add_dir(tar, top)
         for (source, version), paths in zip(wanted, files):
             folder = f"{top}/{source}_{version.split(':', 1)[-1]}"  # Debian file names drop the epoch
-            _add_dir(tar, folder)
+            add_dir(tar, folder)
             for path in paths:
                 tar.add(path, arcname=f"{folder}/{path.name}")
     return dest

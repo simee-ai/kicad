@@ -1,4 +1,5 @@
-"""macOS: official universal DMG -> one trimmed KiCad.app per architecture."""
+"""macOS: official universal DMG -> one trimmed KiCad.app per architecture, each with the licences of
+its third-party libraries, and one archive of their sources for both (see macos_third_party)."""
 
 import platform
 import shutil
@@ -7,10 +8,10 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from kicad_bundle import macho, smoke
+from kicad_bundle import macho, macos_third_party, smoke
 from kicad_bundle.bundle import archive, copy_tree, prune
 from kicad_bundle.closure import closure
-from kicad_bundle.release import cached_asset
+from kicad_bundle.release import cached_asset, published_at
 
 ARCHES = ("arm64", "x86_64")
 # kicad-cli loads only the schematic kiface for `sch` commands; eeschema links the rest.
@@ -54,6 +55,9 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
                    missing=missing)
     if missing:
         raise RuntimeError(f"unresolved libraries: {missing}")
+    third = macos_third_party.collect(contents.resolve(), sorted({k.resolve() for k in keep}), version,
+                                      published_at(version), cache, archs=ARCHES)
+    sources = f"kicad-cli-{version}-macos-sources.tar"
 
     built = []
     for arch in ARCHES:
@@ -67,6 +71,7 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
             if f.is_file() and not f.is_symlink() and macho.is_macho(f):
                 macho.thin(f, arch)
                 macho.adhoc_sign(f)
+        macos_third_party.write_notices(third, root, arch, version, sources)
         cli = _cli_command(app_contents / "MacOS" / "kicad-cli", arch)
         if run_smoke:
             if cli is None:
@@ -75,4 +80,4 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
                 smoke.check(cli)
                 print(f"  smoke test passed ({arch})")
         built.append(archive(root, out_dir, "tar.gz"))
-    return built
+    return [*built, macos_third_party.sources_archive(third.components, out_dir / sources)]
