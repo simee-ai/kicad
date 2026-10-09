@@ -64,7 +64,11 @@ jobs:
           restore-keys: macos-sources-
       - name: Build tools (KiCad's own files are built from simee_ref)
         if: needs.ref.outputs.sha != ''
-        run: brew install swig ninja
+        # Xcode 16.2 (macOS 15.2 SDK), which the official 10.0.x build used. The image's default,
+        # 15.4, lacks C++20 library features KiCad 10 needs (std::views::join).
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app
+          brew install swig ninja
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
       - uses: actions/upload-artifact@v4
         with:
