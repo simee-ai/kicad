@@ -39,20 +39,32 @@ def _run(cli: list[str], args: list[str], home: Path) -> None:
                            f"{(result.stdout + result.stderr).strip()[-2000:]}")
 
 
-def imported(cli: list[str], fixture: Fixture) -> tuple[dict[str, str], list[list[str]]]:
-    """Components and nets (two or more nodes) of `fixture` as KiCad imports it."""
+def stray_files(folder: Path) -> list[str]:
+    """Hidden files an import left in its output folder, such as a nameless `.kicad_sch` root sheet."""
+    return sorted(p.name for p in folder.iterdir() if p.name.startswith("."))
+
+
+def imported(cli: list[str], fixture: Fixture) -> tuple[dict[str, str], list[list[str]], list[str]]:
+    """Components and nets (two or more nodes) of `fixture` as KiCad imports it, and the stray files
+    the import wrote next to its output."""
     with tempfile.TemporaryDirectory() as tmp:
-        sch, net = Path(tmp) / "imported.kicad_sch", Path(tmp) / "imported.net"
+        out = Path(tmp) / "out"
+        out.mkdir()
+        sch, net = out / "imported.kicad_sch", Path(tmp) / "imported.net"
         _run(cli, ["sch", "import", "--format", fixture.format, "-o", str(sch), str(fixture.source)], Path(tmp))
+        stray = stray_files(out)
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))
         text = net.read_text()
-    return netlist_components(text), [n for n in netlist_nets(text) if len(n) > 1]
+    return netlist_components(text), [n for n in netlist_nets(text) if len(n) > 1], stray
 
 
 def check(cli: list[str], fixture: Fixture) -> None:
-    """Raise unless KiCad's import of `fixture` has exactly the expected components and nets."""
-    components, nets = imported(cli, fixture)
+    """Raise unless KiCad's import of `fixture` has exactly the expected components and nets, and
+    writes nothing but KiCad files next to its output."""
+    components, nets, stray = imported(cli, fixture)
     problems = []
+    if stray:
+        problems.append(f"stray files next to the output: {stray}")
     if components != fixture.components:
         problems.append(f"components differ: got {components}, wanted {fixture.components}")
     missing = [n for n in fixture.nets if n not in nets]

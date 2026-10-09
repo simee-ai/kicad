@@ -29,6 +29,19 @@ def test_fixtures_cover_every_format_simee_db_needs():
     assert len([f for f in FIXTURES if f.format == "eagle"]) >= 2
 
 
+def test_stray_files_are_the_hidden_ones(tmp_path):
+    for name in (".kicad_sch", "imported.kicad_sch", "imported-eagle-import.kicad_sym", "sym-lib-table"):
+        (tmp_path / name).touch()
+    assert sch_import.stray_files(tmp_path) == [".kicad_sch"]
+
+
+def test_check_rejects_an_import_that_leaves_stray_files(monkeypatch):
+    fixture = FIXTURES[0]
+    monkeypatch.setattr(sch_import, "imported", lambda cli, f: (f.components, f.nets, [".kicad_sch"]))
+    with pytest.raises(RuntimeError, match=r"stray files.*\.kicad_sch"):
+        sch_import.check(["kicad-cli"], fixture)
+
+
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
 def test_fixture_is_redistributable(fixture):
     assert fixture.source.is_file()
