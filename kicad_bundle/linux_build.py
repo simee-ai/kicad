@@ -75,11 +75,24 @@ def mismatched_sources(image: dict[str, tuple[str, str]], build: dict[str, tuple
     return sorted({(src, shipped[src], ver) for src, ver in build.values() if src in shipped and shipped[src] != ver})
 
 
+def _unversioned(name: str) -> str:
+    return name.split(".so", 1)[0]
+
+
 def overlay(root: Path, built: Path) -> list[str]:
     """Replace the bundle's KiCad files (libexec/<binary>, lib/libki*) with those in built; returns the
-    replaced paths. Refuses to leave any official KiCad file in place."""
-    targets = [f"libexec/{b}" for b in BINARIES] + [f"lib/{p.name}" for p in sorted((root / "lib").glob(KICAD_LIBS))
-                                                    if not p.is_symlink()]
+    replaced paths. Refuses to leave any official KiCad file in place. A build of another version than the
+    image's (a release-candidate rehearsal) names KiCad's libraries by its own version
+    (libkicommon.so.10.0.7 for libkicommon.so.10.0.6): those replace the image's."""
+    by_stem = {_unversioned(p.name): p.name for p in built.glob(f"{KICAD_LIBS}.so*")}
+    targets = [f"libexec/{b}" for b in BINARIES]
+    for official in sorted((root / "lib").glob(KICAD_LIBS)):
+        if official.is_symlink():
+            continue
+        new = by_stem.get(_unversioned(official.name), official.name)
+        if new != official.name and (built / new).is_file():
+            official.unlink()
+        targets.append(f"lib/{new}")
     return bundle.overlay(root, targets, built)
 
 

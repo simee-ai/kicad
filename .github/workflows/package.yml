@@ -1,7 +1,8 @@
 name: package
 # Repackage an official KiCad release into trimmed kicad-cli bundles and publish them as a
-# release (cli-<version>-<n>). simee-core pins a release; simee-kicad-watcher triggers this monthly.
+# release (cli-<version>-<n>). simee-core pins a release; simee-agents's kicad-sync job triggers this weekly.
 # With simee_ref, KiCad's own files are built from that simee-kicad branch instead (see README).
+# A release-candidate rehearsal (README) builds only Linux, on base_image, and never publishes.
 
 on:
   workflow_dispatch:
@@ -17,6 +18,14 @@ on:
         description: Publish a release (off = build and smoke-test only)
         type: boolean
         default: true
+      platforms:
+        description: Platforms to build (a release needs all three)
+        required: false
+        default: linux macos windows
+      base_image:
+        description: "Linux: build on this image instead of kicad/kicad:<version>, e.g. kicad/kicad:10.0.6 for a release candidate (needs simee_ref; never published)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -31,6 +40,11 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
     steps:
+      - name: A release needs every platform, each from its own version's official build
+        if: inputs.publish && (inputs.platforms != 'linux macos windows' || inputs.base_image != '')
+        run: |
+          echo "publish needs platforms 'linux macos windows' and no base_image" >&2
+          exit 1
       - id: resolve
         env:
           SIMEE_REF: ${{ inputs.simee_ref }}
@@ -43,6 +57,7 @@ jobs:
 
   macos:
     needs: ref
+    if: contains(inputs.platforms, 'macos')
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     runs-on: macos-14
@@ -77,6 +92,7 @@ jobs:
 
   windows:
     needs: ref
+    if: contains(inputs.platforms, 'windows')
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     # Visual Studio 2022 with MSVC 14.44, which linked KiCad 10.0.x: a simee build must use the official
@@ -121,8 +137,10 @@ jobs:
 
   linux:
     needs: ref
+    if: contains(inputs.platforms, 'linux')
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
+      BASE_IMAGE: ${{ inputs.base_image }}
     runs-on: ubuntu-latest  # has docker: the official kicad/kicad image, smoke-tested in ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
@@ -132,7 +150,7 @@ jobs:
           path: ~/.cache/kicad-bundle
           key: debian-sources-${{ inputs.kicad_version }}
           restore-keys: debian-sources-
-      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
+      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"} ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
       - uses: actions/upload-artifact@v4
         with:
           name: linux

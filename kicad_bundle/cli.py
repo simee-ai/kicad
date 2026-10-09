@@ -25,9 +25,15 @@ def main(argv=None) -> int:
     parser.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "kicad-bundle")
     parser.add_argument("--no-smoke", action="store_true", help="skip running the packaged kicad-cli")
     parser.add_argument("--simee-ref", help="build KiCad's own files from this simee-kicad branch, e.g. simee/10.0.6")
+    parser.add_argument("--base-image", help="linux: build on this image instead of kicad/kicad:<version> "
+                        "(a release candidate, which has none; needs --simee-ref)")
     args = parser.parse_args(argv)
+    if args.base_image and args.platform != "linux":
+        parser.error("--base-image is for --platform linux")
 
     simee = {"simee_ref": args.simee_ref} if args.simee_ref else {}
+    if args.base_image:
+        simee["base_image"] = args.base_image
     built = PACKAGERS[args.platform](args.kicad_version, args.out, args.cache, args.work, not args.no_smoke, **simee)
     for path in built:
         print(f"{sha256(path)}  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")

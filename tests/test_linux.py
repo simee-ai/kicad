@@ -102,6 +102,54 @@ def test_assemble_of_a_simee_build_names_the_commit_its_kicad_files_come_from(tm
     assert max(len(first), len(second)) <= 100
 
 
+def test_assemble_on_another_image_names_it(tmp_path):
+    # a release-candidate rehearsal: KiCad 11.0.0-rc1 built on the 10.0.6 image, which has no rc tags
+    rootfs, root = tmp_path / "rootfs", tmp_path / "kicad-cli-11.0.0-rc1-linux-x86_64"
+    _image(rootfs)
+    linux.assemble(rootfs, root, "11.0.0-rc1", simee_sha="4e18395976" + "0" * 30, image="kicad/kicad:10.0.6")
+    notice = (root / "THIRD-PARTY.txt").read_text()
+    assert notice.startswith("kicad-cli 11.0.0-rc1 for Linux x86_64, repackaged from the official kicad/kicad:10.0.6 ")
+    assert "kicad/kicad:11.0.0-rc1" not in notice
+
+
+class FakeLinuxBuild:
+    """Stands in for the docker steps of linux.package; records the image it was asked for."""
+
+    def __init__(self, monkeypatch, tmp_path):
+        self.images = []
+        monkeypatch.setattr(linux, "_export_image", lambda image, rootfs: self.images.append(image) or "digest")
+        monkeypatch.setattr(linux, "assemble", lambda rootfs, root, version, sha=None, image=None: set())
+        monkeypatch.setattr(linux.simee_source, "resolve_ref", lambda ref: "f" * 40)
+        monkeypatch.setattr(linux.simee_source, "source_archive", lambda sha, dest: dest)
+        monkeypatch.setattr(linux.linux_build, "build", lambda image, rootfs, src, work: tmp_path / "built")
+        monkeypatch.setattr(linux.linux_build, "overlay", lambda root, built: [])
+        monkeypatch.setattr(linux, "archive", lambda root, out, kind: out / f"{root.name}.tar.gz")
+        monkeypatch.setattr(linux.debian, "sources_archive", lambda sources, dest, cache: dest)
+
+
+def test_package_takes_the_versions_own_image(monkeypatch, tmp_path):
+    fake = FakeLinuxBuild(monkeypatch, tmp_path)
+    linux.package("10.0.6", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False)
+    assert fake.images == ["kicad/kicad:10.0.6"]
+
+
+def test_package_builds_a_release_candidate_on_a_base_image(monkeypatch, tmp_path):
+    fake = FakeLinuxBuild(monkeypatch, tmp_path)
+    built = linux.package("11.0.0-rc1", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False,
+                          simee_ref="rehearsal/11.0.0-rc1", base_image="kicad/kicad:10.0.6")
+    assert fake.images == ["kicad/kicad:10.0.6"]
+    assert built[0].name == "kicad-cli-11.0.0-rc1-linux-x86_64.tar.gz"
+
+
+def test_a_base_image_needs_a_simee_ref(monkeypatch, tmp_path):
+    # without one the bundle would be the base image's own kicad-cli, labelled as another version
+    fake = FakeLinuxBuild(monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="simee-ref"):
+        linux.package("11.0.0-rc1", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False,
+                      base_image="kicad/kicad:10.0.6")
+    assert fake.images == []
+
+
 def test_assemble_refuses_a_library_no_debian_package_owns(tmp_path):
     rootfs = tmp_path / "rootfs"
     _image(rootfs, extra_lib="libmystery.so.1")
