@@ -1447,6 +1447,71 @@ int EESCHEMA_JOBS_HANDLER::JobUpgrade( JOB* aJob )
 }
 
 
+/**
+ * Make the top-level sheets of \a aSchematic (one per page of a multi-page Eagle schematic, say)
+ * sheets of a new root sheet, so the saved root file holds the whole design: `sch export netlist`
+ * and the other commands load one file and its hierarchy.  Symbol and sheet instances move under
+ * the root's path; the root is page 1 and the sheets follow in order.
+ */
+static void nestTopLevelSheetsUnderRoot( SCHEMATIC& aSchematic, const wxString& aProjectName )
+{
+    std::vector<SCH_SHEET*> sheets = aSchematic.GetTopLevelSheets();
+
+    // A root sheet's UUID is its file's, as SCHEMATIC::ensureDefaultTopLevelSheet() makes it
+    SCH_SHEET*  root = new SCH_SHEET( &aSchematic );
+    SCH_SCREEN* rootScreen = new SCH_SCREEN( &aSchematic );
+
+    const_cast<KIID&>( root->m_Uuid ) = rootScreen->GetUuid();
+    root->SetScreen( rootScreen );
+    rootScreen->SetPageSettings( sheets[0]->GetScreen()->GetPageSettings() );
+    rootScreen->SetTitleBlock( sheets[0]->GetScreen()->GetTitleBlock() );
+
+    SCH_SHEET_PATH rootPath;
+    rootPath.push_back( root );
+
+    const int      perColumn = 3;
+    const VECTOR2I size( schIUScale.MilsToIU( 2000 ), schIUScale.MilsToIU( 1500 ) );
+    const VECTOR2I pitch( schIUScale.MilsToIU( 2500 ), schIUScale.MilsToIU( 2000 ) );
+    const VECTOR2I origin( schIUScale.MilsToIU( 1000 ), schIUScale.MilsToIU( 1000 ) );
+
+    for( size_t i = 0; i < sheets.size(); i++ )
+    {
+        SCH_SHEET*     sheet = sheets[i];
+        SCH_SHEET_LIST oldPaths( sheet ); // rooted at the sheet itself, as its instances are
+
+        // Detach from the virtual root first: SetTopLevelSheets() deletes the sheets left there
+        aSchematic.Root().GetScreen()->Items().remove( sheet );
+
+        sheet->SetParent( root );
+        sheet->SetPosition( origin + VECTOR2I( int( i / perColumn ) * pitch.x,
+                                               int( i % perColumn ) * pitch.y ) );
+        sheet->Resize( size );
+        sheet->AutoplaceFields( rootScreen, AUTOPLACE_AUTO );
+        rootScreen->Append( sheet );
+
+        oldPaths.AddNewSymbolInstances( rootPath, aProjectName );
+
+        for( const SCH_SHEET_PATH& oldPath : oldPaths )
+        {
+            for( SCH_ITEM* item : oldPath.LastScreen()->Items().OfType( SCH_SYMBOL_T ) )
+                static_cast<SCH_SYMBOL*>( item )->RemoveInstance( oldPath.Path() );
+
+            KIID_PATH oldSheetInstance = oldPath.Path();
+            oldSheetInstance.pop_back();
+            oldPath.Last()->RemoveInstance( oldSheetInstance );
+        }
+    }
+
+    aSchematic.SetTopLevelSheets( { root } );
+
+    // Sheets are laid out down columns, which is the order SCH_SCREEN::GetSheets() lists them in
+    int pageNumber = 1;
+
+    for( SCH_SHEET_PATH& path : SCH_SHEET_LIST( root ) )
+        path.SetPageNumber( wxString::Format( wxT( "%d" ), pageNumber++ ) );
+}
+
+
 int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
 {
     JOB_SCH_IMPORT* job = dynamic_cast<JOB_SCH_IMPORT*>( aJob );
@@ -1597,6 +1662,10 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
 
         if( !loadedIsTopLevel && !loadedIsVirtualRoot )
             schematic->SetTopLevelSheets( { loadedSheet } );
+
+        // Only a project file can list several top-level sheets, and a lone import has none
+        if( createdTransientProject && schematic->GetTopLevelSheets().size() > 1 )
+            nestTopLevelSheetsUnderRoot( *schematic, project.GetProjectName() );
 
         // Recompute connectivity so instance data is valid before saving, as importFile() does.
         std::unique_ptr<TOOL_MANAGER> toolManager = std::make_unique<TOOL_MANAGER>();
