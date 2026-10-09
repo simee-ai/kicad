@@ -10,6 +10,7 @@ which must be at least as new) and import nothing the official ones didn't.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -18,16 +19,14 @@ from pathlib import Path
 
 import pefile
 
-from kicad_bundle import bundle, pe
+from kicad_bundle import bundle, gitlab, pe
 from kicad_bundle.bundle import KIFACES
 from kicad_bundle.cache import VCPKG_BINARIES
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 from kicad_bundle.windows_third_party import KICAD
 
 VCPKG = "https://github.com/microsoft/vcpkg"
-# The vcpkg tool and its cmake scripts, as kicad-win-builder's build.ps1 pinned them for 10.0.x (the
-# ports themselves come from KiCad's manifest).
-VCPKG_COMMIT = "66c0373dc7fca549e5803087b9487edfe3aca0a1"
+BUILDER = "kicad/packaging/kicad-win-builder"
 TRIPLET = "x64-windows"
 # build.ps1's KiCad options, less translations (the bundle has none) and Sentry (KiCad's crash reports).
 CMAKE_FLAGS = ("-Wno-dev", "-DCMAKE_BUILD_TYPE=Release", "-DKICAD_BUILD_QA_TESTS=OFF", "-DKICAD_BUILD_I18N=OFF",
@@ -45,6 +44,16 @@ def cmake_args(src: Path, build_dir: Path, vcpkg: Path) -> list[str]:
     return ["-G", "Ninja", "-S", str(src), "-B", str(build_dir), *CMAKE_FLAGS,
             f"-DCMAKE_TOOLCHAIN_FILE={vcpkg / 'scripts/buildsystems/vcpkg.cmake'}", f"-DVCPKG_TARGET_TRIPLET={TRIPLET}",
             "-DVCPKG_INSTALL_OPTIONS=--clean-after-build"]
+
+
+def vcpkg_commit(until: str, fetch: Fetch = fetch_url) -> str:
+    """The vcpkg tool and cmake scripts (the ports themselves come from KiCad's manifest) as build.ps1
+    pinned them by until, when KiCad published the installer: KiCad builds releases and RCs from master."""
+    commit = gitlab.head_at(BUILDER, "master", until, fetch)
+    found = re.search(r'^\$vcpkgCommit\s*=\s*"([0-9a-f]{40})"', gitlab.file_at(BUILDER, "build.ps1", commit, fetch), re.M)
+    if not found:
+        raise RuntimeError(f"{BUILDER} {commit}: build.ps1 sets no $vcpkgCommit")
+    return found.group(1)
 
 
 def toolset(binary: Path) -> str:
@@ -148,25 +157,25 @@ def swig(work: Path, fetch: Fetch = fetch_url, digest: str = SWIG_SHA256) -> Pat
     return next(dest.rglob("swig.exe")).parent
 
 
-def _vcpkg(root: Path) -> Path:
-    """vcpkg at VCPKG_COMMIT, bootstrapped."""
+def _vcpkg(root: Path, commit: str) -> Path:
+    """vcpkg at commit, bootstrapped."""
     if not (root / ".git").is_dir():
         root.mkdir(parents=True, exist_ok=True)
         subprocess.run(["git", "init", "-q", str(root)], check=True)
     head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    if head != VCPKG_COMMIT:
-        subprocess.run(["git", "-C", str(root), "fetch", "-q", "--depth", "1", VCPKG, VCPKG_COMMIT], check=True)
-        subprocess.run(["git", "-C", str(root), "checkout", "-q", "-f", VCPKG_COMMIT], check=True)
+    if head != commit:
+        subprocess.run(["git", "-C", str(root), "fetch", "-q", "--depth", "1", VCPKG, commit], check=True)
+        subprocess.run(["git", "-C", str(root), "checkout", "-q", "-f", commit], check=True)
         (root / "vcpkg.exe").unlink(missing_ok=True)  # the tool version belongs to the scripts
     if not (root / "vcpkg.exe").exists():
         subprocess.run([str(root / "bootstrap-vcpkg.bat"), "-disableMetrics"], check=True)
     return root
 
 
-def build(src: Path, work: Path, cache: Path, version: str) -> Path:
-    """Build kicad-cli and the kifaces from src (a source tarball) with MSVC version (the
-    official build's); returns the folder holding KiCad's binaries. vcpkg's builds of the ports are
-    kept in <cache>/vcpkg-binaries (several GB), so a rebuild only compiles KiCad (about an hour)."""
+def build(src: Path, work: Path, cache: Path, version: str, vcpkg_at: str) -> Path:
+    """Build kicad-cli and the kifaces from src (a source tarball) with MSVC version (the official
+    build's) and vcpkg at commit vcpkg_at (vcpkg_commit); returns the folder holding KiCad's binaries.
+    vcpkg's builds of the ports are kept in <cache>/vcpkg-binaries (several GB), so a rebuild only compiles KiCad (about an hour)."""
     if os.name != "nt":
         raise RuntimeError("building KiCad for Windows needs Windows with Visual Studio 2022 "
                            f"(MSVC {version}); the package workflow's Windows job does it")
@@ -176,7 +185,7 @@ def build(src: Path, work: Path, cache: Path, version: str) -> Path:
         shutil.rmtree(build_dir)
     binaries = cache / VCPKG_BINARIES
     binaries.mkdir(parents=True, exist_ok=True)
-    vcpkg = _vcpkg(work / "vcpkg")
+    vcpkg = _vcpkg(work / "vcpkg", vcpkg_at)
     env = {**msvc_env(version), "VCPKG_ROOT": str(vcpkg), "VCPKG_DISABLE_METRICS": "1",
            "VCPKG_BINARY_SOURCES": f"clear;files,{binaries},readwrite"}
     path = env.pop("Path", None) or env.pop("PATH", "")

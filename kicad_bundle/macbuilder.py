@@ -1,21 +1,20 @@
 """What KiCad's macOS builder (kicad-mac-builder) builds itself rather than taking from Homebrew:
 KiCad's wxWidgets fork, ngspice, and the relocatable python.org Python. Their versions are pinned on
-the builder's release branch (10.0 for KiCad 10.0.x), read as it was when KiCad published the release;
+the builder's release branch (10.0 for KiCad 10.0.x), read as it was when KiCad published the release, or
+on master for a release candidate from before that branch existed (10.0 was cut after 10.0.0-rc1);
 a pin naming a branch rather than a tag or commit resolves to that branch's head at the same moment."""
 
-import json
 import re
 import subprocess
 import tarfile
 import tempfile
-import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from kicad_bundle import gitlab
 from kicad_bundle.fetch import Fetch
 
-GITLAB = "https://gitlab.com/api/v4/projects"
 BUILDER = "kicad/packaging/kicad-mac-builder"
 SHA = re.compile(r"[0-9a-f]{40}")
 
@@ -42,15 +41,6 @@ class WxBuild:
     make: list[str]  # make's arguments (KiCad release builds)
 
 
-def _project(path: str) -> str:
-    return f"{GITLAB}/{urllib.parse.quote(path, safe='')}/repository"
-
-
-def _head_at(project: str, ref: str, until: str, fetch: Fetch) -> str:
-    query = urllib.parse.urlencode({"ref_name": ref, "until": until, "per_page": 1})
-    return json.loads(fetch(f"{_project(project)}/commits?{query}"))[0]["id"]
-
-
 def external_projects(cmake: str) -> dict[str, GitSource]:
     found = {}
     for name, body in re.findall(r"ExternalProject_Add\(\s*(\w+)(.*?)\n\s*\)", cmake, re.S):
@@ -62,10 +52,10 @@ def external_projects(cmake: str) -> dict[str, GitSource]:
 
 def pins(version: str, until: str, fetch: Fetch) -> Pins:
     branch = ".".join(version.split(".")[:2])
-    commit = _head_at(BUILDER, branch, until, fetch)
+    commit = gitlab.head_at(BUILDER, branch, until, fetch) or gitlab.head_at(BUILDER, "master", until, fetch)
 
     def read(path: str) -> str:
-        return fetch(f"{_project(BUILDER)}/files/{urllib.parse.quote(path, safe='')}/raw?ref={commit}").decode()
+        return gitlab.file_at(BUILDER, path, commit, fetch)
 
     wx_cmake = read("kicad-mac-builder/wx.cmake")
     wx = external_projects(wx_cmake)["wxwidgets"]
@@ -101,8 +91,11 @@ def commit(source: GitSource, until: str, fetch: Fetch, ls_remote: Callable[[str
     if found := refs.get(f"{tag}^{{}}") or refs.get(tag):
         return found
     if f"refs/heads/{source.ref}" in refs and source.url.startswith("https://gitlab.com/"):
-        return _head_at(source.url.removeprefix("https://gitlab.com/").removesuffix(".git"), source.ref, until, fetch)
-    raise RuntimeError(f"{source}: not a tag or commit, and a branch can only be dated on GitLab")
+        project = source.url.removeprefix("https://gitlab.com/").removesuffix(".git")
+        if head := gitlab.head_at(project, source.ref, until, fetch):
+            return head
+    raise RuntimeError(f"{source}: not a tag or commit, nor a GitLab branch (only those can be dated) with a commit "
+                       f"by {until}")
 
 
 def _git(*args: str, cwd: Path) -> None:
