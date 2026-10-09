@@ -21,7 +21,9 @@ CORE = "Homebrew/homebrew-core"
 COMMITS = f"https://api.github.com/repos/{CORE}/commits"
 RAW = f"https://raw.githubusercontent.com/{CORE}"
 GHCR = "https://ghcr.io/v2/homebrew/core"
-MAX_BOTTLES = 8  # distinct bottles to try per library before giving up
+# Distinct bottles to try per library before giving up. KiCad's build machine can lag Homebrew by months:
+# 10.0.7-rc2 shipped glib 2.86.3, ten bottles back. Each try downloads the bottle once (then cached).
+MAX_BOTTLES = 24
 
 # Bundled file name -> the formula whose bottle ships it. A library none matches fails the build.
 FORMULAE = [(re.compile(pattern), formula) for pattern, formula in (

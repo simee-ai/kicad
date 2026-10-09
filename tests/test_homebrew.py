@@ -143,6 +143,27 @@ def test_match_walks_back_to_the_bottle_holding_the_libraries_uuids(tmp_path):
     assert not [u for u in web.calls if "ghcr.io" in u]  # the bottles' UUIDs are cached
 
 
+def test_match_reaches_a_bottle_from_a_build_machines_months_old_homebrew(tmp_path):
+    # KiCad 10.0.7-rc2 (October 2026) shipped glib 2.86.3, bottled in December 2025: ten bottles back
+    web = FakeWeb()
+    newer = {f"n{i}": _bottle(f"2.90.{i}", f"{i:08d}-0000-0000-0000-000000000000") for i in range(10)}
+    for commit, blob in newer.items():
+        sha = hashlib.sha256(blob).hexdigest()
+        web.blobs[sha], web.rb[commit] = blob, _rb(sha, "2.90.0")
+    history = [*newer, "c1"]
+    web_history = web.__call__
+
+    def fetch(url: str) -> bytes:
+        if url.startswith("https://api.github.com/repos/Homebrew/homebrew-core/commits?"):
+            web.calls.append(url)
+            return json.dumps([{"sha": c} for c in history]).encode()
+        return web_history(url)
+
+    bottle = homebrew.match("glib", "arm64", {"libglib-2.0.0.dylib": Slice(OLD, (14, 0))},
+                            "2026-08-29T15:43:28Z", tmp_path, fetch)
+    assert (bottle.version, bottle.commit) == ("2.88.3", "c1")
+
+
 def test_match_fails_when_no_bottle_holds_the_library(tmp_path):
     libs = {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (14, 0))}
     with pytest.raises(RuntimeError, match="glib.*no arm64_sonoma bottle"):
