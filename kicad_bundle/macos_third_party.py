@@ -32,7 +32,7 @@ file\tcomponent version\tfrom
 {rows}
 """
 REPACKAGED_KICAD = ("repackaged from the official KiCad {version} DMG.",
-            """KiCad (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/_eeschema.kiface and Contents/Frameworks/libki*)
+            """KiCad (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/*.kiface and Contents/Frameworks/libki*)
 is GPL-3.0-or-later. Its source is kicad-{version}-source.tar.gz, attached to the same GitHub release.""")
 REBUILT_KICAD = ("the official KiCad {version} DMG with KiCad's own files rebuilt from simee's modified KiCad.",
          """KiCad's own files (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/*.kiface and Contents/Frameworks/libki*)

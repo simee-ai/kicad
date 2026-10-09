@@ -10,14 +10,14 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from kicad_bundle import macbuilder, macho, macos_build, macos_third_party, sch_import, simee_source, smoke, third_party
-from kicad_bundle.bundle import archive, copy_tree, prune, remove
+from kicad_bundle.bundle import KIFACES, archive, copy_tree, prune, remove
 from kicad_bundle.closure import closure
 from kicad_bundle.fetch import fetch_url
 from kicad_bundle.release import cached_asset, published_at
 
 ARCHES = ("arm64", "x86_64")
-# kicad-cli loads only the schematic kiface for `sch` commands; eeschema links the rest.
-ROOTS = ("MacOS/kicad-cli", "PlugIns/_eeschema.kiface")
+# kicad-cli and the kifaces it loads; they link the rest.
+ROOTS = ("MacOS/kicad-cli", *(f"PlugIns/_{k}.kiface" for k in KIFACES))
 TOPS = ("MacOS", "Frameworks", "PlugIns")
 DROP = ("SharedSupport", "Applications", "_CodeSignature")  # libraries, sub-apps, stale signature
 

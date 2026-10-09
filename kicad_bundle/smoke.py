@@ -1,5 +1,7 @@
-"""Prove a bundle works: export the netlist of a known RC filter and compare KiCad's nets."""
+"""Prove a bundle works: export the netlist of a known RC filter and compare KiCad's nets, then run
+KiCad's electrical rules check on it and compare the errors."""
 
+import json
 import os
 import re
 import subprocess
@@ -8,6 +10,9 @@ from pathlib import Path
 
 SCHEMATIC = Path(__file__).parent / "smoke" / "rc_filter.kicad_sch"
 EXPECTED = [["C1.1"], ["C1.2", "R1.2"], ["R1.1"]]
+# ERC's errors (type, first item) on it: nothing drives its GND symbol's power input. Its warnings depend
+# on the symbol libraries installed, which the bundle has none of.
+EXPECTED_ERC = [("power_pin_not_driven", "Symbol #PWR01 Pin 1 [Power input, Line]")]
 # Where KiCad writes config, documents and caches; point them at a private dir.
 KICAD_HOMES = ("KICAD_CONFIG_HOME", "KICAD_DOCUMENTS_HOME", "KICAD_CACHE_HOME")
 UNESCAPE = re.compile(r"\\(.)")
@@ -53,18 +58,34 @@ def kicad_env(home: Path) -> dict[str, str]:
     return {**os.environ, **{k: str(home / k) for k in KICAD_HOMES}}
 
 
+def erc_errors(report: str) -> list[tuple[str, str]]:
+    """(type, first item's description) of each error in a kicad-cli JSON ERC report, sorted."""
+    return sorted((v["type"], v["items"][0]["description"] if v.get("items") else "")
+                  for sheet in json.loads(report)["sheets"] for v in sheet["violations"] if v["severity"] == "error")
+
+
+def _run(cli: list[str], args: list[str], out: Path) -> str:
+    """Run `cli args`, which must write out without logging errors; returns out's text."""
+    result = subprocess.run([*cli, *args], env=kicad_env(out.parent), capture_output=True, text=True)
+    if result.returncode != 0 or not out.exists():
+        raise RuntimeError(f"kicad-cli {' '.join(args[:2])} failed ({result.returncode}): "
+                           f"{(result.stdout + result.stderr).strip()[-2000:]}")
+    # KiCad logs some problems (missing data files, libraries) as errors yet still exports.
+    errors = [line for line in result.stderr.splitlines() if "Error:" in line]
+    if errors:
+        raise RuntimeError(f"kicad-cli {' '.join(args[:2])} reported errors:\n" + "\n".join(errors))
+    return out.read_text()
+
+
 def check(cli: list[str]) -> None:
-    """Raise unless `cli sch export netlist` reproduces the expected nets."""
+    """Raise unless `cli sch export netlist` reproduces the expected nets and `cli sch erc` the expected
+    errors (ERC also needs the cvpcb kiface)."""
     with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp) / "smoke.net"
-        result = subprocess.run([*cli, "sch", "export", "netlist", "-o", str(out), str(SCHEMATIC)],
-                                env=kicad_env(Path(tmp)), capture_output=True, text=True)
-        if result.returncode != 0 or not out.exists():
-            raise RuntimeError(f"kicad-cli failed ({result.returncode}): {result.stderr.strip()[-2000:]}")
-        # KiCad logs some problems (missing data files, libraries) as errors yet still exports.
-        errors = [line for line in result.stderr.splitlines() if "Error:" in line]
-        if errors:
-            raise RuntimeError("kicad-cli reported errors:\n" + "\n".join(errors))
-        nets = netlist_nets(out.read_text())
+        net, erc = Path(tmp) / "smoke.net", Path(tmp) / "smoke-erc.json"
+        nets = netlist_nets(_run(cli, ["sch", "export", "netlist", "-o", str(net), str(SCHEMATIC)], net))
+        errors = erc_errors(_run(cli, ["sch", "erc", "--format", "json", "--severity-all", "-o", str(erc),
+                                       str(SCHEMATIC)], erc))
     if nets != EXPECTED:
         raise RuntimeError(f"unexpected nets {nets}, wanted {EXPECTED}")
+    if errors != EXPECTED_ERC:
+        raise RuntimeError(f"unexpected ERC errors {errors}, wanted {EXPECTED_ERC}")

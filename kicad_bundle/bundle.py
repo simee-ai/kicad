@@ -5,6 +5,11 @@ import tarfile
 import time
 from pathlib import Path
 
+# The kifaces (KiCad's per-editor modules) kicad-cli loads for what simee runs: eeschema for every `sch`
+# command, and cvpcb for `sch erc`, whose footprint checks reach the footprint libraries through it.
+# Each platform names a kiface its own way: _<name>.kiface on macOS and Linux, _<name>.dll on Windows.
+KIFACES = ("eeschema", "cvpcb")
+
 
 def prune(tops: list[Path], keep: set[Path]) -> None:
     """Under each top dir delete every file not in keep, every symlink that doesn't lead to a kept

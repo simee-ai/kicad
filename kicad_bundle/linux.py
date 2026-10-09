@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from kicad_bundle import debian, elf, linux_build, sch_import, simee_source, smoke
-from kicad_bundle.bundle import archive
+from kicad_bundle.bundle import KIFACES, archive
 from kicad_bundle.cache import DEBIAN_SOURCES
 from kicad_bundle.closure import closure
 
@@ -27,7 +27,7 @@ PLATFORM = "linux/amd64"
 # The oldest host the bundle supports (glibc 2.39; the image's closure needs no newer symbols), bare,
 # so the smoke test also proves nothing is missing from lib/.
 SMOKE_IMAGE = "ubuntu:24.04"
-ROOTS = ("usr/bin/kicad-cli", "usr/bin/_eeschema.kiface")
+ROOTS = ("usr/bin/kicad-cli", *(f"usr/bin/_{k}.kiface" for k in KIFACES))
 # Data kicad-cli reads at startup (it logs an error without the API schema).
 DATA = ("usr/share/kicad/schemas",)
 # KiCad's own libraries (no Debian package owns them; the KiCad source covers them).
@@ -39,7 +39,7 @@ EXTRACT = (*ROOTS, "usr/lib/", "lib", "lib64", "etc/alternatives/", *(f"{d}/" fo
 
 NOTICE = """kicad-cli {version} for Linux x86_64, repackaged from the official kicad/kicad:{version} Docker image.{simee}
 
-KiCad (libexec/kicad-cli, libexec/_eeschema.kiface and lib/{kicad_libs}) is GPL-3.0-or-later. Its source is
+KiCad (libexec/kicad-cli, libexec/*.kiface and lib/{kicad_libs}) is GPL-3.0-or-later. Its source is
 kicad-{version}-source.tar.gz, attached to the same GitHub release.
 
 Every other file in lib/ comes unmodified from the Debian package listed below. Each package's
@@ -102,7 +102,7 @@ with its Debian libraries from simee-kicad commit {sha}."""
 
 
 def assemble(rootfs: Path, root: Path, version: str, simee_sha: str | None = None) -> set[tuple[str, str]]:
-    """root/{bin/kicad-cli (wrapper), libexec/ (kicad-cli + kiface), lib/ (closure), share/kicad/,
+    """root/{bin/kicad-cli (wrapper), libexec/ (kicad-cli + kifaces), lib/ (closure), share/kicad/,
     share/doc/<package>/copyright, THIRD-PARTY.txt}. Each library is stored under the DT_NEEDED
     name(s) the loader looks it up by. Returns the Debian (source, version)s the libraries come from."""
     names: dict[Path, set[str]] = defaultdict(set)

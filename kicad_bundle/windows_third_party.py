@@ -23,7 +23,7 @@ MSVC_TERMS = "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redis
 
 NOTICE = """kicad-cli {version} for Windows x86_64, repackaged from the official KiCad {version} installer.{simee}
 
-KiCad (bin/kicad-cli.exe, bin/_eeschema.dll and bin/ki*.dll) is GPL-3.0-or-later. Its source is
+KiCad (bin/kicad-cli.exe, bin/_*.dll and bin/ki*.dll) is GPL-3.0-or-later. Its source is
 kicad-{version}-source.tar.gz, attached to the same GitHub release.
 
 KiCad builds every other library with vcpkg, from the ports and versions its source pins
@@ -46,7 +46,7 @@ this kicad-cli needs, always use their own.
 """
 
 SIMEE = """
-KiCad's own files (bin/kicad-cli.exe, bin/_eeschema.dll and bin/ki*.dll) are KiCad {version}
+KiCad's own files (bin/kicad-cli.exe, bin/_*.dll and bin/ki*.dll) are KiCad {version}
 with simee's changes, built from simee-kicad commit {sha}
 with the MSVC version and vcpkg ports of the official build."""
 

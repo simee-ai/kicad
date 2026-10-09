@@ -3,7 +3,7 @@
 KiCad's Windows release is built by kicad-win-builder (build.ps1): MSVC, and vcpkg in manifest mode
 from the source tree's vcpkg.json and vcpkg-configuration.json, which pin every port's version. The
 branch keeps those files, so the same vcpkg tool commit builds the same ports, and KiCad is configured
-with build.ps1's options. Only KiCad's own files (kicad-cli.exe, _eeschema.dll, ki*.dll) are replaced;
+with build.ps1's options. Only KiCad's own files (kicad-cli.exe, the kifaces _*.dll, ki*.dll) are replaced;
 the third-party DLLs, their notices and their sources stay as windows.package made them. So our files
 must be linked by the MSVC version that linked the official ones (the bundle keeps KiCad's C++ runtime,
 which must be at least as new) and import nothing the official ones didn't.
@@ -19,6 +19,7 @@ from pathlib import Path
 import pefile
 
 from kicad_bundle import bundle, pe
+from kicad_bundle.bundle import KIFACES
 from kicad_bundle.cache import VCPKG_BINARIES
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 from kicad_bundle.windows_third_party import KICAD
@@ -31,8 +32,8 @@ TRIPLET = "x64-windows"
 # build.ps1's KiCad options, less translations (the bundle has none) and Sentry (KiCad's crash reports).
 CMAKE_FLAGS = ("-Wno-dev", "-DCMAKE_BUILD_TYPE=Release", "-DKICAD_BUILD_QA_TESTS=OFF", "-DKICAD_BUILD_I18N=OFF",
                "-DKICAD_WIN32_DPI_AWARE=ON", "-DKICAD_SCRIPTING_WXPYTHON=ON")
-# kicad-cli and the eeschema kiface; they pull in kicommon, kigal and kiapi.
-TARGETS = ("kicad-cli", "eeschema_kiface")
+# kicad-cli and the kifaces; they pull in kicommon, kigal, kiapi and kicad_3dsg.
+TARGETS = ("kicad-cli", *(f"{k}_kiface" for k in KIFACES))
 # KiCad's configure needs SWIG (pcbnew's Python bindings); build.ps1 puts this one on PATH.
 SWIG_URL = ("https://sourceforge.net/projects/swig/files/swigwin/swigwin-4.3.1/swigwin-4.3.1.zip/download"
             "?use_mirror=pilotfiber")
@@ -160,7 +161,7 @@ def _vcpkg(root: Path) -> Path:
 
 
 def build(src: Path, work: Path, cache: Path, version: str) -> Path:
-    """Build kicad-cli and the eeschema kiface from src (a source tarball) with MSVC version (the
+    """Build kicad-cli and the kifaces from src (a source tarball) with MSVC version (the
     official build's); returns the folder holding KiCad's binaries. vcpkg's builds of the ports are
     kept in <cache>/vcpkg-binaries (several GB), so a rebuild only compiles KiCad (about an hour)."""
     if os.name != "nt":

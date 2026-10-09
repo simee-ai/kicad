@@ -30,11 +30,12 @@ def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     for flag in ("-DKICAD_SCRIPTING_WXPYTHON=ON", "-DKICAD_USE_OCC=ON", "-DKICAD_SPICE=ON",
                  "-DKICAD_USE_CMAKE_FINDPROTOBUF=ON", "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_INSTALL_PREFIX=/usr"):
         assert flag in text
-    assert "ninja kicad-cli eeschema_kiface" in text
+    assert "ninja kicad-cli eeschema_kiface cvpcb_kiface" in text
+    assert "-name _cvpcb.kiface" in text  # copied out with the rest
 
 
 def _bundle(root: Path, libs: list[str]) -> None:
-    for rel in ("libexec/kicad-cli", "libexec/_eeschema.kiface", *(f"lib/{l}" for l in libs), "lib/libwx.so.0"):
+    for rel in ("libexec/kicad-cli", "libexec/_eeschema.kiface", "libexec/_cvpcb.kiface", *(f"lib/{l}" for l in libs), "lib/libwx.so.0"):
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text("official")
 
@@ -43,11 +44,12 @@ def test_overlay_replaces_kicads_own_files_only(tmp_path):
     root, built = tmp_path / "bundle", tmp_path / "built"
     _bundle(root, ["libkicommon.so.10.0.6", "libkigal.so.10.0.6"])
     built.mkdir()
-    for name in ("kicad-cli", "_eeschema.kiface", "libkicommon.so.10.0.6", "libkigal.so.10.0.6", "libkiapi.so.10.0.6"):
+    for name in ("kicad-cli", "_eeschema.kiface", "_cvpcb.kiface", "libkicommon.so.10.0.6", "libkigal.so.10.0.6",
+                 "libkiapi.so.10.0.6"):
         (built / name).write_text("simee")
     replaced = linux_build.overlay(root, built)
     assert sorted(replaced) == ["lib/libkicommon.so.10.0.6", "lib/libkigal.so.10.0.6",
-                                "libexec/_eeschema.kiface", "libexec/kicad-cli"]
+                                "libexec/_cvpcb.kiface", "libexec/_eeschema.kiface", "libexec/kicad-cli"]
     for rel in replaced:
         assert (root / rel).read_text() == "simee"
     assert (root / "lib/libwx.so.0").read_text() == "official"
@@ -58,7 +60,7 @@ def test_overlay_refuses_to_leave_an_official_kicad_file(tmp_path):
     root, built = tmp_path / "bundle", tmp_path / "built"
     _bundle(root, ["libkicommon.so.10.0.6", "libkigal.so.10.0.6"])
     built.mkdir()
-    for name in ("kicad-cli", "_eeschema.kiface", "libkicommon.so.10.0.6"):
+    for name in ("kicad-cli", "_eeschema.kiface", "_cvpcb.kiface", "libkicommon.so.10.0.6"):
         (built / name).write_text("simee")
     with pytest.raises(RuntimeError, match="libkigal.so.10.0.6"):
         linux_build.overlay(root, built)

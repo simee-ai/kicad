@@ -4,7 +4,7 @@ The official kicad/kicad image is plain Debian trixie with Debian's libraries (K
 Dockerfile.<x>-stable). So the branch is built on that very image, with Debian's archive as it was
 when the image was made (snapshot.debian.org) and every installed package held: the -dev packages
 are then those of the libraries the bundle ships, and the result links against exactly them. Only
-KiCad's own files (kicad-cli, the eeschema kiface, libki*) are replaced; the third-party closure,
+KiCad's own files (kicad-cli, the kifaces, libki*) are replaced; the third-party closure,
 its notices and its sources stay as linux.assemble made them.
 """
 
@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from kicad_bundle import bundle, debian
+from kicad_bundle.bundle import KIFACES
 
 # kicad-docker's build dependencies, less what only its QA run or library installs need.
 BUILD_DEPS = (
@@ -30,7 +31,8 @@ BUILD_DEPS = (
 CMAKE_FLAGS = ("-G Ninja -DCMAKE_BUILD_TYPE=Release -DKICAD_SCRIPTING_WXPYTHON=ON -DKICAD_USE_OCC=ON "
                "-DKICAD_SPICE=ON -DKICAD_BUILD_I18N=OFF -DCMAKE_INSTALL_PREFIX=/usr -DKICAD_USE_CMAKE_FINDPROTOBUF=ON")
 # The bundle's KiCad files: libexec/<binary> and lib/<library>.
-BINARIES = ("kicad-cli", "_eeschema.kiface")
+BINARIES = ("kicad-cli", *(f"_{k}.kiface" for k in KIFACES))
+NINJA_TARGETS = " ".join(("kicad-cli", *(f"{k}_kiface" for k in KIFACES)))
 KICAD_LIBS = "libki*"
 SOURCES = "dpkg-sources.txt"
 
@@ -40,7 +42,7 @@ def snapshot_stamp(when: float) -> str:
 
 
 def dockerfile(image: str, stamp: str) -> str:
-    """Build kicad-cli and the eeschema kiface (with the libki* they need) from kicad-src.tar.gz into
+    """Build kicad-cli and the kifaces (with the libki* they need) from kicad-src.tar.gz into
     /out, on image, with Debian's archive at stamp and the image's packages held."""
     snap = "deb [check-valid-until=no] https://snapshot.debian.org/archive"
     return f"""FROM {image}
@@ -54,9 +56,9 @@ RUN rm -f /etc/apt/sources.list.d/* && \\
 COPY kicad-src.tar.gz /src/
 RUN mkdir -p /src/kicad/build && tar -xzf /src/kicad-src.tar.gz -C /src/kicad --strip-components=1
 WORKDIR /src/kicad/build
-RUN cmake {CMAKE_FLAGS} .. && ninja kicad-cli eeschema_kiface
+RUN cmake {CMAKE_FLAGS} .. && ninja {NINJA_TARGETS}
 RUN mkdir /out && \\
-    find . \\( -name kicad-cli -o -name _eeschema.kiface -o -name '{KICAD_LIBS}.so.*' \\) -type f -exec cp {{}} /out/ \\; && \\
+    find . \\( {" -o ".join(f"-name {b}" for b in BINARIES)} -o -name '{KICAD_LIBS}.so.*' \\) -type f -exec cp {{}} /out/ \\; && \\
     strip --strip-unneeded /out/* && \\
     dpkg-query -W -f '${{Package}}\\t${{source:Package}}\\t${{source:Version}}\\n' > /out/{SOURCES}
 """

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from kicad_bundle import pe, sch_import, simee_source, smoke, third_party, windows_build, windows_third_party
-from kicad_bundle.bundle import archive
+from kicad_bundle.bundle import KIFACES, archive
 from kicad_bundle.closure import closure
 from kicad_bundle.release import cached_asset, published_at
 
@@ -42,8 +42,9 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
             break
     else:
         raise RuntimeError("kicad-cli.exe not found in the installer")
-    kiface = next(cli.parent.glob("_eeschema*"), None) or next(extracted.rglob("_eeschema*"))
-    keep = closure([cli, kiface], deps=pe.deps, resolve=pe.make_resolver(sorted({cli.parent, kiface.parent})))
+    kifaces = [next(cli.parent.glob(f"_{k}.dll"), None) or next(extracted.rglob(f"_{k}.dll")) for k in KIFACES]
+    keep = closure([cli, *kifaces], deps=pe.deps,
+                   resolve=pe.make_resolver(sorted({cli.parent, *(k.parent for k in kifaces)})))
 
     root = work / f"kicad-cli-{version}-windows-{arch}"
     if root.exists():
