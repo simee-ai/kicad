@@ -83,6 +83,25 @@ def test_collect_finds_every_librarys_component_per_architecture(tmp_path, build
         "arm64": [("glib", "arm64_sonoma")], "x86_64": [("glib", "sonoma")]}
 
 
+def test_a_library_homebrew_built_from_source_names_the_bottle_standing_in_for_it(tmp_path, builders, monkeypatch):
+    def match(name, arch, libs, until, cache, fetch):
+        if arch == "arm64":
+            return Bottle("glib", "2.88.3", "arm64_sonoma", "a" * 64, "c0ffee0123456789", tmp_path / "info")
+        return Bottle("glib", "2.88.3", "arm64_sonoma", "a" * 64, "c0ffee0123456789", tmp_path / "info",
+                      built_for="sonoma")
+
+    monkeypatch.setattr(homebrew, "match", match)
+    contents = tmp_path / "full/KiCad.app/Contents"
+    third = macos_third_party.collect(contents, _app(contents), "10.0.6", UNTIL, tmp_path / "cache", fetch=None)
+    assert [(c.name, c.version) for c in third.components if c.name == "glib"] == [("glib", "2.88.3")]
+    assert third.rows["x86_64"][1] == ("Frameworks/libglib-2.0.0.dylib", "glib 2.88.3",
+                                       "Homebrew sonoma keg built from source, formula and source as in its "
+                                       "arm64_sonoma bottle, homebrew-core c0ffee0123")
+    root = tmp_path / "kicad-cli-10.0.6-macos-x86_64"
+    macos_third_party.write_notices(third, root, "x86_64", "10.0.6", "kicad-cli-10.0.6-macos-sources.tar")
+    assert "built from source" in (root / "THIRD-PARTY.txt").read_text().split("file\t")[0]
+
+
 def test_collect_fails_on_a_library_of_unknown_provenance(tmp_path, builders):
     contents = tmp_path / "KiCad.app/Contents"
     with pytest.raises(RuntimeError, match="libmystery.1.dylib"):

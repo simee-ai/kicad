@@ -170,6 +170,41 @@ def test_match_fails_when_no_bottle_holds_the_library(tmp_path):
         homebrew.match("glib", "arm64", libs, "2026-08-29T15:43:28Z", tmp_path, FakeWeb())
 
 
+def _no_intel_bottles() -> FakeWeb:
+    """Homebrew stopped bottling for Intel Macs in September 2026: the formulae have no sonoma bottle."""
+    web = FakeWeb()
+    web.rb = {c: rb.replace(f'    sha256 sonoma:       "{"0" * 64}"\n', "") for c, rb in web.rb.items()}
+    return web
+
+
+def test_a_library_no_bottle_holds_comes_from_its_keg_built_from_source(tmp_path):
+    # KiCad 10.0.7's x86_64 openssl@3: Homebrew built 3.6.5 from source on KiCad's Intel build machine,
+    # which left the keg's path in the library (OpenSSL's compiled-in ENGINESDIR)
+    web = _no_intel_bottles()
+    libs = {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (14, 0),
+                                         frozenset({("glib", "2.88.3"), ("pcre2", "10.47")}))}
+    bottle = homebrew.match("glib", "x86_64", libs, "2026-08-29T15:43:28Z", tmp_path / "bottles", web)
+    # the same keg version's bottle for the other architecture stands in for its formula, source and headers
+    assert (bottle.version, bottle.tag, bottle.built_for, bottle.commit) == ("2.88.3", "arm64_sonoma", "sonoma", "c1")
+    assert bottle.sha256 == hashlib.sha256(_bottle("2.88.3", OLD)).hexdigest()
+    files = dict(homebrew.sources(bottle, tmp_path / "sources", web))
+    assert files["glib-2.88.3.tar.xz"].read_bytes() == SOURCE
+    assert files["patches/02-hardcoded-paths.diff"].read_bytes() == LOCAL_PATCH
+
+
+def test_a_library_no_bottle_holds_that_names_no_keg_fails(tmp_path):
+    libs = {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (14, 0))}
+    with pytest.raises(RuntimeError, match="no sonoma bottle .* name no glib keg"):
+        homebrew.match("glib", "x86_64", libs, "2026-08-29T15:43:28Z", tmp_path, _no_intel_bottles())
+
+
+def test_a_keg_built_from_source_whose_version_no_bottle_has_fails(tmp_path):
+    libs = {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (14, 0),
+                                         frozenset({("glib", "2.87.0")}))}
+    with pytest.raises(RuntimeError, match="glib 2.87.0 .*built from source.* no bottle of that version"):
+        homebrew.match("glib", "x86_64", libs, "2026-08-29T15:43:28Z", tmp_path, _no_intel_bottles())
+
+
 def test_sources_are_the_sbom_archive_the_patches_and_the_formula(tmp_path):
     web = FakeWeb()
     bottle = homebrew.match("glib", "arm64", {"libglib-2.0.0.dylib": Slice(OLD, (14, 0))},

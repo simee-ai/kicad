@@ -23,8 +23,9 @@ NOTICE = """kicad-cli {version} for macOS {arch}, {origin}
 {kicad}
 
 Every other library comes unmodified from the component listed below: a Homebrew bottle (the one
-holding a file with the library's Mach-O UUID), or what KiCad's macOS builder, kicad-mac-builder,
-builds itself. Each component's licence files are in KiCad.app/Contents/Resources/Licenses/<component>/.
+holding a file with the library's Mach-O UUID), a Homebrew keg built from source on KiCad's build
+machine where no bottle holds the library (its formula and source are those of the same version's
+bottle named), or what KiCad's macOS builder, kicad-mac-builder, builds itself. Each component's licence files are in KiCad.app/Contents/Resources/Licenses/<component>/.
 The complete corresponding source of each component, with Homebrew's formula and patches, is in
 {sources}, attached to the same release.
 {credits}
@@ -127,7 +128,9 @@ def collect(contents: Path, files: Iterable[Path], version: str, until: str, cac
             if key not in components:
                 srcs = tuple(homebrew.sources(bottle, cache / MACOS_SOURCES, fetch))
                 components[key] = Component(name, bottle.version, f"{name}-{bottle.version}", srcs[0][1], srcs)
-            origin = f"Homebrew {bottle.tag} bottle, homebrew-core {bottle.commit[:10]}"
+            ref = f"{bottle.tag} bottle, homebrew-core {bottle.commit[:10]}"
+            origin = (f"Homebrew {bottle.built_for} keg built from source, formula and source as in its {ref}"
+                      if bottle.built_for else f"Homebrew {ref}")
             rows[arch] += [(str(f.relative_to(contents)), f"{name} {bottle.version}", origin) for f in libs]
     if built:
         pins = macbuilder.pins(version, until, fetch)
