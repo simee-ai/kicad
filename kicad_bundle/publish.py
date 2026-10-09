@@ -11,10 +11,11 @@ import re
 from pathlib import Path
 
 
-def next_tag(version: str, existing: list[str]) -> str:
-    """cli-<kicad version>-<n>: n counts our builds of that KiCad release."""
-    builds = [int(m.group(1)) for t in existing if (m := re.fullmatch(rf"cli-{re.escape(version)}-(\d+)", t))]
-    return f"cli-{version}-{max(builds, default=0) + 1}"
+def next_tag(version: str, existing: list[str], prefix: str = "cli") -> str:
+    """<prefix>-<version>-<n>: n counts our builds of that version (cli: kicad-cli of a KiCad release)."""
+    pattern = rf"{re.escape(prefix)}-{re.escape(version)}-(\d+)"
+    builds = [int(m.group(1)) for t in existing if (m := re.fullmatch(pattern, t))]
+    return f"{prefix}-{version}-{max(builds, default=0) + 1}"
 
 
 def sha256sums(dist: Path) -> str:

@@ -41,6 +41,15 @@ def test_packages_reads_installed_packages_and_their_source_version():
     }
 
 
+def test_packages_read_the_sources_a_package_was_built_using():
+    """A package built from another package's source (Debian's Built-Using) needs that source too."""
+    pkgs = debian.packages("Package: g++-mingw-w64-x86-64-win32\nStatus: install ok installed\n"
+                           "Source: gcc-mingw-w64 (25.2)\nVersion: 12.2.0-14+25.2\n"
+                           "Built-Using: gcc-12 (= 12.2.0-14), mingw-w64 (= 10.0.0-3)\n")
+    assert pkgs["g++-mingw-w64-x86-64-win32"].built_using == (("gcc-12", "12.2.0-14"), ("mingw-w64", "10.0.0-3"))
+    assert debian.packages(STATUS)["libcairo2"].built_using == ()
+
+
 def _dpkg(rootfs):
     info = rootfs / debian.DPKG_INFO
     info.mkdir(parents=True)
