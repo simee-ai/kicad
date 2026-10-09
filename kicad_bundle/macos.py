@@ -9,11 +9,11 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from kicad_bundle import macbuilder, macho, macos_build, macos_third_party, sch_import, simee_source, smoke, third_party
+from kicad_bundle import (macbuilder, macho, macos_build, macos_third_party, release, sch_import, simee_source, smoke,
+                          third_party)
 from kicad_bundle.bundle import KIFACES, archive, copy_tree, prune, remove
 from kicad_bundle.closure import closure
 from kicad_bundle.fetch import fetch_url
-from kicad_bundle.release import cached_asset, published_at
 
 ARCHES = ("arm64", "x86_64")
 # kicad-cli and the kifaces it loads; they link the rest.
@@ -77,7 +77,9 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         print(f"  building KiCad's own files from simee-kicad {sha} ({simee_ref})")
         kicad_source = simee_source.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
         src = macos_build.unpack(kicad_source, work / "kicad-src")
-    dmg = cached_asset(version, "kicad-unified-universal-*.dmg", cache)
+    found = release.installer(version, "kicad-unified-universal-*.dmg",
+                              f"osx/stable/kicad-unified-universal-{version}.dmg")
+    dmg = release.cached(found, version, cache)
     full = work / "full" / "KiCad.app"
     if full.exists():
         remove(full.parent)
@@ -92,12 +94,12 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
     if missing:
         raise RuntimeError(f"unresolved libraries: {missing}")
     third = macos_third_party.collect(contents.resolve(), sorted({k.resolve() for k in keep}), version,
-                                      published_at(version), cache, archs=ARCHES)
+                                      found.published_at, cache, archs=ARCHES)
     sources = f"kicad-cli-{version}-macos-sources.tar"
     own = sorted(str(k.relative_to(contents.resolve())) for k in {k.resolve() for k in keep}
                  if macos_third_party.KICAD.fullmatch(k.name))
     if sha:
-        until = published_at(version)
+        until = found.published_at
         pins = macbuilder.pins(version, until, fetch_url)
 
     built = []

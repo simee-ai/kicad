@@ -59,6 +59,25 @@ def test_pins_come_from_the_builders_release_branch_as_it_was_at_the_release():
         GitSource("https://git.code.sf.net/p/ngspice/ngspice", "ngspice-45.2"), "3.9.13", WX_CMAKE)
 
 
+def test_a_release_candidate_from_before_its_release_branch_takes_the_pins_from_master():
+    # kicad-mac-builder branched 10.0 in March 2026, after 10.0.0-rc1: the RC was built from master
+    files = {"kicad-mac-builder/wx.cmake": WX_CMAKE, "kicad-mac-builder/ngspice.cmake": NGSPICE_CMAKE,
+             "kicad-mac-builder/CMakeLists.txt": LISTS}
+
+    def fetch(url: str) -> bytes:
+        kmb = f"{API}/kicad%2Fpackaging%2Fkicad-mac-builder/repository"
+        if url == f"{kmb}/commits?ref_name=11.0&until=2027-02-12T22%3A27%3A56Z&per_page=1":
+            return b"[]"  # no such branch yet
+        if url == f"{kmb}/commits?ref_name=master&until=2027-02-12T22%3A27%3A56Z&per_page=1":
+            return json.dumps([{"id": "kmb-master"}]).encode()
+        for path, text in files.items():
+            if url == f"{kmb}/files/{path.replace('/', '%2F')}/raw?ref=kmb-master":
+                return text.encode()
+        raise AssertionError(url)
+
+    assert macbuilder.pins("11.0.0-rc1", "2027-02-12T22:27:56Z", fetch).builder == "kmb-master"
+
+
 def test_commit_of_a_tag_is_exact_and_of_a_gitlab_branch_is_its_head_at_the_release():
     refs = {"https://git.code.sf.net/p/ngspice/ngspice": "aaa\trefs/tags/ngspice-45.2\nbbb\trefs/tags/ngspice-45.2^{}\n",
             "https://gitlab.com/kicad/code/wxWidgets.git": "ccc\trefs/heads/kicad/macos-wx-3.2\n"}

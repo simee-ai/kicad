@@ -7,10 +7,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from kicad_bundle import pe, sch_import, simee_source, smoke, third_party, windows_build, windows_third_party
+from kicad_bundle import pe, release, sch_import, simee_source, smoke, third_party, windows_build, windows_third_party
 from kicad_bundle.bundle import KIFACES, archive
 from kicad_bundle.closure import closure
-from kicad_bundle.release import cached_asset, published_at
 
 # Data kicad-cli reads at startup (it logs an error without the API schema).
 DATA = ("share/kicad/schemas",)
@@ -28,7 +27,9 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
     """The bundle and its third-party sources. With simee_ref (a simee-kicad branch such as
     simee/10.0.6), KiCad's own files are built from it, and its source tarball is one of the results."""
     sha = simee_source.resolve_ref(simee_ref) if simee_ref else None
-    installer = cached_asset(version, f"kicad-{version}-{arch}.exe", cache)
+    name = f"kicad-{version}-{arch}.exe"
+    found = release.installer(version, name, f"windows/stable/{name}")
+    installer = release.cached(found, version, cache)
     extracted = work / f"windows-{arch}-installer"
     # Everything kicad-cli needs is in the installer's bin/ plus DATA (0.5 GB vs 4.5 GB for all of
     # it); fall back to a full extraction if a future installer moves it.
@@ -59,14 +60,15 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
     print(f"  {len(keep)} files from the installer")
     sources = f"{root.name}-sources.tar"
     third = windows_third_party.collect(root, [root / f.relative_to(extracted) for f in keep], version,
-                                        published_at(version)[:4], cache)
+                                        found.published_at[:4], cache)
     windows_third_party.write_notices(third, root, version, sources, sha)
     bundled_cli = root / cli.relative_to(extracted)
     extra = []
     if sha:
         print(f"  building KiCad's own files from simee-kicad {sha} ({simee_ref})")
         src = simee_source.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
-        built = windows_build.build(src, work, cache, windows_build.toolset(bundled_cli))
+        built = windows_build.build(src, work, cache, windows_build.toolset(bundled_cli),
+                                    windows_build.vcpkg_commit(found.published_at))
         print("  replaced " + ", ".join(windows_build.overlay(bundled_cli.parent, built)))
         extra.append(src)
 

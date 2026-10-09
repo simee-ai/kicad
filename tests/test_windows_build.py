@@ -9,6 +9,20 @@ from tiny_pe import make_pe
 THIRD_PARTY = ("wxbase332u_vc_x64_custom.dll", "libprotobuf.dll", "msvcp140.dll")
 
 
+def test_vcpkg_commit_is_the_one_build_ps1_pinned_when_kicad_published_the_installer():
+    build_ps1 = '$SentryDsn = ""\n)\n\n$vcpkgCommit = "66c0373dc7fca549e5803087b9487edfe3aca0a1";\n$cmakeVersion = "3.31.10"\n'
+
+    def fetch(url: str) -> bytes:
+        kwb = "https://gitlab.com/api/v4/projects/kicad%2Fpackaging%2Fkicad-win-builder/repository"
+        if url == f"{kwb}/commits?ref_name=master&until=2026-10-02T23%3A06%3A15Z&per_page=1":
+            return b'[{"id": "kwb1"}]'
+        if url == f"{kwb}/files/build.ps1/raw?ref=kwb1":
+            return build_ps1.encode()
+        raise AssertionError(url)
+
+    assert windows_build.vcpkg_commit("2026-10-02T23:06:15Z", fetch) == "66c0373dc7fca549e5803087b9487edfe3aca0a1"
+
+
 def _official(bin_dir: Path) -> None:
     for name in ("kicad-cli.exe", "_eeschema.dll", "kicommon.dll", "kigal.dll", "kiapi.dll", *THIRD_PARTY):
         make_pe(bin_dir / name)
@@ -137,7 +151,7 @@ def test_built_files_are_found_once_each_outside_vcpkgs_tree(tmp_path):
 @pytest.mark.skipif(os.name == "nt", reason="the build itself runs on Windows")
 def test_build_needs_windows(tmp_path):
     with pytest.raises(RuntimeError, match="Windows"):
-        windows_build.build(tmp_path / "src.tar.gz", tmp_path, tmp_path / "cache", "14.44")
+        windows_build.build(tmp_path / "src.tar.gz", tmp_path, tmp_path / "cache", "14.44", "66c0373")
 
 
 def test_swig_is_kicad_win_builders_swigwin_checked_and_unpacked(tmp_path):
