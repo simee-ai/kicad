@@ -94,6 +94,24 @@ def test_overlay_refuses_a_dll_the_official_build_did_not_need(tmp_path, monkeyp
     assert "api-ms-win" not in str(err.value)  # ...but API sets, which Windows resolves itself (SDK dependent)
 
 
+def test_overlay_accepts_a_dll_another_official_file_imports(tmp_path, monkeypatch):
+    # The official _cvpcb.dll reaches Windows' kernel only through API sets, ours through KERNEL32.dll,
+    # which the official _eeschema.dll imports too: the bundle already relies on it (simee-kicad#7).
+    bin_dir, built = tmp_path / "bundle/bin", tmp_path / "built"
+    _official(bin_dir)
+    make_pe(bin_dir / "_cvpcb.dll")
+    _built(built, names=("kicad-cli.exe", "_eeschema.dll", "_cvpcb.dll", "kicommon.dll", "kigal.dll", "kiapi.dll"))
+    official = {"_cvpcb.dll": ["api-ms-win-core-file-l1-1-0.dll", "kicommon.dll"],
+                "_eeschema.dll": ["kernel32.dll", "kicommon.dll"]}
+    simee = {"_cvpcb.dll": ["KERNEL32.dll", "kicommon.dll"]}
+
+    def deps(path: Path) -> list[str]:
+        return (simee if path.parent == built else official).get(path.name, [])
+
+    monkeypatch.setattr(windows_build.pe, "deps", deps)
+    assert "_cvpcb.dll" in windows_build.overlay(bin_dir, built)
+
+
 def test_overlay_accepts_new_windows_api_sets(tmp_path, monkeypatch):
     bin_dir, built = tmp_path / "bundle/bin", tmp_path / "built"
     _official(bin_dir)

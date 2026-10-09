@@ -63,18 +63,21 @@ def parse_env(text: str) -> dict[str, str]:
 
 def overlay(bin_dir: Path, built: Path) -> list[str]:
     """Replace every KiCad file in bin_dir with built's; returns their names. Refuses to leave any
-    official, or to ship one linked by another MSVC or importing a DLL the official one didn't (Windows
-API sets, api-ms-win-*, aside: Windows resolves them itself, which ones a file names depends on the
-Windows SDK, and the smoke test proves they load)."""
-    names = sorted(p.name for p in bin_dir.iterdir() if p.is_file() and KICAD.fullmatch(p.name))
+    official, or to ship one linked by another MSVC or importing a DLL no official file in bin_dir
+imports (one the bundle lacks, or a Windows DLL it never relied on). Windows API sets, api-ms-win-*,
+aside: Windows resolves them itself, which ones a file names depends on the Windows SDK (the official
+_cvpcb.dll reaches the kernel only through them, ours through KERNEL32.dll), and the smoke test
+proves they load."""
+    files = sorted(p for p in bin_dir.iterdir() if p.is_file())
+    names = [p.name for p in files if KICAD.fullmatch(p.name)]
+    official = {d.lower() for p in files if p.suffix.lower() in (".exe", ".dll") for d in pe.deps(p)}
     problems = []
     for name in (n for n in names if (built / n).is_file()):
         ours, theirs = toolset(built / name), toolset(bin_dir / name)
         if ours != theirs:
             problems.append(f"{name} was linked by MSVC {ours}, the official one by {theirs}")
-        official = {d.lower() for d in pe.deps(bin_dir / name)}
         if added := [d for d in pe.deps(built / name) if d.lower() not in official and not pe.UCRT.fullmatch(d)]:
-            problems.append(f"{name} imports {', '.join(added)}, which the official one doesn't")
+            problems.append(f"{name} imports {', '.join(added)}, which no official file does")
     if problems:
         raise RuntimeError("the simee build doesn't match the official one:\n  " + "\n  ".join(problems))
     return bundle.overlay(bin_dir, names, built)
