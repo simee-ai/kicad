@@ -81,3 +81,21 @@ def test_cli_passes_simee_ref_to_the_packager(monkeypatch, tmp_path, platform):
     monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: seen.update(k) or [])
     cli.main(["--kicad-version", "10.0.6", "--platform", platform, "--simee-ref", "simee/10.0.6", "--cache", str(tmp_path)])
     assert seen == {"simee_ref": "simee/10.0.6"}
+
+
+def test_cli_passes_a_base_image_to_the_linux_packager(monkeypatch, tmp_path):
+    from kicad_bundle import cli
+    seen = {}
+    monkeypatch.setitem(cli.PACKAGERS, "linux", lambda *a, **k: seen.update(k) or [])
+    cli.main(["--kicad-version", "11.0.0-rc1", "--platform", "linux", "--simee-ref", "rehearsal/11.0.0-rc1",
+              "--base-image", "kicad/kicad:10.0.6", "--cache", str(tmp_path)])
+    assert seen == {"simee_ref": "rehearsal/11.0.0-rc1", "base_image": "kicad/kicad:10.0.6"}
+
+
+@pytest.mark.parametrize("platform", ["macos", "windows"])
+def test_cli_refuses_a_base_image_outside_linux(monkeypatch, tmp_path, platform):
+    from kicad_bundle import cli
+    monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: pytest.fail("packaged"))
+    with pytest.raises(SystemExit):
+        cli.main(["--kicad-version", "11.0.0-rc1", "--platform", platform, "--simee-ref", "x",
+                  "--base-image", "kicad/kicad:10.0.6", "--cache", str(tmp_path)])
