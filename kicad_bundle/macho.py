@@ -1,5 +1,6 @@
 """Mach-O helpers: dependency listing, bundle-relative resolution, thinning, ad hoc signing."""
 
+import re
 import struct
 import subprocess
 import uuid
@@ -64,13 +65,17 @@ def make_resolver(contents: Path):
 class Slice:
     uuid: str  # LC_UUID: set by the linker, kept by install_name_tool, lipo and codesign
     minos: tuple[int, int]  # the macOS a binary was built for; Homebrew builds bottles for the OS it runs on
+    # (formula, keg version) of each Homebrew keg path the image names (Cellar/<formula>/<version>/, in
+    # directories compiled in): tells which keg a library no bottle holds was built from source as
+    kegs: frozenset[tuple[str, str]] = frozenset()
 
 
+KEG = re.compile(rb"/Cellar/([\w@+.-]+)/(\d[\w+.-]*)/")
 ARCHS = {0x0100000C: "arm64", 0x01000007: "x86_64"}
 LC_UUID, LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX = 0x1B, 0x32, 0x24
 
 
-def _slice(data: bytes, offset: int) -> tuple[str, Slice] | None:
+def _slice(data: bytes, offset: int, length: int) -> tuple[str, Slice] | None:
     magic, cpu, _, _, ncmds = struct.unpack_from("<IiiII", data, offset)
     if magic != 0xFEEDFACF or cpu not in ARCHS:
         return None
@@ -83,17 +88,29 @@ def _slice(data: bytes, offset: int) -> tuple[str, Slice] | None:
             version = struct.unpack_from("<I", data, at + (12 if cmd == LC_BUILD_VERSION else 8))[0]
             minos = (version >> 16, (version >> 8) & 0xFF)
         at += size
-    return ARCHS[cpu], Slice(found, minos)
+    kegs = frozenset((f.decode(), v.decode()) for f, v in KEG.findall(data, offset, offset + length))
+    return ARCHS[cpu], Slice(found, minos, kegs)
+
+
+def _ranges(data: bytes) -> list[tuple[int, int]]:
+    """(offset, length) of each architecture's image in a thin or fat Mach-O file."""
+    if data[:4] == b"\xca\xfe\xba\xbe":
+        count = struct.unpack_from(">I", data, 4)[0]
+        return [struct.unpack_from(">iiII", data, 8 + 20 * i)[2:] for i in range(count)]
+    return [(0, len(data))]
 
 
 def slices(data: bytes) -> dict[str, Slice]:
-    """Each architecture of a 64-bit Mach-O image (thin or fat) -> its UUID and minimum macOS."""
-    if data[:4] == b"\xca\xfe\xba\xbe":
-        count = struct.unpack_from(">I", data, 4)[0]
-        offsets = [struct.unpack_from(">iiI", data, 8 + 20 * i)[2] for i in range(count)]
-    else:
-        offsets = [0]
-    return dict(s for o in offsets if len(data) >= o + 32 and (s := _slice(data, o)))
+    """Each architecture of a 64-bit Mach-O image (thin or fat) -> its UUID, minimum macOS and kegs."""
+    return dict(s for o, length in _ranges(data) if len(data) >= o + 32 and (s := _slice(data, o, length)))
+
+
+def extract(data: bytes, arch: str) -> bytes:
+    """One architecture's image of a thin or fat Mach-O file, as `lipo -thin` writes it."""
+    for o, length in _ranges(data):
+        if len(data) >= o + 32 and (s := _slice(data, o, length)) and s[0] == arch:
+            return data[o:o + length]
+    raise RuntimeError(f"no {arch} image in this Mach-O file")
 
 
 def is_macho(path: Path) -> bool:

@@ -2,7 +2,9 @@
 bottles (relinked and re-signed, which keeps each Mach-O UUID). A library's bottle is found by walking
 its formula's homebrew-core history back from the KiCad release until a bottle for the macOS it was
 built for holds a file with the same UUID; that bottle's SBOM names the exact source archive, and its
-formula (in the bottle's .brew/) the patches Homebrew applied."""
+formula (in the bottle's .brew/) the patches Homebrew applied. A keg Homebrew built from source on
+KiCad's build machine (no bottle for its macOS, as for Intel Macs since September 2026) takes them from
+the same version's bottle for another tag (_from_source)."""
 
 import hashlib
 import io
@@ -10,8 +12,9 @@ import json
 import re
 import tarfile
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Callable
 
 from kicad_bundle import macho
 from kicad_bundle.fetch import Fetch, cached_file, write_atomically
@@ -68,6 +71,9 @@ class Bottle:
     sha256: str
     commit: str  # the homebrew-core commit that added this bottle (its formula built it)
     info: Path  # cached: uuids.json, the formula it was built from, its SBOM
+    # Set when no bottle holds the libraries: Homebrew built this keg version from source for that tag
+    # (see _from_source), and this bottle, the same keg version's for another tag, stands in for it.
+    built_for: str | None = None
 
 
 def formula(name: str) -> str | None:
@@ -182,34 +188,74 @@ def _bottle_info(name: str, sha256: str, cache: Path, fetch: Fetch) -> Path:
     return info
 
 
+def _walk(name: str, until: str, cache: Path, fetch: Fetch, tags: Callable[[str, dict[str, str]], list[str]],
+          accept: Callable[[Path], bool]) -> tuple[Bottle | None, int]:
+    """Walk the formula's history back from until, trying the bottles of tags(formula text, its bottle
+    shas) at each commit, until accept(bottle info) holds; returns that bottle at the commit that added
+    it (None if none did) and how many bottles were tried. Later commits may still name it (a version
+    bump keeps the old bottle block until Homebrew's separate "update bottle" commit) while their
+    formula and patch files already belong to the next version."""
+    tried, found = [], None
+    for commit, rb in _history(name, until, fetch):
+        shas = bottle_shas(rb)
+        if found:
+            if shas.get(found.tag) != found.sha256:
+                break
+            found = replace(found, commit=commit)
+            continue
+        for tag in tags(rb, shas):
+            if (sha := shas[tag]) in tried or len(tried) == MAX_BOTTLES:
+                continue
+            tried.append(sha)
+            info = _bottle_info(name, sha, cache, fetch)
+            if accept(info):
+                found = Bottle(name, (info / "version").read_text(), tag, sha, commit, info)
+                break
+        if not found and len(tried) == MAX_BOTTLES:
+            break
+    return found, len(tried)
+
+
+def _from_source(name: str, tag: str, libs: dict[str, Slice], until: str, cache: Path, fetch: Fetch,
+                 tried: int) -> Bottle:
+    """For libraries no bottle holds: Homebrew built their keg from source (no bottle for tag, e.g. on an
+    Intel Mac since Homebrew stopped bottling for them in September 2026), which left the keg's path
+    (Cellar/<formula>/<version>/) in them. The newest bottle of that keg version for another tag (the
+    other architecture's first) stands in: same formula and source, and the same headers."""
+    versions = {v for s in libs.values() for f, v in s.kegs if f == name}
+    if len(versions) != 1:
+        kegs = f"{len(versions)} {name} kegs {sorted(versions)}" if versions else f"no {name} keg"
+        raise RuntimeError(f"{name}: no {tag} bottle before {until} holds {sorted(libs)} (tried {tried}), and they "
+                           f"name {kegs} (Cellar/{name}/<version>/) to tell which one Homebrew built from source, "
+                           f"so their source is unknown")
+    version = versions.pop()
+    twin = tag.removeprefix("arm64_") if tag.startswith("arm64_") else f"arm64_{tag}"
+
+    def tags(rb: str, shas: dict[str, str]) -> list[str]:
+        if version.split("_")[0] not in rb:  # another version's formula: its bottles aren't that version
+            return []
+        others = sorted(t for t in shas if t not in (tag, twin) and not t.endswith("_linux"))
+        return [t for t in (tag, twin, *others) if t in shas]
+
+    found, standins = _walk(name, until, cache, fetch, tags, lambda info: (info / "version").read_text() == version)
+    if found:
+        return replace(found, built_for=tag)
+    raise RuntimeError(f"{name} {version} in {sorted(libs)} was built from source (no {tag} bottle holds them), "
+                       f"but there is no bottle of that version before {until} for any macOS (tried {standins}) "
+                       f"to take its formula and headers from")
+
+
 def match(name: str, arch: str, libs: dict[str, Slice], until: str, cache: Path, fetch: Fetch) -> Bottle:
     """The bottle of formula name whose files have the UUIDs of libs (file name -> its arch slice), at
-    the commit that added it. Later commits may still name it (a version bump keeps the old bottle
-    block until Homebrew's separate "update bottle" commit) while their formula and patch files
-    already belong to the next version."""
+    the commit that added it; for libraries no bottle holds, the keg they were built from source as
+    (_from_source)."""
     tags = {bottle_tag(arch, s.minos) for s in libs.values()}
     if len(tags) != 1:
         raise RuntimeError(f"{name}: {sorted(libs)} were built for different macOS versions: {sorted(tags)}")
-    tag, tried, found = tags.pop(), [], None
-    for commit, rb in _history(name, until, fetch):
-        sha = bottle_shas(rb).get(tag)
-        if found:
-            if sha != found.sha256:
-                return found
-            found = Bottle(name, found.version, tag, sha, commit, found.info)
-            continue
-        if sha is None or sha in tried:
-            continue
-        if len(tried) == MAX_BOTTLES:
-            break
-        tried.append(sha)
-        info = _bottle_info(name, sha, cache, fetch)
-        if {s.uuid for s in libs.values()} <= json.loads((info / "uuids.json").read_text()).keys():
-            found = Bottle(name, (info / "version").read_text(), tag, sha, commit, info)
-    if found:
-        return found
-    raise RuntimeError(f"{name}: no {tag} bottle before {until} holds {sorted(libs)} "
-                       f"(tried {len(tried)}), so its source is unknown")
+    tag, uuids = tags.pop(), {s.uuid for s in libs.values()}
+    found, tried = _walk(name, until, cache, fetch, lambda rb, shas: [tag] if tag in shas else [],
+                         lambda info: uuids <= json.loads((info / "uuids.json").read_text()).keys())
+    return found or _from_source(name, tag, libs, until, cache, fetch, tried)
 
 
 def sources(bottle: Bottle, cache: Path, fetch: Fetch) -> list[tuple[str, Path]]:

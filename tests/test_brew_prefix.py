@@ -1,8 +1,11 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
+import tiny_macho
 from kicad_bundle.brew_prefix import (default_prefix, keg_only, link, placeholder_changes, relocate_text,
-                                      wrap_config_tool)
+                                      use_libraries, wrap_config_tool)
 from kicad_bundle.bundle import remove
 
 ROOT = Path("/b")
@@ -45,6 +48,28 @@ def test_link_merges_kegs_into_the_prefix_like_brew_link(tmp_path):
     assert (tmp_path / "lib/pkgconfig/pixman-1.pc").read_text() == "pixman"
     assert (tmp_path / "lib/cmake/Boost-1.90.0/BoostConfig.cmake").exists()
     assert not (boost / "lib/pkgconfig").exists()  # linking never writes into a keg
+
+
+def test_a_keg_built_from_source_gets_the_official_libraries_in_its_stand_in_bottle(tmp_path):
+    # x86_64 openssl@3 3.6.5: Homebrew built it from source, so the arm64 bottle of 3.6.5 is poured for
+    # its headers and pkg-config files, and its libraries are swapped for the official app's own
+    keg = tmp_path / "Cellar/openssl@3/3.6.5"
+    (keg / "lib/pkgconfig").mkdir(parents=True)
+    (keg / "lib/libssl.3.dylib").write_bytes(tiny_macho.thin("arm64", "11111111-0000-0000-0000-000000000000"))
+    (keg / "lib/libssl.dylib").symlink_to("libssl.3.dylib")
+    (keg / "lib/libssl.a").write_bytes(b"!<arch>\n")
+    (keg / "lib/pkgconfig/libssl.pc").write_text("libdir=x")
+    frameworks = tmp_path / "KiCad.app/Contents/Frameworks"
+    frameworks.mkdir(parents=True)
+    intel = tiny_macho.thin("x86_64", "22222222-0000-0000-0000-000000000000")
+    (frameworks / "libssl.3.dylib").write_bytes(
+        tiny_macho.fat(("x86_64", intel), ("arm64", tiny_macho.thin("arm64", "33333333-0000-0000-0000-000000000000"))))
+    assert use_libraries(keg, frameworks, "x86_64") == ["libssl.3.dylib"]
+    assert (keg / "lib/libssl.3.dylib").read_bytes() == intel
+    assert (keg / "lib/libssl.dylib").is_symlink()
+    assert (keg / "lib/libssl.a").read_bytes() == b"!<arch>\n"
+    with pytest.raises(RuntimeError, match="none of .*openssl@3/3.6.5.* is in"):
+        use_libraries(keg, tmp_path, "x86_64")
 
 
 def test_keg_only_reads_the_formula():

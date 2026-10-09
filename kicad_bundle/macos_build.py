@@ -150,9 +150,10 @@ def _build_only(official: Official, arch: str, tag: str, cache: Path, fetch: Fet
 
 def pour_prefix(bottles: list[Bottle], official: Official, arch: str, cache: Path, fetch: Fetch,
                 root: Path) -> list[Path]:
-    """Pour the bundle's bottles and BUILD_ONLY's into root (kept when it holds just these already);
-    returns the prefixes to search: root, then each formula's opt dir (keg-only ones are only there)."""
-    every = [*bottles, *_build_only(official, arch, bottles[0].tag, cache, fetch)]
+    """Pour the bundle's bottles and BUILD_ONLY's into root (kept when it holds just these already), a keg
+    built from source as its stand-in bottle with the official libraries; returns the prefixes to search:
+    root, then each formula's opt dir (keg-only ones are only there)."""
+    every = [*bottles, *_build_only(official, arch, bottles[0].built_for or bottles[0].tag, cache, fetch)]
     opts = [root, *(root / "opt" / b.formula for b in every)]
     stamp, poured = root / ".poured", "\n".join([str(root.resolve()), *sorted(b.sha256 for b in every)])
     if stamp.exists() and stamp.read_text() == poured:
@@ -160,7 +161,9 @@ def pour_prefix(bottles: list[Bottle], official: Official, arch: str, cache: Pat
     if root.exists():
         remove(root)
     for bottle in every:
-        brew_prefix.pour(bottle, homebrew.archive(bottle, cache / HOMEBREW_BOTTLES, fetch), root)
+        keg = brew_prefix.pour(bottle, homebrew.archive(bottle, cache / HOMEBREW_BOTTLES, fetch), root)
+        if bottle.built_for:  # its stand-in's libraries are another architecture's
+            brew_prefix.use_libraries(keg, official.contents / "Frameworks", arch)
     stamp.write_text(poured)
     print(f"  poured {len(every)} {arch} bottles into {root}", flush=True)
     return opts

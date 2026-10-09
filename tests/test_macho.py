@@ -45,6 +45,18 @@ def test_slices_reads_each_architectures_uuid_and_minimum_macos():
     assert slices(b"#!/bin/sh\n") == {}
 
 
+def test_slices_name_the_homebrew_kegs_each_architecture_was_built_in():
+    # a keg built from source keeps its Cellar path in compiled-in directories (OpenSSL's ENGINESDIR)
+    arm = tiny_macho.thin("arm64", "7ad804a6-c91b-3a8f-81db-2e0726d3d42e") + \
+        b"/opt/homebrew/Cellar/openssl@3/3.6.5/lib/engines-3\0"
+    intel = tiny_macho.thin("x86_64", "00000000-0000-0000-0000-000000000001") + \
+        b"/usr/local/Cellar/openssl@3/3.6.4_1/lib/ossl-modules\0/usr/local/Cellar/openssl@3/3.6.4_1/lib/engines-3\0"
+    found = slices(tiny_macho.fat(("x86_64", intel), ("arm64", arm)))
+    assert found["arm64"].kegs == frozenset({("openssl@3", "3.6.5")})
+    assert found["x86_64"].kegs == frozenset({("openssl@3", "3.6.4_1")})
+    assert slices(tiny_macho.thin("arm64", "7ad804a6-c91b-3a8f-81db-2e0726d3d42e"))["arm64"].kegs == frozenset()
+
+
 OTOOL_L = """/x/kicad-cli:
 Load command 12
           cmd LC_LOAD_DYLIB

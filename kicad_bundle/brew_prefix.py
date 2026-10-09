@@ -90,6 +90,23 @@ def pour(bottle: Bottle, archive: Path, root: Path) -> Path:
     return keg
 
 
+def use_libraries(keg: Path, libraries: Path, arch: str) -> list[str]:
+    """For a keg Homebrew built from source, poured from the bottle standing in for it (the same version
+    for another architecture, see homebrew._from_source): replace each library in keg/lib that libraries
+    (the official app's Frameworks) has by its arch image there, so the build links what the bundle
+    ships. Returns the names replaced."""
+    replaced = []
+    for lib in sorted((keg / "lib").glob("*.dylib")):
+        if lib.is_symlink() or not (official := libraries / lib.name).is_file():
+            continue
+        lib.chmod(lib.stat().st_mode | 0o200)
+        lib.write_bytes(macho.extract(official.read_bytes(), arch))
+        replaced.append(lib.name)
+    if not replaced:
+        raise RuntimeError(f"none of the libraries of {keg} is in {libraries}")
+    return replaced
+
+
 LINKED = ("bin", "include", "lib", "share", "Frameworks")
 
 
