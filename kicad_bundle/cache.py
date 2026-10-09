@@ -12,6 +12,7 @@ HOMEBREW_BOTTLES = "homebrew-bottles"  # what each bottle holds (UUIDs, formula,
 MACOS_SOURCES = "macos-sources"
 WINDOWS_SOURCES = "windows-sources"  # vcpkg ports' downloads and port folders
 VCPKG_REGISTRIES = "vcpkg-registries"  # treeless clones, a few MB each; not pruned
+VCPKG_BINARIES = "vcpkg-binaries"  # vcpkg's builds of the ports (simee builds on Windows); not pruned
 SOURCES_MAX_AGE_DAYS = 90  # monthly builds, so a source no build used in three months is gone from KiCad's image
 
 _VERSION = re.compile(r"\d+(\.\d+)*")

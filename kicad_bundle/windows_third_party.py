@@ -21,7 +21,7 @@ KICAD = re.compile(r"kicad-cli\.exe|_\w+\.dll|ki\w*\.dll", re.I)
 MSVC = re.compile(r"(vcruntime140(_\d)?|msvcp140(_\w+)?|concrt140|vccorlib140)\.dll", re.I)
 MSVC_TERMS = "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution#visual-c-runtime-files"
 
-NOTICE = """kicad-cli {version} for Windows x86_64, repackaged from the official KiCad {version} installer.
+NOTICE = """kicad-cli {version} for Windows x86_64, repackaged from the official KiCad {version} installer.{simee}
 
 KiCad (bin/kicad-cli.exe, bin/_eeschema.dll and bin/ki*.dll) is GPL-3.0-or-later. Its source is
 kicad-{version}-source.tar.gz, attached to the same GitHub release.
@@ -44,6 +44,11 @@ ships it, under the Distributable Code terms of Visual Studio 2022 ("Visual C++ 
 It is Microsoft's and not open source. The Universal CRT isn't shipped: Windows 10 and later, which
 this kicad-cli needs, always use their own.
 """
+
+SIMEE = """
+KiCad's own files (bin/kicad-cli.exe, bin/_eeschema.dll and bin/ki*.dll) are KiCad {version}
+with simee's changes, built from simee-kicad commit {sha}
+with the MSVC version and vcpkg ports of the official build."""
 
 
 @dataclass
@@ -147,8 +152,9 @@ def collect(root: Path, files: Iterable[Path], version: str, year: str, cache: P
     return third
 
 
-def write_notices(third: ThirdParty, root: Path, version: str, sources: str) -> None:
-    """root/THIRD-PARTY.txt, and each port's licence files under root/share/doc/<port>/."""
+def write_notices(third: ThirdParty, root: Path, version: str, sources: str, simee_sha: str | None = None) -> None:
+    """root/THIRD-PARTY.txt, and each port's licence files under root/share/doc/<port>/. simee_sha: the
+    simee-kicad commit KiCad's own files were built from, if they were."""
     third_party.write_licences(third.licences, root / "share/doc")
     microsoft = ""
     if third.microsoft:
@@ -157,4 +163,5 @@ def write_notices(third: ThirdParty, root: Path, version: str, sources: str) -> 
     rows = "\n".join("\t".join(r) for r in third.rows)
     (root / "THIRD-PARTY.txt").write_text(NOTICE.format(
         version=version, sources=sources, microsoft=microsoft,
+        simee=SIMEE.format(version=version, sha=simee_sha) if simee_sha else "",
         credits=third_party.credits((c.name for c in third.components), third.year), rows=rows))

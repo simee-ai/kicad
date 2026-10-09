@@ -72,15 +72,7 @@ def test_source_versions_must_match_the_image():
     assert linux_build.mismatched_sources(image, newer) == [("libgit2", "1.9.0+ds-2", "1.9.0+ds-2+deb13u1")]
 
 
-def test_cli_refuses_simee_ref_where_it_cant_build_it(monkeypatch):
-    from kicad_bundle import cli
-    for platform in ("windows",):
-        monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: pytest.fail("packaged anyway"))
-        with pytest.raises(SystemExit):
-            cli.main(["--kicad-version", "10.0.6", "--platform", platform, "--simee-ref", "simee/10.0.6"])
-
-
-@pytest.mark.parametrize("platform", ["linux", "macos"])
+@pytest.mark.parametrize("platform", ["linux", "macos", "windows"])
 def test_cli_passes_simee_ref_to_the_packager(monkeypatch, tmp_path, platform):
     from kicad_bundle import cli
     seen = {}

@@ -60,3 +60,14 @@ def remove(path: Path, tries: int = 5) -> None:
             if attempt == tries - 1:
                 raise
             time.sleep(1)
+
+
+def overlay(root: Path, targets: list[str], built: Path) -> list[str]:
+    """Replace each root/<target> with built/<its name>: KiCad's own files, built from a simee-kicad
+    branch. Refuses to leave any of them official. Returns targets."""
+    missing = [t for t in targets if not (built / Path(t).name).is_file()]
+    if missing:
+        raise RuntimeError(f"the simee build has no {', '.join(missing)}")
+    for t in targets:
+        shutil.copy2(built / Path(t).name, root / t)
+    return targets

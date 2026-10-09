@@ -1,12 +1,13 @@
 """Windows: official NSIS installer -> trimmed kicad-cli folder (zip), with the licences of its
-third-party DLLs, and one archive of their sources (see windows_third_party)."""
+third-party DLLs, and one archive of their sources (see windows_third_party). With a simee-kicad
+branch, KiCad's own files are built from it (windows_build)."""
 
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
-from kicad_bundle import pe, smoke, third_party, windows_third_party
+from kicad_bundle import pe, sch_import, simee_source, smoke, third_party, windows_build, windows_third_party
 from kicad_bundle.bundle import archive
 from kicad_bundle.closure import closure
 from kicad_bundle.release import cached_asset, published_at
@@ -23,7 +24,10 @@ def _seven_zip() -> str:
 
 
 def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True,
-            arch: str = "x86_64") -> list[Path]:
+            arch: str = "x86_64", simee_ref: str | None = None) -> list[Path]:
+    """The bundle and its third-party sources. With simee_ref (a simee-kicad branch such as
+    simee/10.0.6), KiCad's own files are built from it, and its source tarball is one of the results."""
+    sha = simee_source.resolve_ref(simee_ref) if simee_ref else None
     installer = cached_asset(version, f"kicad-{version}-{arch}.exe", cache)
     extracted = work / f"windows-{arch}-installer"
     # Everything kicad-cli needs is in the installer's bin/ plus DATA (0.5 GB vs 4.5 GB for all of
@@ -55,12 +59,23 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
     sources = f"{root.name}-sources.tar"
     third = windows_third_party.collect(root, [root / f.relative_to(extracted) for f in keep], version,
                                         published_at(version)[:4], cache)
-    windows_third_party.write_notices(third, root, version, sources)
+    windows_third_party.write_notices(third, root, version, sources, sha)
+    bundled_cli = root / cli.relative_to(extracted)
+    extra = []
+    if sha:
+        print(f"  building KiCad's own files from simee-kicad {sha} ({simee_ref})")
+        src = simee_source.source_archive(sha, out_dir / f"kicad-{version}-source.tar.gz")
+        built = windows_build.build(src, work, cache, windows_build.toolset(bundled_cli))
+        print("  replaced " + ", ".join(windows_build.overlay(bundled_cli.parent, built)))
+        extra.append(src)
 
     if run_smoke:
         if os.name == "nt":
-            smoke.check([str(root / cli.relative_to(extracted))])
-            print("  smoke test passed")
+            smoke.check([str(bundled_cli)])
+            if sha:
+                for fixture in sch_import.fixtures():
+                    sch_import.check([str(bundled_cli)], fixture)
+            print(f"  smoke test passed{' (sch import too)' if sha else ''}")
         else:
             print("  smoke test skipped: needs Windows")
-    return [archive(root, out_dir, "zip"), third_party.sources_archive(third.components, out_dir / sources)]
+    return [archive(root, out_dir, "zip"), third_party.sources_archive(third.components, out_dir / sources), *extra]

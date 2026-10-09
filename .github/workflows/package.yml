@@ -75,7 +75,10 @@ jobs:
     needs: ref
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
-    runs-on: windows-latest
+    # Visual Studio 2022 with MSVC 14.44, which linked KiCad 10.0.x: a simee build must use the official
+    # build's MSVC (windows_build checks). Building every vcpkg port takes hours the first time.
+    runs-on: windows-2022
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -90,7 +93,23 @@ jobs:
             ~/.cache/kicad-bundle/vcpkg-registries
           key: windows-sources-${{ inputs.kicad_version }}
           restore-keys: windows-sources-
-      - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist $(if ($env:SIMEE_SHA) { "--simee-ref", $env:SIMEE_SHA })
+      - name: Restore vcpkg's builds of the ports (simee builds)
+        if: needs.ref.outputs.sha != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/kicad-bundle/vcpkg-binaries
+          key: vcpkg-binaries-${{ inputs.kicad_version }}-${{ github.run_id }}
+          restore-keys: |
+            vcpkg-binaries-${{ inputs.kicad_version }}-
+            vcpkg-binaries-
+      - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist --work C:\w $(if ($env:SIMEE_SHA) { "--simee-ref", $env:SIMEE_SHA })
+        timeout-minutes: 330  # leaves time to save the ports built so far, so a rerun carries on
+      - name: Save vcpkg's builds of the ports
+        if: always() && needs.ref.outputs.sha != ''
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/kicad-bundle/vcpkg-binaries
+          key: vcpkg-binaries-${{ inputs.kicad_version }}-${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         with:
           name: windows

@@ -14,7 +14,7 @@ import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kicad_bundle import debian
+from kicad_bundle import bundle, debian
 
 # kicad-docker's build dependencies, less what only its QA run or library installs need.
 BUILD_DEPS = (
@@ -78,12 +78,7 @@ def overlay(root: Path, built: Path) -> list[str]:
     replaced paths. Refuses to leave any official KiCad file in place."""
     targets = [f"libexec/{b}" for b in BINARIES] + [f"lib/{p.name}" for p in sorted((root / "lib").glob(KICAD_LIBS))
                                                     if not p.is_symlink()]
-    missing = [t for t in targets if not (built / Path(t).name).is_file()]
-    if missing:
-        raise RuntimeError(f"the simee build has no {', '.join(missing)}")
-    for t in targets:
-        shutil.copy2(built / Path(t).name, root / t)
-    return targets
+    return bundle.overlay(root, targets, built)
 
 
 def build(image: str, rootfs: Path, src: Path, work: Path) -> Path:

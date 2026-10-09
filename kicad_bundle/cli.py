@@ -6,8 +6,6 @@ from pathlib import Path
 from kicad_bundle import cache, linux, macos, windows
 
 PACKAGERS = {"linux": linux.package, "macos": macos.package, "windows": windows.package}
-# Platforms that can build KiCad's own files from a simee-kicad branch (Windows: #13).
-SIMEE_BUILDS = {"linux", "macos"}
 
 
 def sha256(path: Path) -> str:
@@ -28,8 +26,6 @@ def main(argv=None) -> int:
     parser.add_argument("--no-smoke", action="store_true", help="skip running the packaged kicad-cli")
     parser.add_argument("--simee-ref", help="build KiCad's own files from this simee-kicad branch, e.g. simee/10.0.6")
     args = parser.parse_args(argv)
-    if args.simee_ref and args.platform not in SIMEE_BUILDS:
-        parser.error(f"--simee-ref isn't supported on {args.platform} yet")
 
     simee = {"simee_ref": args.simee_ref} if args.simee_ref else {}
     built = PACKAGERS[args.platform](args.kicad_version, args.out, args.cache, args.work, not args.no_smoke, **simee)

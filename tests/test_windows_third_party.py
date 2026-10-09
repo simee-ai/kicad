@@ -115,6 +115,15 @@ def test_write_notices_lists_each_file_and_ships_each_ports_licences(kicad):
     assert (kicad["root"] / "share/doc/libgit2/COPYING").read_bytes() == b"GPL-2 + linking exception"
 
 
+def test_write_notices_names_the_simee_commit_kicads_files_were_built_from(kicad):
+    third = _collect(kicad)
+    windows_third_party.write_notices(third, kicad["root"], "10.0.6", "s.tar", simee_sha="4e18395976" + "0" * 30)
+    text = (kicad["root"] / "THIRD-PARTY.txt").read_text()
+    assert "with simee's changes" in text and "4e18395976" + "0" * 30 in text
+    windows_third_party.write_notices(third, kicad["root"], "10.0.6", "s.tar")
+    assert "simee" not in (kicad["root"] / "THIRD-PARTY.txt").read_text()
+
+
 def test_sources_go_into_one_archive_folder_per_port(kicad, tmp_path):
     third = _collect(kicad)
     out = third_party.sources_archive(third.components, tmp_path / "out/s.tar")
