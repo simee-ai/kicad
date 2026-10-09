@@ -130,7 +130,8 @@ def build(host: Host, archives: dict[str, Path], work: Path, jobs: int, build_to
     native = host.native(*this_machine())
     if not native and build_tools is None:
         raise ValueError(f"cross-building {host.name} needs an AVR toolchain for this machine (build its host first)")
-    top = work / host.name
+    top = work.resolve() / host.name  # configure wants absolute paths
+    build_tools = build_tools and build_tools.resolve()
     if top.exists():
         bundle.remove(top)
     _unpack(archives, top / "src")
