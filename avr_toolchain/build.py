@@ -30,6 +30,7 @@ class Host:
     cpu: str
     cross_env: dict[str, str]  # the compilers that build it on another machine
     env: dict[str, str] = field(default_factory=dict)
+    configure: tuple[str, ...] = ()  # more options for binutils and GCC
     ldflags: str = ""  # links the C/C++ runtimes statically, so the toolchain needs nothing the OS lacks
     runtime_files: tuple[str, ...] = ()  # what that links in, by the name `$CXX -print-file-name` takes
     exe: str = ""
@@ -41,11 +42,13 @@ class Host:
 
 _GNU_RUNTIME = ("libstdc++.a", "libgcc.a", "libgcc_eh.a")
 _MACOS = {"MACOSX_DEPLOYMENT_TARGET": MACOS_MIN}
+# The OS's own libz: GCC's bundled zlib doesn't compile against current macOS SDKs (its fdopen macro).
+_MACOS_CONFIGURE = ("--with-system-zlib",)
 HOSTS = {h.name: h for h in (
     Host("macos-arm64", "aarch64-apple-darwin", "darwin", "arm64",
-         {"CC": "clang -arch arm64", "CXX": "clang++ -arch arm64"}, _MACOS),
+         {"CC": "clang -arch arm64", "CXX": "clang++ -arch arm64"}, _MACOS, _MACOS_CONFIGURE),
     Host("macos-x86_64", "x86_64-apple-darwin", "darwin", "x86_64",
-         {"CC": "clang -arch x86_64", "CXX": "clang++ -arch x86_64"}, _MACOS),
+         {"CC": "clang -arch x86_64", "CXX": "clang++ -arch x86_64"}, _MACOS, _MACOS_CONFIGURE),
     Host("linux-x86_64", "x86_64-linux-gnu", "linux", "x86_64",
          {"CC": "x86_64-linux-gnu-gcc", "CXX": "x86_64-linux-gnu-g++"},
          ldflags="-static-libstdc++ -static-libgcc", runtime_files=_GNU_RUNTIME),
@@ -78,7 +81,7 @@ def binutils_args(host: Host, prefix: Path, cross_from: str | None) -> list[str]
     """cross_from: this machine's triple when cross-building host, else None."""
     return ["--target=avr", f"--prefix={prefix}", *_host_args(host, cross_from), "--disable-nls", "--disable-werror",
             "--disable-gdb", "--disable-gdbserver", "--disable-sim", "--disable-readline", "--disable-libdecnumber",
-            "--disable-gprofng", "--without-zstd", "--without-debuginfod"]
+            "--disable-gprofng", "--without-zstd", "--without-debuginfod", *host.configure]
 
 
 def gcc_args(host: Host, prefix: Path, cross_from: str | None) -> list[str]:
@@ -87,7 +90,7 @@ def gcc_args(host: Host, prefix: Path, cross_from: str | None) -> list[str]:
             "--with-avrlibc", "--with-dwarf2", "--disable-nls", "--disable-libssp", "--disable-shared",
             "--disable-threads", "--disable-libgomp", "--disable-libcc1", "--disable-plugin", "--without-isl",
             "--without-zstd", f"--with-pkgversion=simee avr-gcc {GCC.version}, avr-libc {AVR_LIBC.version}",
-            f"--with-bugurl={BUGURL}"]
+            f"--with-bugurl={BUGURL}", *host.configure]
 
 
 def avr_libc_args(prefix: Path) -> list[str]:
@@ -176,7 +179,8 @@ avr-gcc {gcc} for {host}, built by simee ({repo}) from these unmodified upstream
 {rows}
 
 Each component's licence files are in share/doc/<component>/. GMP, MPFR and MPC are linked statically
-into the compiler (cc1, cc1plus, lto1); zlib is binutils' and GCC's own bundled copy.
+into the compiler (cc1, cc1plus, lto1). zlib is binutils' and GCC's own bundled copy, except on macOS,
+where they use the OS's.
 
 The GitHub release this archive comes from also holds {source}: every archive above and the
 scripts that built this toolchain from them.

@@ -63,6 +63,12 @@ def test_binutils_builds_only_the_avr_tools():
     assert "--without-zstd" in args
 
 
+def test_macos_builds_use_the_os_zlib():
+    for host in ("macos-arm64", "macos-x86_64"):
+        assert "--with-system-zlib" in build.gcc_args(HOSTS[host], PREFIX, cross_from=None)
+    assert "--with-system-zlib" not in build.gcc_args(HOSTS["linux-x86_64"], PREFIX, cross_from=None)
+
+
 def test_avr_libc_is_built_for_the_avr_with_the_new_compiler():
     assert build.avr_libc_args(PREFIX) == ["--host=avr", f"--prefix={PREFIX}"]
 
