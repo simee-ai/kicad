@@ -66,6 +66,20 @@ def test_overlay_refuses_to_leave_an_official_kicad_file(tmp_path):
         linux_build.overlay(root, built)
 
 
+def test_overlay_of_another_version_swaps_kicads_libraries_for_its_own(tmp_path):
+    # a release-candidate rehearsal builds 10.0.7 on the 10.0.6 image: KiCad's libraries carry their version
+    root, built = tmp_path / "bundle", tmp_path / "built"
+    _bundle(root, ["libkicommon.so.10.0.6", "libkigal.so.10.0.6"])
+    built.mkdir()
+    for name in ("kicad-cli", "_eeschema.kiface", "_cvpcb.kiface", "libkicommon.so.10.0.7", "libkigal.so.10.0.7",
+                 "libkiapi.so.10.0.7"):
+        (built / name).write_text("simee")
+    replaced = linux_build.overlay(root, built)
+    assert sorted(replaced) == ["lib/libkicommon.so.10.0.7", "lib/libkigal.so.10.0.7",
+                                "libexec/_cvpcb.kiface", "libexec/_eeschema.kiface", "libexec/kicad-cli"]
+    assert sorted(p.name for p in (root / "lib").glob("libki*")) == ["libkicommon.so.10.0.7", "libkigal.so.10.0.7"]
+
+
 def test_source_versions_must_match_the_image():
     image = {"libwxgtk3.2-1t64": ("wxwidgets3.2", "3.2.8+dfsg-2"), "libgit2-1.9": ("libgit2", "1.9.0+ds-2")}
     same = {"libwxgtk3.2-dev": ("wxwidgets3.2", "3.2.8+dfsg-2"), "cmake": ("cmake", "3.31.6-2")}
