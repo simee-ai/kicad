@@ -1,10 +1,11 @@
 import json
 import os
 import shlex
+import xml.etree.ElementTree as ET
 
 import pytest
 
-from eagle_nets import eagle_nets
+from eagle_nets import eagle_nets, kicad_reference
 from kicad_bundle import sch_import
 from kicad_bundle.smoke import netlist_components
 
@@ -29,6 +30,12 @@ def test_fixtures_cover_every_format_simee_db_needs():
     assert len([f for f in FIXTURES if f.format == "eagle"]) >= 2
 
 
+def test_fixtures_cover_a_multi_sheet_eagle_schematic():
+    # Each Eagle sheet is a top-level sheet in KiCad, and the import has to keep them all (#17)
+    sheets = [len(ET.parse(f.source).getroot().findall(".//sheets/sheet")) for f in FIXTURES if f.format == "eagle"]
+    assert max(sheets) >= 2
+
+
 def test_stray_files_are_the_hidden_ones(tmp_path):
     for name in (".kicad_sch", "imported.kicad_sch", "imported-eagle-import.kicad_sym", "sym-lib-table"):
         (tmp_path / name).touch()
@@ -48,6 +55,40 @@ def test_fixture_is_redistributable(fixture):
     for key in ("origin", "licence", "licence_file", "checked"):
         assert fixture.meta.get(key), f"{fixture.name}: fixture.json needs {key}"
     assert (fixture.source.parent / fixture.meta["licence_file"]).is_file()
+
+
+TINY_EAGLE = """<eagle><drawing><schematic>
+  <libraries><library name="l"><devicesets>
+    <deviceset name="USB"><devices><device name="" package="P"><connects>
+      <connect gate="G" pin="DP" pad="A6 B6"/><connect gate="G" pin="VBUS" pad="A4"/>
+    </connects></device></devices></deviceset>
+    <deviceset name="R"><devices><device name="" package="P"><connects>
+      <connect gate="G" pin="1" pad="1"/><connect gate="G" pin="2" pad="2"/>
+    </connects></device></devices></deviceset>
+  </devicesets></library></libraries>
+  <parts>
+    <part name="J1" library="l" deviceset="USB" device="" value="USB-C"/>
+    <part name="3V3_QWIIC" library="l" deviceset="R" device="" value="JUMPER"/>
+  </parts>
+  <sheets><sheet><nets><net name="V"><segment>
+    <pinref part="J1" gate="G" pin="VBUS"/><pinref part="3V3_QWIIC" gate="G" pin="1"/>
+  </segment></net></nets></sheet></sheets>
+</schematic></drawing></eagle>"""
+
+
+def test_kicad_reference_is_what_kicads_eagle_importer_names_a_part():
+    assert kicad_reference("R1") == "R1"
+    assert kicad_reference("I2C") == "I2C0"
+    assert kicad_reference("3V3_QWIIC") == "UNK3V3_QWIIC0"
+
+
+def test_eagle_nets_join_the_pads_of_one_pin_and_name_parts_as_kicad_does(tmp_path):
+    sch = tmp_path / "tiny.sch"
+    sch.write_text(TINY_EAGLE)
+    components, nets = eagle_nets(sch)
+    assert components == {"J1": "USB-C", "UNK3V3_QWIIC0": "JUMPER"}
+    # J1's DP pin is on no net, but its two pads are still one node, as KiCad's import has them
+    assert nets == [["J1.A4", "UNK3V3_QWIIC0.1"], ["J1.A6", "J1.B6"]]
 
 
 @pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "eagle"],
