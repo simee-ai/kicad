@@ -2903,6 +2903,13 @@ std::map<wxString, PCB_LAYER_ID> PCB_IO_EAGLE::DefaultLayerMappingCallback(
     for ( const INPUT_LAYER_DESC& layer : aInputLayerDescriptionVector )
     {
         PCB_LAYER_ID layerId = std::get<0>( defaultKicadLayer( eagle_layer_id( layer.Name ) ) );
+
+        // A layer with no default KiCad layer (tRestrict, Milling, ...) is left unmapped, as the
+        // layer mapping dialog leaves it, so it isn't imported. Mapped to UNSELECTED_LAYER, its
+        // items were saved on an undefined layer and the board could not be loaded again.
+        if( layerId == UNSELECTED_LAYER )
+            continue;
+
         layer_map.emplace( layer.Name, layerId );
     }
 
