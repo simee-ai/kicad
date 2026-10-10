@@ -31,6 +31,13 @@ def test_release_notes_say_how_to_run_each_platform():
     assert "kicad/kicad:10.0.6" in text  # where the Linux binaries come from
 
 
+def test_release_notes_say_which_commands_the_bundle_runs():
+    # sch (eeschema, cvpcb for ERC), and since simee-kicad#8 fp and pcb (pcbnew)
+    text = " ".join(release_notes("10.0.6", "https://run/1", []).split())
+    assert "`kicad-cli sch ...`, `fp ...` and `pcb ...`" in text
+    assert "gerbers" in text
+
+
 def test_release_notes_point_at_the_third_party_notices_and_sources():
     text = release_notes("10.0.6", "https://run/1", [])
     assert "THIRD-PARTY.txt" in text
