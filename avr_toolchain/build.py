@@ -150,10 +150,19 @@ def build(host: Host, archives: dict[str, Path], work: Path, jobs: int, build_to
     _make(top / "src" / GCC.folder, top / "build-gcc", gcc_args(host, root, cross_from), env, jobs, "install-strip")
     _make(top / "src" / AVR_LIBC.folder, top / "build-avr-libc", avr_libc_args(root), _target_env(tools), jobs,
           "install")
+    strip_target_libraries(root, tools)
     for docs in ("share/info", "share/man"):  # manuals in formats nothing reads from here
         if (root / docs).exists():
             bundle.remove(root / docs)
     return root
+
+
+def strip_target_libraries(root: Path, tools: Path) -> None:
+    """Drop the debug info of the AVR libraries (libgcc, avr-libc and its start files), which are built
+    with -g and make up most of the toolchain's size. Firmware linked with them keeps its own."""
+    libs = sorted(str(p) for d in ("lib/gcc/avr", "avr/lib") for p in (root / d).rglob("*")
+                  if p.suffix in (".a", ".o") and p.is_file())
+    subprocess.run([str(tools / "avr-strip"), "--strip-debug", *libs], check=True)
 
 
 def runtime_packages(host: Host) -> dict[Path, debian.Package]:

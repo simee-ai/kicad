@@ -90,6 +90,25 @@ def test_build_env_uses_the_cross_compilers_only_when_cross_building(monkeypatch
     assert mac["MACOSX_DEPLOYMENT_TARGET"] == build.MACOS_MIN
 
 
+def test_target_libraries_lose_their_debug_info_and_nothing_else(tmp_path):
+    """libgcc and avr-libc are built with -g, which triples the toolchain's size; firmware keeps its own."""
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    log = tmp_path / "stripped"
+    (tools / "avr-strip").write_text(f'#!/bin/sh\nfor f in "$@"; do echo "$f" >> {log}; done\n')
+    (tools / "avr-strip").chmod(0o755)
+    root = tmp_path / "root"
+    for rel in ("lib/gcc/avr/15.3.0/avr5/libgcc.a", "avr/lib/avr5/libc.a", "avr/lib/avr5/crtatmega328p.o",
+                "libexec/gcc/avr/15.3.0/cc1", "avr/include/avr/io.h"):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text("")
+    build.strip_target_libraries(root, tools)
+    stripped = log.read_text().split()
+    assert stripped[0] == "--strip-debug"
+    assert sorted(Path(p).relative_to(root).as_posix() for p in stripped[1:]) == [
+        "avr/lib/avr5/crtatmega328p.o", "avr/lib/avr5/libc.a", "lib/gcc/avr/15.3.0/avr5/libgcc.a"]
+
+
 def test_runtime_sources_include_what_a_package_was_built_using():
     pkgs = {
         Path("/usr/lib/gcc/x86_64-w64-mingw32/12-win32/libstdc++.a"):
