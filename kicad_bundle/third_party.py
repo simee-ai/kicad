@@ -10,7 +10,7 @@ from typing import Callable, Iterable
 
 from kicad_bundle.fetch import add_dir
 
-LICENCE = re.compile(r"(licen[cs]e|copying|copyright|notice|ftl|l?gpl|mpl|patents|unlicense)(v\d)?([-._ ].*)?", re.I)
+LICENCE = re.compile(r"(licen[cs]e|copying|copyright|notice|ftl|l?gpl|mpl|patents|unlicense)(v?\d)?([-._ ].*)?", re.I)
 
 # Acknowledgements some licences ask for in the documentation of binary distributions.
 CREDITS = {

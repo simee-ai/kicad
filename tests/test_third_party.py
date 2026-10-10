@@ -18,6 +18,13 @@ def test_licences_are_the_licence_files_near_the_top_of_the_source_and_its_submo
         "LICENSES/Apache-2.0.txt": b"apache", "src/png/LICENSE": b"png"}
 
 
+def test_licences_include_gnu_numbered_licence_files(tmp_path):
+    """GNU sources keep the GPLv3 in COPYING3 (and the LGPLv3 in COPYING3.LIB) beside a GPLv2 COPYING."""
+    archive = targz(tmp_path / "gcc-15.tar.gz", {"gcc-15/COPYING": b"v2", "gcc-15/COPYING3": b"v3",
+                                                  "gcc-15/COPYING3.LIB": b"lgpl3", "gcc-15/COPYING.RUNTIME": b"rle"})
+    assert set(third_party.licences(archive)) == {"COPYING", "COPYING3", "COPYING3.LIB", "COPYING.RUNTIME"}
+
+
 def test_licences_reads_zip_archives_too(tmp_path):
     archive = zip_(tmp_path / "pcre-8.45.zip", {"pcre-8.45/LICENCE": b"BSD", "pcre-8.45/pcre.h": b"",
                                                  "pcre-8.45/doc/": b""})

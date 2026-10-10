@@ -2,6 +2,7 @@
 of those packages (from snapshot.debian.org), so the Linux bundle can ship licences and sources."""
 
 import json
+import re
 import tarfile
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -22,6 +23,7 @@ class Package:
     version: str
     source: str
     source_version: str
+    built_using: tuple[tuple[str, str], ...] = ()  # other sources it was built from: (source, version)
 
 
 def _fields(stanza: str) -> dict[str, str]:
@@ -30,14 +32,17 @@ def _fields(stanza: str) -> dict[str, str]:
 
 def packages(status: str) -> dict[str, Package]:
     """Installed packages in a dpkg status file. Source defaults to the package itself, and its version
-    to the package's (a binNMU names it: "Source: gmp (2:6.3.0+dfsg-3)")."""
+    to the package's (a binNMU names it: "Source: gmp (2:6.3.0+dfsg-3)"). Built-Using names the sources of
+    what it was built with and contains, e.g. gcc-mingw-w64's libstdc++ is gcc-12's."""
     found = {}
     for stanza in status.split("\n\n"):
         f = _fields(stanza)
         if f.get("Status", "").split()[-1:] != ["installed"]:
             continue
         source, _, source_version = f.get("Source", f["Package"]).partition(" ")
-        found[f["Package"]] = Package(f["Package"], f["Version"], source, source_version.strip("()") or f["Version"])
+        built_using = tuple(re.findall(r"([^\s,]+) \(= ([^)]+)\)", f.get("Built-Using", "")))
+        found[f["Package"]] = Package(f["Package"], f["Version"], source, source_version.strip("()") or f["Version"],
+                                      built_using)
     return found
 
 
