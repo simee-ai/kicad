@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 
 from arm_toolchain import components, package
-from arm_toolchain.components import BINARIES, BUILD_FILES, BUILD_SCRIPTS, MULTILIBS, RELEASE, SOURCE
+from arm_toolchain.components import BINARIES, BUILD_FILES, BUILD_SCRIPTS, MULTILIB_LIST, RELEASE, SOURCE
 from kicad_bundle import bundle, gnu_build, third_party
 from kicad_bundle.gnu_build import BUGURL, MACOS_CONFIGURE, MACOS_ENV, MACOS_MIN, macos_compilers, this_machine
 
@@ -168,7 +168,7 @@ simee ({repo}) assembles it from two of Arm's downloads for the release:
   of that), with GMP, MPFR, MPC and isl from the snapshot linked in statically. They link only macOS's
   own libraries (libSystem, libc++, libiconv, libz);
 
-- the target files (the headers, and newlib, libstdc++ and libgcc for the {multilibs} multilib(s)),
+- the target files (the headers, and newlib, libstdc++ and libgcc for the multilibs {multilibs}),
   Arm's own macOS arm64 build of them, unmodified, from
 
 \t{url}
@@ -185,7 +185,7 @@ libraries above are built from, and {scripts}, the scripts that built the progra
 def notice() -> str:
     b = BINARIES[TARGET_FROM]
     return (NOTICE.format(release=RELEASE, host=HOST, repo=gnu_build.REPO, macos=MACOS_MIN, source_url=SOURCE.url,
-                          source_sha256=SOURCE.sha256, multilibs=", ".join(MULTILIBS), url=b.url, sha256=b.sha256)
+                          source_sha256=SOURCE.sha256, multilibs=MULTILIB_LIST, url=b.url, sha256=b.sha256)
             + package.COMPONENTS + SOURCES.format(source=SOURCE.archive, scripts=BUILD_SCRIPTS))
 
 

@@ -64,7 +64,7 @@ def main(argv=None) -> int:
     p.add_argument("--no-check", dest="check", action="store_false",
                    help="skip compiling with the archive (done only for this machine's host)")
 
-    c = sub.add_parser("check", help="compile for the RP2040 with a toolchain archive, unpacked elsewhere, "
+    c = sub.add_parser("check", help="compile for the RP2040 and RP2350 with a toolchain archive, unpacked elsewhere, "
                        "with an empty PATH")
     c.add_argument("archive", type=Path)
 

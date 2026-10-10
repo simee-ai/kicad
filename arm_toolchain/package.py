@@ -1,5 +1,5 @@
-"""Trim Arm's toolchain release for one host to what an RP2040 build runs and links (of ~1 GB, ~185 MB),
-add the licences of what that keeps from Arm's source snapshot, and archive it. Arm's files are copied
+"""Trim Arm's toolchain release for one host to what an RP2040 or RP2350 build runs and links (of ~1 GB,
+~205 MB), add the licences of what that keeps from Arm's source snapshot, and archive it. Arm's files are copied
 unchanged: GCC finds its programs, binutils, headers and libraries relative to bin/arm-none-eabi-gcc,
 so the trimmed root runs wherever it is copied, like the full one."""
 
@@ -9,7 +9,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 
 from arm_toolchain import components
-from arm_toolchain.components import BINARIES, MULTILIBS, RELEASE, SHIPPED, SOURCE
+from arm_toolchain.components import BINARIES, CHIPS, MULTILIB_LIST, MULTILIBS, RELEASE, SHIPPED, SOURCE
 from kicad_bundle import bundle, third_party
 from kicad_bundle.gnu_build import REPO
 
@@ -31,7 +31,7 @@ def _multilib(multilib: str) -> tuple[str, ...]:
     return f"arm-none-eabi/lib/{multilib}", f"lib/gcc/arm-none-eabi/*/{multilib}"
 
 
-def kept(rel: str, multilibs: tuple[str, ...] = MULTILIBS) -> bool:
+def kept(rel: str, multilibs: tuple[str, ...] = tuple(MULTILIBS)) -> bool:
     """Whether the file at rel (below the release's top folder) is kept: its path, or a folder above
     it, matches a pattern, one path component at a time."""
     parts = rel.split("/")
@@ -85,9 +85,9 @@ Arm GNU Toolchain {release} for arm-none-eabi, {host}: Arm's own build, unmodifi
 \t{url}
 \tsha256 {sha256}
 
-trimmed by simee ({repo}) to what a Cortex-M0+ build runs
-and links: the C and C++ drivers, binutils, cc1, cc1plus and LTO, and newlib, libstdc++ and libgcc for
-the {multilibs} multilib(s).
+trimmed by simee ({repo})
+to what a build for the {chips} runs and links: the C and C++ drivers,
+binutils, cc1, cc1plus and LTO, and newlib, libstdc++ and libgcc for the multilibs {multilibs}.
 The manifest file next to this one is Arm's record of how it configured each component.
 
 """
@@ -115,8 +115,8 @@ https://sourceforge.net/p/mingw-w64/mingw-w64/ci/master/tree/COPYING.MinGW-w64-r
 
 def notice(host: str) -> str:
     b = BINARIES[host]
-    return (NOTICE.format(release=RELEASE, host=host, url=b.url, sha256=b.sha256, repo=REPO,
-                          multilibs=", ".join(MULTILIBS))
+    return (NOTICE.format(release=RELEASE, host=host, url=b.url, sha256=b.sha256, repo=REPO, chips=CHIPS,
+                          multilibs=MULTILIB_LIST)
             + COMPONENTS + (MINGW if host.startswith("windows") else "")
             + SOURCES.format(source=SOURCE.archive, source_url=SOURCE.url))
 

@@ -12,7 +12,7 @@ from arm_toolchain.components import BINARIES, RELEASE
 from archives import targz, zip_
 
 ARM_TOP = "arm-gnu-toolchain-15.2.rel1-darwin-arm64-arm-none-eabi"
-# A few files of each kind in Arm's release, and whether an RP2040 build needs them.
+# A few files of each kind in Arm's release, and whether an RP2040 or RP2350 build needs them.
 ARM_FILES = {
     "bin/arm-none-eabi-gcc": True, "bin/arm-none-eabi-gcc-15.2.1": True, "bin/arm-none-eabi-g++": True,
     "bin/arm-none-eabi-c++": False, "bin/arm-none-eabi-as": True, "bin/arm-none-eabi-ld.bfd": True,
@@ -25,10 +25,15 @@ ARM_FILES = {
     "arm-none-eabi/bin/as": True, "arm-none-eabi/include/stdio.h": True,
     "arm-none-eabi/include/c++/15.2.1/vector": True,
     "arm-none-eabi/lib/thumb/v6-m/nofp/libc.a": True, "arm-none-eabi/lib/thumb/v6-m/nofp/nosys.specs": True,
+    "arm-none-eabi/lib/thumb/v8-m.main+fp/softfp/libc.a": True,
+    "arm-none-eabi/lib/thumb/v8-m.main+fp/softfp/libstdc++.a": True,
+    "arm-none-eabi/lib/thumb/v8-m.main+fp/hard/libc.a": False, "arm-none-eabi/lib/thumb/v8-m.main/nofp/libc.a": False,
     "arm-none-eabi/lib/thumb/v7e-m+fp/hard/libc.a": False, "arm-none-eabi/lib/libc.a": False,
     "arm-none-eabi/lib/nosys.specs": True, "arm-none-eabi/lib/nano.specs": True,
     "lib/gcc/arm-none-eabi/15.2.1/include/stdint.h": True, "lib/gcc/arm-none-eabi/15.2.1/include-fixed/README": True,
     "lib/gcc/arm-none-eabi/15.2.1/thumb/v6-m/nofp/libgcc.a": True,
+    "lib/gcc/arm-none-eabi/15.2.1/thumb/v8-m.main+fp/softfp/libgcc.a": True,
+    "lib/gcc/arm-none-eabi/15.2.1/thumb/v8-m.main+fp/softfp/crti.o": True,
     "lib/gcc/arm-none-eabi/15.2.1/thumb/v7-m/nofp/libgcc.a": False,
     "lib/gcc/arm-none-eabi/15.2.1/libgcc.a": False, "lib/gcc/arm-none-eabi/15.2.1/plugin/include/tree.h": False,
     "share/doc/gcc/index.html": False, "share/gdb/python/gdb/__init__.py": False,
@@ -57,7 +62,7 @@ def test_release_assets_are_named_after_arms_release_and_the_host():
 
 
 @pytest.mark.parametrize("rel,wanted", ARM_FILES.items())
-def test_only_what_an_rp2040_build_runs_and_links_is_kept(rel, wanted):
+def test_only_what_an_rp2040_or_rp2350_build_runs_and_links_is_kept(rel, wanted):
     assert package.kept(rel) == wanted
 
 
@@ -65,6 +70,56 @@ def test_each_multilib_keeps_its_newlib_and_libgcc():
     assert package.kept("arm-none-eabi/lib/thumb/v6-m/nofp/libstdc++.a", ("thumb/v8-m.main+fp/softfp",)) is False
     assert package.kept("arm-none-eabi/lib/thumb/v8-m.main+fp/softfp/libc.a", ("thumb/v8-m.main+fp/softfp",))
     assert package.kept("lib/gcc/arm-none-eabi/15.2.1/thumb/v8-m.main+fp/softfp/crti.o", ("thumb/v8-m.main+fp/softfp",))
+
+
+def test_the_multilibs_kept_are_the_ones_pico_sdk_builds_the_rp2040_and_rp2350_for():
+    """pico-sdk's flags for each chip: arm-none-eabi-gcc -print-multi-directory picks the multilib (15.2.rel1)."""
+    assert {m: t.flags for m, t in components.MULTILIBS.items()} == {
+        "thumb/v6-m/nofp": ("-mcpu=cortex-m0plus", "-mthumb", "-mfloat-abi=soft"),
+        "thumb/v8-m.main+fp/softfp": ("-mcpu=cortex-m33", "-mthumb", "-march=armv8-m.main+fp+dsp",
+                                      "-mfloat-abi=softfp", "-mcmse"),
+    }
+
+
+def _fake_toolchain(monkeypatch, picks: dict[str, str]) -> list[tuple]:
+    """check's runner swapped for one that records each call, makes an Arm ELF or an image where it is
+    asked to, and answers -print-multi-directory with picks[the -mcpu flag]."""
+    calls = []
+
+    def runner(root, work):
+        def run(tool, *args):
+            args = tuple(map(str, args))
+            calls.append((tool, *args))
+            if "-print-multi-directory" in args:
+                return picks[next(a for a in args if a.startswith("-mcpu="))] + "\n"
+            if "-o" in args:
+                Path(args[args.index("-o") + 1]).write_bytes(
+                    b"\x7fELF\x01\x01\x01" + b"\0" * 9 + (2).to_bytes(2, "little") + (40).to_bytes(2, "little"))
+            elif tool == "arm-none-eabi-objcopy":
+                Path(args[-1]).write_bytes(b"image")
+            return ""
+        return run
+
+    monkeypatch.setattr(check, "runner", runner)
+    return calls
+
+
+def test_the_check_compiles_and_links_c_and_cpp_for_every_multilibs_chip(monkeypatch, tmp_path):
+    picks = {"-mcpu=cortex-m0plus": "thumb/v6-m/nofp", "-mcpu=cortex-m33": "thumb/v8-m.main+fp/softfp"}
+    calls = _fake_toolchain(monkeypatch, picks)
+    check._compile(tmp_path, tmp_path)
+    for target in components.MULTILIBS.values():
+        flags = target.flags
+        assert ("arm-none-eabi-gcc", *flags, "-print-multi-directory") in calls
+        for driver, source in (("arm-none-eabi-gcc", "main.c"), ("arm-none-eabi-g++", "main.cpp")):
+            [call] = [c for c in calls if c[0] == driver and c[1:len(flags) + 1] == flags and c[-1].endswith(source)]
+            assert "--specs=nosys.specs" in call
+
+
+def test_the_check_fails_when_the_driver_picks_another_multilib_for_a_chip(monkeypatch, tmp_path):
+    _fake_toolchain(monkeypatch, {"-mcpu=cortex-m0plus": "thumb/v6-m/nofp", "-mcpu=cortex-m33": "thumb/v8-m.main/nofp"})
+    with pytest.raises(RuntimeError, match=r"thumb/v8-m.main/nofp multilib for the RP2350"):
+        check._compile(tmp_path, tmp_path)
 
 
 def _arm_archive(tmp_path: Path, fmt: str) -> Path:
@@ -128,7 +183,8 @@ def test_notice_names_arms_download_the_trim_and_the_source_asset():
     text = package.notice("windows-x86_64")
     b = BINARIES["windows-x86_64"]
     assert b.url in text and b.sha256 in text and RELEASE in text
-    assert "thumb/v6-m/nofp" in text and components.SOURCE.archive in text
+    assert "thumb/v6-m/nofp" in text and "thumb/v8-m.main+fp/softfp" in text and components.SOURCE.archive in text
+    assert "RP2350" in text
     for licence in ("GPL-3.0-or-later", "Runtime Library Exception", "LGPL-3.0-or-later", "COPYING.NEWLIB"):
         assert licence in text
     assert "MinGW-w64" in text and "MinGW-w64" not in package.notice("linux-x86_64")
@@ -163,11 +219,12 @@ def test_release_notes_list_the_checksums_to_pin_and_the_sources():
     sums = "aa  arm-gcc-15.2.rel1-linux-x86_64.tar.xz\nbb  arm-gnu-toolchain-src-snapshot-15.2.rel1.tar.xz\n"
     text = publish.release_notes("https://run/1", sums)
     assert sums.strip() in text and "https://run/1" in text
-    assert components.SOURCE.archive in text and "thumb/v6-m/nofp" in text and "macOS x86_64" in text
+    assert components.SOURCE.archive in text and "macOS x86_64" in text
+    assert "thumb/v6-m/nofp" in text and "thumb/v8-m.main+fp/softfp" in text and "RP2350" in text
     assert "bin/arm-none-eabi-gcc" in text and components.BUILD_SCRIPTS in text
 
 
 # The real toolchain, when one is at hand: ARM_TOOLCHAIN=<archive> uv run pytest tests/test_arm_toolchain.py
 @pytest.mark.skipif(not os.environ.get("ARM_TOOLCHAIN"), reason="ARM_TOOLCHAIN (a packaged archive) not set")
-def test_a_packaged_toolchain_compiles_for_the_rp2040_from_a_copy_with_an_empty_path():
+def test_a_packaged_toolchain_compiles_for_the_rp2040_and_rp2350_from_a_copy_with_an_empty_path():
     check.check(Path(os.environ["ARM_TOOLCHAIN"]))

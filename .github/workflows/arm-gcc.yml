@@ -1,5 +1,5 @@
 name: arm-gcc
-# Package Arm's GNU toolchain for arm-none-eabi, trimmed to what an RP2040 build needs, for macOS arm64,
+# Package Arm's GNU toolchain for arm-none-eabi, trimmed to what an RP2040 or RP2350 build needs, for macOS arm64,
 # Linux x86_64 and arm64 and Windows x86_64, build its host programs for macOS x86_64 (which Arm doesn't
 # publish) from Arm's sources, check each archive where it runs, and publish them as a release
 # (arm-gcc-<Arm release>-<n>) with Arm's source snapshot and the build scripts. The release is pinned in
