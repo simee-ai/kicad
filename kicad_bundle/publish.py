@@ -37,7 +37,9 @@ def release_notes(version: str, run_url: str, assets: list[str], simee_sha: str 
         source = (f"`kicad-{version}-source.tar.gz` is attached, and the same tag is upstream at\n"
                   f"https://gitlab.com/kicad/code/kicad/-/tags/{version}")
     return f"""Trimmed `kicad-cli` from {origin}: just what
-`kicad-cli sch ...` needs (the schematic module and its shared libraries), re-signed ad hoc on macOS.
+`kicad-cli sch ...`, `fp ...` and `pcb ...` need (the schematic, footprint-assignment and PCB modules, so
+ERC, footprint upgrades and gerbers, drill and STEP exports work, and their shared libraries), re-signed
+ad hoc on macOS.
 Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows 10 or newer: `bin\\kicad-cli.exe`;
 Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
 Set `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` to keep it out of the user's home.
