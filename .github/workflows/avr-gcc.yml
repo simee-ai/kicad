@@ -94,6 +94,9 @@ jobs:
           gh release list --limit 500 --json tagName -q '.[].tagName' > tags.txt
           tag=$(uv run python -m avr_toolchain.publish --dist dist --tags tags.txt \
                 --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
-          gh release create "$tag" dist/* --target "$GITHUB_SHA" --latest=false \
+          # simee-ci may have changed a workflow during the build: kicad_bundle/tag_target.py
+          target=$(uv run python -m kicad_bundle.tag_target --sha "$GITHUB_SHA" \
+                   avr_toolchain kicad_bundle pyproject.toml uv.lock .github/workflows/avr-gcc.yml)
+          gh release create "$tag" dist/* --target "$target" --latest=false \
             --title "avr-gcc ${tag#avr-gcc-}" --notes-file notes.md
-          echo "Published $tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published $tag at $target" >> "$GITHUB_STEP_SUMMARY"
