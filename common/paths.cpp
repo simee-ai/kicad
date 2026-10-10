@@ -393,6 +393,15 @@ wxString PATHS::GetStockPluginsPath()
 wxString PATHS::GetStockPlugins3DPath()
 {
     wxFileName fn;
+    wxString   stockPath;
+
+    // A relocated install (a Linux bundle, whose compiled-in KICAD_PLUGINDIR is absolute) names
+    // the folder holding its 3D plugins, as KICAD_STOCK_DATA_HOME names its data.
+    if( wxGetEnv( wxT( "KICAD_STOCK_3D_PLUGINS_HOME" ), &stockPath ) && !stockPath.IsEmpty() )
+    {
+        fn.AssignDir( stockPath );
+        return fn.GetPathWithSep();
+    }
 
 #if defined( __WXMSW__ )
     if( wxGetEnv( wxT( "KICAD_RUN_FROM_BUILD_DIR" ), nullptr ) )
