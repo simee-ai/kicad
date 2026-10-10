@@ -43,7 +43,6 @@
 #include <sch_sheet.h>
 #include <sch_sheet_path.h>
 #include <sch_commit.h>
-#include <save_project_utils.h>
 #include <tool/tool_manager.h>
 #include <project.h>
 #include <project/project_file.h>
@@ -1512,6 +1511,72 @@ static void nestTopLevelSheetsUnderRoot( SCHEMATIC& aSchematic, const wxString& 
 }
 
 
+/**
+ * Point every sheet file of an imported schematic at the output's folder, keeping its path
+ * relative to the folder the importer made it in: the project's (Eagle, Altium, CADSTAR, LTspice
+ * and PADS sheets; with no project open, the transient one at the output) or the input's (EasyEDA,
+ * gEDA), the deeper one when both hold it.  Save As's PrepareSaveAsFiles() takes every sheet as
+ * relative to the input's folder, which put sheets made in an output folder inside it at
+ * <output folder>/<output folder relative to the input's>.  Sheet symbols then name their files
+ * relative to their parent's, as Save As leaves them.
+ */
+static bool relocateImportedSheets( SCHEMATIC& aSchematic, SCH_SCREENS& aScreens,
+                                    const wxFileName& aInputFn, const wxFileName& aOutputFn,
+                                    wxString& aErrorMsg )
+{
+    const wxString bases[] = { aSchematic.Project().GetProjectDirectory(), aInputFn.GetPath() };
+
+    for( size_t i = 0; i < aScreens.GetCount(); i++ )
+    {
+        SCH_SCREEN* screen = aScreens.GetScreen( i );
+
+        // The root's file is the output, and the virtual root's screen has no file of its own
+        if( !screen || screen == aSchematic.RootScreen() || screen == aSchematic.Root().GetScreen() )
+            continue;
+
+        wxFileName src = screen->GetFileName();
+
+        if( !src.IsAbsolute() )
+            src.MakeAbsolute( bases[0] );
+
+        wxString base;
+
+        for( const wxString& candidate : bases )
+        {
+            bool holds = src.GetPath() == candidate
+                         || src.GetPath().StartsWith( candidate + wxFileName::GetPathSeparator() );
+
+            if( holds && candidate.length() > base.length() )
+                base = candidate;
+        }
+
+        wxFileName dest = src;
+
+        if( !base.IsEmpty() && dest.MakeRelativeTo( base ) )
+            dest.MakeAbsolute( aOutputFn.GetPath() );
+        else
+            dest.Assign( aOutputFn.GetPath(), src.GetFullName() );
+
+        if( !dest.DirExists()
+            && !wxFileName::Mkdir( dest.GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
+        {
+            aErrorMsg.Printf( _( "Folder '%s' could not be created." ), dest.GetPath() );
+            return false;
+        }
+
+        screen->SetFileName( dest.GetFullPath() );
+    }
+
+    for( SCH_SHEET_PATH& sheet : aSchematic.Hierarchy() )
+    {
+        if( !sheet.Last()->IsTopLevelSheet() )
+            sheet.MakeFilePathRelativeToParentSheet();
+    }
+
+    return true;
+}
+
+
 int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
 {
     JOB_SCH_IMPORT* job = dynamic_cast<JOB_SCH_IMPORT*>( aJob );
@@ -1686,32 +1751,25 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
 
         SCH_SCREENS screens( schematic->Root() );
 
-        std::unordered_map<SCH_SCREEN*, wxString> filenameMap;
-        filenameMap[schematic->RootScreen()] = outputFn.GetFullPath();
-
         wxString errorMsg;
 
-        if( !PrepareSaveAsFiles( *schematic, screens, inputFn, outputFn, /*aSaveCopy*/ true,
-                                 /*aCopySubsheets*/ true, /*aIncludeExternSheets*/ true,
-                                 filenameMap, errorMsg ) )
+        if( !relocateImportedSheets( *schematic, screens, inputFn, outputFn, errorMsg ) )
         {
             m_reporter->Report( errorMsg + wxS( "\n" ), RPT_SEVERITY_ERROR );
             return CLI::EXIT_CODES::ERR_UNKNOWN;
         }
 
-        // PrepareSaveAsFiles seeds an entry (empty for sheets it does not relocate) for every
-        // screen; empty paths are skipped.
         IO_RELEASER<SCH_IO> pi( SCH_IO_MGR::FindPlugin( SCH_IO_MGR::SCH_KICAD ) );
 
         for( size_t i = 0; i < screens.GetCount(); i++ )
         {
             SCH_SCREEN* screen = screens.GetScreen( i );
-            wxString    path = filenameMap[screen];
 
-            if( path.IsEmpty() )
+            // The virtual root's screen only holds the top-level sheets
+            if( screen == schematic->Root().GetScreen() )
                 continue;
 
-            wxFileName fn( path );
+            wxFileName fn( screen->GetFileName() );
             fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
             pi->SaveSchematicFile( fn.GetFullPath(), screens.GetSheet( i ), schematic.get() );
