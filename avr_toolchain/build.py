@@ -44,11 +44,13 @@ _GNU_RUNTIME = ("libstdc++.a", "libgcc.a", "libgcc_eh.a")
 _MACOS = {"MACOSX_DEPLOYMENT_TARGET": MACOS_MIN}
 # The OS's own libz: GCC's bundled zlib doesn't compile against current macOS SDKs (its fdopen macro).
 _MACOS_CONFIGURE = ("--with-system-zlib",)
+# Xcode's tools handle every architecture, and there are no <triple>-ar etc. for configure to find.
+_MACOS_TOOLS = {"AR": "ar", "RANLIB": "ranlib", "NM": "nm", "STRIP": "strip"}
 HOSTS = {h.name: h for h in (
     Host("macos-arm64", "aarch64-apple-darwin", "darwin", "arm64",
-         {"CC": "clang -arch arm64", "CXX": "clang++ -arch arm64"}, _MACOS, _MACOS_CONFIGURE),
+         {**_MACOS_TOOLS, "CC": "clang -arch arm64", "CXX": "clang++ -arch arm64"}, _MACOS, _MACOS_CONFIGURE),
     Host("macos-x86_64", "x86_64-apple-darwin", "darwin", "x86_64",
-         {"CC": "clang -arch x86_64", "CXX": "clang++ -arch x86_64"}, _MACOS, _MACOS_CONFIGURE),
+         {**_MACOS_TOOLS, "CC": "clang -arch x86_64", "CXX": "clang++ -arch x86_64"}, _MACOS, _MACOS_CONFIGURE),
     Host("linux-x86_64", "x86_64-linux-gnu", "linux", "x86_64",
          {"CC": "x86_64-linux-gnu-gcc", "CXX": "x86_64-linux-gnu-g++"},
          ldflags="-static-libstdc++ -static-libgcc", runtime_files=_GNU_RUNTIME),

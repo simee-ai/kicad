@@ -1,0 +1,25 @@
+name: avr-gcc-debug
+on:
+  push:
+    branches: [chain/simee-kicad-22]
+jobs:
+  lto:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: dist
+          run-id: 38006967736
+          github-token: ${{ github.token }}
+      - shell: bash
+        run: |
+          set -x
+          cd dist && unzip -q avr-gcc-*-windows-x86_64.zip -d /c/nospace && unzip -q avr-gcc-*-windows-x86_64.zip -d "/c/with space"
+          ls /c/nospace/*/bin /c/nospace/*/libexec/gcc/avr/*/
+          for r in /c/nospace "/c/with space"; do
+            t=$(ls -d "$r"/avr-gcc-*)
+            PATH= "$t/bin/avr-gcc.exe" -v -mmcu=atmega328p -Os -flto -o /c/lto.elf "$GITHUB_WORKSPACE/avr_toolchain/smoke/blink.c" || echo FAILED in "$r"
+          done
+          cd /c && PATH= "/c/with space/$(ls '/c/with space')/bin/avr-gcc.exe" -v -mmcu=atmega328p -Os -flto -o /c/lto2.elf "$GITHUB_WORKSPACE/avr_toolchain/smoke/blink.c" || echo FAILED with space, cwd plain
