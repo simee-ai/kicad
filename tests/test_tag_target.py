@@ -83,7 +83,7 @@ def test_main_fails_when_the_build_inputs_moved_on_too(repos, capsys):
     assert "avr_toolchain/build.py" in err and "main" in err
 
 
-@pytest.mark.parametrize("workflow", ["avr-gcc.yml", "package.yml"])
+@pytest.mark.parametrize("workflow", ["avr-gcc.yml", "arm-gcc.yml", "package.yml"])
 def test_each_release_tags_what_tag_target_picks(workflow):
     text = (Path(__file__).parent.parent / ".github/workflows" / workflow).read_text()
     assert '--target "$GITHUB_SHA"' not in text

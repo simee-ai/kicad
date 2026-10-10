@@ -1,0 +1,84 @@
+name: arm-gcc
+# Package Arm's GNU toolchain for arm-none-eabi, trimmed to what an RP2040 build needs, for macOS arm64,
+# Linux x86_64 and arm64 and Windows x86_64, check each archive where it runs, and publish them as a
+# release (arm-gcc-<Arm release>-<n>) with Arm's source snapshot. The release is pinned in
+# arm_toolchain/components.py; see README, "Arm toolchain".
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a release (off = package and check only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+env:
+  UV_PYTHON: "3.12"  # tarfile's extraction filters
+
+jobs:
+  package:  # Arm's archives are trimmed and repackaged, not built, so one job makes every host's
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/kicad-bundle/arm-gcc-sources
+          key: arm-gcc-sources-${{ hashFiles('arm_toolchain/components.py') }}
+      - run: uv run arm-toolchain package --no-check
+      - run: uv run arm-toolchain sources
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arm-gcc
+          path: dist/*
+          compression-level: 0  # archives already
+
+  check:  # each archive where it runs, unpacked into a path with a space, with an empty PATH
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {host: macos-arm64, runner: macos-14}
+          - {host: linux-x86_64, runner: ubuntu-latest}
+          - {host: linux-arm64, runner: ubuntu-24.04-arm}
+          - {host: windows-x86_64, runner: windows-2022}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: arm-gcc
+          path: dist
+      - shell: bash
+        run: uv run arm-toolchain check dist/arm-gcc-*-${{ matrix.host }}.*
+
+  release:
+    needs: check
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: arm-gcc
+          path: dist
+      - name: Publish
+        run: |
+          gh release list --limit 500 --json tagName -q '.[].tagName' > tags.txt
+          tag=$(uv run python -m arm_toolchain.publish --dist dist --tags tags.txt \
+                --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          # simee-ci may have changed a workflow during the build: kicad_bundle/tag_target.py
+          target=$(uv run python -m kicad_bundle.tag_target --sha "$GITHUB_SHA" \
+                   arm_toolchain kicad_bundle pyproject.toml uv.lock .github/workflows/arm-gcc.yml)
+          gh release create "$tag" dist/* --target "$target" --latest=false \
+            --title "arm-gcc ${tag#arm-gcc-}" --notes-file notes.md
+          echo "Published $tag at $target" >> "$GITHUB_STEP_SUMMARY"

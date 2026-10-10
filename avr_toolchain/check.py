@@ -2,50 +2,24 @@
 and compile simee-core's blink fixture for the ATmega328P as C, as C++ and with LTO, with an empty PATH,
 so avr-gcc finds cc1, cc1plus, the LTO plugin, as, ld and avr-libc relative to itself or not at all."""
 
-import os
-import subprocess
-import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
+
+from kicad_bundle.toolchain_check import assert_elf, runner, unpack
 
 BLINK = Path(__file__).parent / "smoke" / "blink.c"
 MCU = "atmega328p"
 EM_AVR = 83
 VARIANTS = {"c": [], "c++": ["-x", "c++"], "lto": ["-flto"]}
 
-
-def unpack(archive: Path, dest: Path) -> Path:
-    """The toolchain root (the archive's one top folder), unpacked under dest."""
-    if zipfile.is_zipfile(archive):
-        with zipfile.ZipFile(archive) as z:
-            z.extractall(dest)
-    else:
-        with tarfile.open(archive) as tar:
-            tar.extractall(dest, filter="tar")
-    [root] = [p for p in dest.iterdir() if p.is_dir()]
-    return root
-
-
 def assert_avr_elf(path: Path) -> None:
-    head = path.read_bytes()[:20]
-    if head[:4] != b"\x7fELF" or int.from_bytes(head[18:20], "little") != EM_AVR:
-        raise RuntimeError(f"{path.name} is not an AVR ELF file")
+    assert_elf(path, EM_AVR, "AVR")
 
 
 def _compile(root: Path, work: Path, variants: list[str]) -> None:
     """Compile blink as each variant with root's toolchain, in work, with an empty PATH."""
-    exe = ".exe" if (root / "bin" / "avr-gcc.exe").exists() else ""
-    env = {"PATH": ""}
-    if "SYSTEMROOT" in os.environ:  # Windows needs it to start any program
-        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
-
-    def run(tool: str, *args) -> None:
-        done = subprocess.run([str(root / "bin" / f"{tool}{exe}"), *map(str, args)], cwd=work, env=env,
-                              capture_output=True, text=True)
-        if done.returncode:
-            raise RuntimeError(f"{tool} {' '.join(map(str, args))} failed:\n{done.stdout}{done.stderr}")
-
+    run = runner(root, work)
     for variant in variants:
         elf = work / f"blink-{variant}.elf"
         run("avr-gcc", f"-mmcu={MCU}", "-Os", "-g", *VARIANTS[variant], "-o", elf, BLINK)

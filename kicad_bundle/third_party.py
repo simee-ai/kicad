@@ -64,6 +64,24 @@ def licences(archive: Path) -> dict[str, bytes]:
     return found
 
 
+
+def folder_licences(archive: Path, folders: Iterable[str]) -> dict[str, dict[str, bytes]]:
+    """Licence files at the top of each of folders, in a source archive holding several components
+    (Arm's toolchain snapshot: one top folder, then one per component), by folder."""
+    folders = tuple(folders)
+
+    def wanted(rel: str) -> bool:
+        parts = rel.split("/")
+        return len(parts) == 2 and parts[0] in folders and bool(LICENCE.fullmatch(parts[1]))
+
+    found: dict[str, dict[str, bytes]] = {f: {} for f in folders}
+    for rel, data in _read(archive, wanted).items():
+        folder, name = rel.split("/")
+        found[folder][name] = data
+    if missing := [f for f, files in found.items() if not files]:
+        raise RuntimeError(f"{archive.name}: no licence file found in {', '.join(missing)}")
+    return found
+
 def sources_archive(components: Iterable[Component], dest: Path) -> Path:
     """dest (a .tar) holding <dest stem>/<component folder>/<its source files>."""
     top = dest.name.removesuffix(".tar")

@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import re
 from pathlib import Path
+from typing import Callable
 
 
 def next_tag(version: str, existing: list[str], prefix: str = "cli") -> str:
@@ -24,6 +25,23 @@ def sha256sums(dist: Path) -> str:
         lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
     return "\n".join(lines) + "\n"
 
+
+
+def toolchain_main(argv, version: str, prefix: str, notes: Callable[[str, str], str]) -> int:
+    """The avr-gcc and arm-gcc workflows' release step: writes <dist>/SHA256SUMS and the notes
+    (notes(run_url, sums)) and prints the release tag, <prefix>-<version>-<n>."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dist", type=Path, required=True)
+    parser.add_argument("--tags", type=Path, required=True, help="file with existing release tags, one per line")
+    parser.add_argument("--run-url", required=True)
+    parser.add_argument("--notes", type=Path, default=Path("notes.md"))
+    args = parser.parse_args(argv)
+
+    sums = sha256sums(args.dist)
+    (args.dist / "SHA256SUMS").write_text(sums)
+    args.notes.write_text(notes(args.run_url, sums))
+    print(next_tag(version, args.tags.read_text().split(), prefix))
+    return 0
 
 def release_notes(version: str, run_url: str, assets: list[str], simee_sha: str | None = None) -> str:
     """simee_sha: the simee-kicad commit KiCad's own files were built from (none: official binaries)."""
