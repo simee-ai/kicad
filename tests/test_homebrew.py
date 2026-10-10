@@ -103,6 +103,10 @@ def test_formula_maps_bundled_library_names_to_homebrew_formulae():
     assert homebrew.formula("libssl.3.dylib") == "openssl@3"
     assert homebrew.formula("libxcb-render.0.0.0.dylib") == "libxcb"
     assert homebrew.formula("libabsl_base.2601.0.0.dylib") == "abseil"
+    assert homebrew.formula("libTKernel.7.9.3.dylib") == "opencascade"  # pcbnew's (simee-kicad#8)
+    assert homebrew.formula("libTKDESTEP.7.9.3.dylib") == "opencascade"
+    assert homebrew.formula("libtbb.12.19.dylib") == "tbb"
+    assert homebrew.formula("libtbbmalloc.2.19.dylib") == "tbb"
     assert homebrew.formula("libkicommon.10.0.6.dylib") is None
 
 

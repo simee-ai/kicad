@@ -22,7 +22,8 @@ from kicad_bundle.homebrew import Bottle
 
 # Not in the bundle, but KiCad's CMake requires them: formula -> the official app's files from its bottle
 # (matched by UUID like the bundled libraries), or None for a header-only formula (its bottle at the release).
-BUILD_ONLY = {"opencascade": "Frameworks/libTKernel.*.dylib", "glm": None}
+# (opencascade, which it needs too, is in the bundle: pcbnew links it.)
+BUILD_ONLY = {"glm": None}
 JOBS = os.cpu_count() or 4
 HOST_PREFIXES = ("/opt/homebrew/", "/usr/local/")  # Homebrew's: a build must use none of it
 

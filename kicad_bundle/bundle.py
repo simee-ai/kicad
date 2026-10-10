@@ -6,9 +6,10 @@ import time
 from pathlib import Path
 
 # The kifaces (KiCad's per-editor modules) kicad-cli loads for what simee runs: eeschema for every `sch`
-# command, and cvpcb for `sch erc`, whose footprint checks reach the footprint libraries through it.
+# command, cvpcb for `sch erc`, whose footprint checks reach the footprint libraries through it, and
+# pcbnew for every `fp` and `pcb` command (gerbers, drill, STEP; it links opencascade).
 # Each platform names a kiface its own way: _<name>.kiface on macOS and Linux, _<name>.dll on Windows.
-KIFACES = ("eeschema", "cvpcb")
+KIFACES = ("eeschema", "cvpcb", "pcbnew")
 
 
 def prune(tops: list[Path], keep: set[Path]) -> None:

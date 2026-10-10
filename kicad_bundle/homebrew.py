@@ -51,6 +51,8 @@ FORMULAE = [(re.compile(pattern), formula) for pattern, formula in (
     (r"libpng16\..+", "libpng"),
     (r"lib(?:protobuf|utf8_validity)\..+", "protobuf"),
     (r"libssh2\..+", "libssh2"),
+    (r"libtbb(?:malloc)?\..+", "tbb"),
+    (r"libTK\w+\..+", "opencascade"),
     (r"libX11\..+", "libx11"),
     (r"libXau\..+", "libxau"),
     (r"libxcb(?:-[\w-]+)?\..+", "libxcb"),
