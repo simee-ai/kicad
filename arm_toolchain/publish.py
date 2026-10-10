@@ -5,7 +5,7 @@
 writes dist/SHA256SUMS and notes.md and prints the release tag (arm-gcc-<Arm release>-<n>).
 """
 
-from arm_toolchain.components import BUILD_SCRIPTS, DOWNLOADS, GCC_VERSION, MULTILIBS, RELEASE, SOURCE
+from arm_toolchain.components import BUILD_SCRIPTS, DOWNLOADS, CHIPS, GCC_VERSION, MULTILIB_LIST, RELEASE, SOURCE
 from kicad_bundle import publish
 
 PREFIX = "arm-gcc"
@@ -17,9 +17,9 @@ def next_tag(release: str, existing: list[str]) -> str:
 
 def release_notes(run_url: str, sums: str) -> str:
     return f"""Arm GNU Toolchain {RELEASE} (GCC {GCC_VERSION}, arm-none-eabi) for simee-core's package: Arm's own
-builds from {DOWNLOADS}/binrel/, unmodified, trimmed to what an RP2040 build runs and links (the C and C++
-drivers, binutils, cc1, cc1plus, LTO, and newlib, libstdc++ and libgcc for the {", ".join(MULTILIBS)}
-multilib), about 185 MB of the 1 GB release.
+builds from {DOWNLOADS}/binrel/, unmodified, trimmed to what a build for the
+{CHIPS} runs and links (the C and C++ drivers, binutils, cc1, cc1plus, LTO, and newlib,
+libstdc++ and libgcc for the multilibs {MULTILIB_LIST}), about 205 MB of the 1 GB release.
 
 Each archive has one top folder, the toolchain root: `bin/arm-none-eabi-gcc` (`bin\\arm-none-eabi-gcc.exe`
 on Windows), `bin/arm-none-eabi-objcopy` and the rest of binutils, `arm-none-eabi/`, `lib/gcc/arm-none-eabi/`.

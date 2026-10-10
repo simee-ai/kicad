@@ -51,9 +51,23 @@ SOURCE = Download(_SOURCE_ARCHIVE, f"{DOWNLOADS}/srcrel/{_SOURCE_ARCHIVE}",
 # others (gdb's binutils-gdb--gdb, glibc, linux, ncurses, libexpat) only go into files that are dropped.
 SHIPPED = ("binutils-gdb", "gcc", "newlib-cygwin", "gmp", "mpfr", "mpc", "isl", "libiconv")
 
-# The multilibs kept, as GCC names them (-print-multi-directory): the RP2040's Cortex-M0+ (no FPU). The
-# RP2350 (Cortex-M33) will add thumb/v8-m.main+fp/softfp (simee-core#111).
-MULTILIBS = ("thumb/v6-m/nofp",)
+
+@dataclass(frozen=True)
+class Target:
+    chip: str
+    flags: tuple[str, ...]  # pico-sdk's for the chip, which make the driver pick the multilib
+
+
+# The multilibs kept, as GCC names them (-print-multi-directory), with the chip each is for: the RP2040's
+# Cortex-M0+ (no FPU), and the RP2350's Cortex-M33 in Arm mode (its FPU with the soft-float calling
+# convention, as pico-sdk builds it; simee-core#111).
+MULTILIBS = {
+    "thumb/v6-m/nofp": Target("RP2040's Cortex-M0+", ("-mcpu=cortex-m0plus", "-mthumb", "-mfloat-abi=soft")),
+    "thumb/v8-m.main+fp/softfp": Target("RP2350's Cortex-M33", (
+        "-mcpu=cortex-m33", "-mthumb", "-march=armv8-m.main+fp+dsp", "-mfloat-abi=softfp", "-mcmse")),
+}
+CHIPS = " and the ".join(t.chip for t in MULTILIBS.values())  # "for the {CHIPS}"
+MULTILIB_LIST = " and ".join(MULTILIBS)
 SOURCES_CACHE = "arm-gcc-sources"  # under kicad-bundle's download cache
 # The macOS x86_64 programs are built by simee (arm_toolchain/build.py), so the release also carries the
 # scripts that build them, beside Arm's snapshot they are built from.
