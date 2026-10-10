@@ -4,8 +4,6 @@ name: avr-gcc
 # with its sources. The versions are pinned in avr_toolchain/components.py; see README, "AVR toolchain".
 
 on:
-  push:  # TEMPORARY: try the branch before merging
-    branches: [chain/simee-kicad-22]
   workflow_dispatch:
     inputs:
       publish:
