@@ -1,6 +1,6 @@
 import os
 
-from kicad_bundle.elf import deps, make_resolver, resolve_in
+from kicad_bundle.elf import ARCHES, deps, make_resolver, resolve_in
 from tiny_elf import make_elf
 
 
@@ -32,3 +32,19 @@ def test_resolver_finds_image_libraries_and_leaves_glibc_to_the_host(tmp_path):
     for name in ("libc.so.6", "libm.so.6", "ld-linux-x86-64.so.2", "libpthread.so.0"):
         assert resolve(name, cli) is None
     assert not resolve("libgone.so.1", cli).exists()  # closure() reports it as missing
+
+
+def test_an_arm64_resolver_looks_in_debians_arm64_libraries_and_leaves_its_loader_to_the_host(tmp_path):
+    real = make_elf(tmp_path / "usr/lib/aarch64-linux-gnu/libgit2.so.1.9")
+    make_elf(tmp_path / "usr/lib/x86_64-linux-gnu/libnope.so.1")
+    resolve = make_resolver(tmp_path, ARCHES["arm64"])
+    cli = tmp_path / "usr/bin/kicad-cli"
+    assert resolve("libgit2.so.1.9", cli) == real
+    assert not resolve("libnope.so.1", cli).exists()
+    for name in ("libc.so.6", "ld-linux-aarch64.so.1"):
+        assert resolve(name, cli) is None
+
+
+def test_each_arch_names_its_docker_platform_and_debian_triplet():
+    assert (ARCHES["x86_64"].docker, ARCHES["x86_64"].multiarch) == ("linux/amd64", "x86_64-linux-gnu")
+    assert (ARCHES["arm64"].docker, ARCHES["arm64"].multiarch) == ("linux/arm64", "aarch64-linux-gnu")

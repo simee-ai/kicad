@@ -42,13 +42,15 @@ def release_notes(version: str, run_url: str, assets: list[str], simee_sha: str 
 ERC, footprint upgrades and gerbers, drill and STEP exports work, and their shared libraries), re-signed
 ad hoc on macOS.
 Unpack and run `kicad-cli` (macOS: `KiCad.app/Contents/MacOS/kicad-cli`; Windows 10 or newer: `bin\\kicad-cli.exe`;
-Linux x86_64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
+Linux x86_64 or arm64: `bin/kicad-cli`, which needs glibc 2.39 or newer, e.g. Ubuntu 24.04 or Debian 13).
 Set `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` to keep it out of the user's home.
 
 The Linux binaries come from the official `kicad/kicad:{version}` Docker image, with every library but
 glibc in `lib/`. Its `THIRD-PARTY.txt` names the Debian package each library comes from, with that
 package's licence in `share/doc/<package>/copyright`; `kicad-cli-{version}-linux-x86_64-sources.tar`
-holds the exact Debian source of every one of them.
+holds the exact Debian source of every one of them. The image is amd64 only, so the arm64 bundle is built
+on the Debian image it is built from, for arm64, with its Debian packages at the same versions; its sources are
+`kicad-cli-{version}-linux-arm64-sources.tar`.
 
 The macOS libraries come from Homebrew bottles (each matched to its bottle by Mach-O UUID) and from
 what KiCad's macOS builder builds itself (its wxWidgets fork, ngspice, Python). Each macOS bundle's

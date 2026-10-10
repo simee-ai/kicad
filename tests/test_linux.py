@@ -43,15 +43,16 @@ def test_extract_keeps_only_what_the_closure_can_need(tmp_path):
                      "var/lib/dpkg/status"]
 
 
-def _image(rootfs, extra_lib: str | None = None):
+def _image(rootfs, extra_lib: str | None = None, multiarch: str = "x86_64-linux-gnu"):
     """A fake extracted image: kicad-cli -> libkicommon -> libc, the kiface -> libgit2 (from Debian's
     libgit2-1.9, whose copyright file is reached through a symlinked doc dir), plus the schemas."""
-    libdir = rootfs / "usr/lib/x86_64-linux-gnu"
+    libdir = rootfs / "usr/lib" / multiarch
     info = rootfs / "var/lib/dpkg/info"
     info.mkdir(parents=True)
     (rootfs / "var/lib/dpkg/status").write_text(
         "Package: libgit2-1.9\nStatus: install ok installed\nSource: libgit2\nVersion: 1.9.0+ds-2+deb13u1\n")
-    (info / "libgit2-1.9:amd64.list").write_text(f"/usr/lib/x86_64-linux-gnu/libgit2.so.1.9.0\n")
+    debian_arch = "arm64" if multiarch.startswith("aarch64") else "amd64"
+    (info / f"libgit2-1.9:{debian_arch}.list").write_text(f"/usr/lib/{multiarch}/libgit2.so.1.9.0\n")
     (rootfs / "usr/share/doc/libgit2-common").mkdir(parents=True)
     (rootfs / "usr/share/doc/libgit2-common/copyright").write_text("GPL-2 with linking exception")
     os.symlink("libgit2-common", rootfs / "usr/share/doc/libgit2-1.9")
@@ -114,12 +115,29 @@ def test_assemble_on_another_image_names_it(tmp_path):
 
 
 class FakeLinuxBuild:
-    """Stands in for the docker steps of linux.package; records the image it was asked for."""
+    """Stands in for the docker steps of linux.package; records the images it exported (and for which
+    docker platform), the native builds it made and the rootfs each bundle was assembled from."""
 
     def __init__(self, monkeypatch, tmp_path):
-        self.images = []
-        monkeypatch.setattr(linux, "_export_image", lambda image, rootfs: self.images.append(image) or "digest")
-        monkeypatch.setattr(linux, "assemble", lambda rootfs, root, version, sha=None, image=None: set())
+        self.images, self.native, self.assembled = [], [], []
+
+        def export(image, rootfs, arch=linux.ARCHES["x86_64"], pull=True):
+            self.images.append((image, arch.docker, pull))
+            return "digest"
+
+        def native(image, rootfs, src, work, arch, data):
+            self.native.append((image, rootfs.name, arch.name, data))
+            return "simee-kicad-linux-arm64"
+
+        def assemble(rootfs, root, version, sha=None, image=None, arch=linux.ARCHES["x86_64"]):
+            self.assembled.append((rootfs.name, arch.name))
+            return set()
+
+        monkeypatch.setattr(linux, "_export_image", export)
+        monkeypatch.setattr(linux, "assemble", assemble)
+        monkeypatch.setattr(linux.linux_build, "native", native)
+        monkeypatch.setattr(linux.linux_build, "image_sources", lambda rootfs: {})
+        monkeypatch.setattr(linux.linux_build, "check_sources", lambda rootfs, other, what: None)
         monkeypatch.setattr(linux.simee_source, "resolve_ref", lambda ref: "f" * 40)
         monkeypatch.setattr(linux.simee_source, "source_archive", lambda sha, dest: dest)
         monkeypatch.setattr(linux.linux_build, "build", lambda image, rootfs, src, work: tmp_path / "built")
@@ -131,15 +149,35 @@ class FakeLinuxBuild:
 def test_package_takes_the_versions_own_image(monkeypatch, tmp_path):
     fake = FakeLinuxBuild(monkeypatch, tmp_path)
     linux.package("10.0.6", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False)
-    assert fake.images == ["kicad/kicad:10.0.6"]
+    assert fake.images == [("kicad/kicad:10.0.6", "linux/amd64", True)]
 
 
 def test_package_builds_a_release_candidate_on_a_base_image(monkeypatch, tmp_path):
     fake = FakeLinuxBuild(monkeypatch, tmp_path)
     built = linux.package("11.0.0-rc1", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False,
                           simee_ref="rehearsal/11.0.0-rc1", base_image="kicad/kicad:10.0.6")
-    assert fake.images == ["kicad/kicad:10.0.6"]
+    assert fake.images == [("kicad/kicad:10.0.6", "linux/amd64", True)]
     assert built[0].name == "kicad-cli-11.0.0-rc1-linux-x86_64.tar.gz"
+
+
+def test_package_builds_arm64_natively_on_the_official_images_debian_and_packages(monkeypatch, tmp_path):
+    fake = FakeLinuxBuild(monkeypatch, tmp_path)
+    built = linux.package("10.0.6", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False,
+                          simee_ref="simee/10.0.6", arch="arm64")
+    # the official (amd64) image says what to build on; the bundle comes from the native image built from it
+    assert fake.native == [("digest", "linux-image", "arm64", linux.DATA)]
+    assert fake.images == [("kicad/kicad:10.0.6", "linux/amd64", True), ("simee-kicad-linux-arm64", "linux/arm64", False)]
+    assert fake.assembled == [("linux-arm64-image", "arm64")]
+    assert [p.name for p in built] == ["kicad-cli-10.0.6-linux-arm64.tar.gz", "kicad-cli-10.0.6-linux-arm64-sources.tar",
+                                       "kicad-10.0.6-source.tar.gz"]
+
+
+def test_arm64_needs_a_simee_ref(monkeypatch, tmp_path):
+    # there are no official arm64 binaries to repackage
+    fake = FakeLinuxBuild(monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="simee-ref"):
+        linux.package("10.0.6", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False, arch="arm64")
+    assert fake.images == []
 
 
 def test_a_base_image_needs_a_simee_ref(monkeypatch, tmp_path):
@@ -149,6 +187,19 @@ def test_a_base_image_needs_a_simee_ref(monkeypatch, tmp_path):
         linux.package("11.0.0-rc1", tmp_path / "dist", tmp_path / "cache", tmp_path / "work", run_smoke=False,
                       base_image="kicad/kicad:10.0.6")
     assert fake.images == []
+
+
+def test_assemble_for_arm64_takes_debians_arm64_libraries_and_says_where_they_come_from(tmp_path):
+    rootfs, root = tmp_path / "rootfs", tmp_path / "kicad-cli-10.0.6-linux-arm64"
+    _image(rootfs, multiarch="aarch64-linux-gnu")
+    sources = linux.assemble(rootfs, root, "10.0.6", simee_sha="4e18395976" + "0" * 30, arch=linux.ARCHES["arm64"])
+    assert sorted(p.name for p in (root / "lib").iterdir()) == ["libgit2.so.1.9", "libkicommon.so.10.0.6"]
+    assert sources == {("libgit2", "1.9.0+ds-2+deb13u1")}
+    notice = " ".join((root / "THIRD-PARTY.txt").read_text().split())
+    assert notice.startswith("kicad-cli 10.0.6 for Linux arm64, ")
+    assert "kicad/kicad:10.0.6 Docker image (amd64 only)" in notice
+    assert "repackaged" not in notice
+    assert "kicad-cli-10.0.6-linux-arm64-sources.tar" in notice
 
 
 def test_assemble_refuses_a_library_no_debian_package_owns(tmp_path):
@@ -183,3 +234,6 @@ def test_smoke_runs_in_a_bare_container_of_the_oldest_supported_host(tmp_path, m
     assert cmd[:2] == ["docker", "run"] and linux.SMOKE_IMAGE in cmd
     assert f"{bundle}:{bundle}:ro" in cmd
     assert cmd[-1] == str(bundle / "bin/kicad-cli")
+    assert cmd[cmd.index("--platform") + 1] == "linux/amd64"
+    arm = linux.smoke_command(Path("work/bundle"), linux.ARCHES["arm64"])
+    assert arm[arm.index("--platform") + 1] == "linux/arm64" and linux.SMOKE_IMAGE in arm
