@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from kicad_bundle import cache, linux, macos, windows
+from kicad_bundle.elf import ARCHES
 
 PACKAGERS = {"linux": linux.package, "macos": macos.package, "windows": windows.package}
 
@@ -27,13 +28,18 @@ def main(argv=None) -> int:
     parser.add_argument("--simee-ref", help="build KiCad's own files from this simee-kicad branch, e.g. simee/10.0.6")
     parser.add_argument("--base-image", help="linux: build on this image instead of kicad/kicad:<version> "
                         "(a release candidate, which has none; needs --simee-ref)")
+    parser.add_argument("--arch", choices=sorted(ARCHES), help="linux: the architecture to build for "
+                        f"(default {linux.OFFICIAL.name}; any other needs --simee-ref, as KiCad is built for it)")
     args = parser.parse_args(argv)
-    if args.base_image and args.platform != "linux":
-        parser.error("--base-image is for --platform linux")
+    for flag in ("base_image", "arch"):
+        if getattr(args, flag) and args.platform != "linux":
+            parser.error(f"--{flag.replace('_', '-')} is for --platform linux")
 
     simee = {"simee_ref": args.simee_ref} if args.simee_ref else {}
     if args.base_image:
         simee["base_image"] = args.base_image
+    if args.arch:
+        simee["arch"] = args.arch
     built = PACKAGERS[args.platform](args.kicad_version, args.out, args.cache, args.work, not args.no_smoke, **simee)
     for path in built:
         print(f"{sha256(path)}  {path.name}  ({path.stat().st_size / 1e6:.0f} MB)")

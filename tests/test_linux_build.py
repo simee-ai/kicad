@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from kicad_bundle import linux_build
+from kicad_bundle.elf import ARCHES
 
 DIGEST = "kicad/kicad@sha256:" + "ab" * 32
 
@@ -18,8 +19,9 @@ def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     lines = text.splitlines()
     assert lines[0] == f"FROM {DIGEST}"
     # Debian as it was when the image was made, security updates included...
-    assert "https://snapshot.debian.org/archive/debian/20260922T125549Z/ trixie trixie-updates" in text
-    assert "https://snapshot.debian.org/archive/debian-security/20260922T125549Z/ trixie-security" in text
+    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
+                  "debian-security/20260922T125549Z/ trixie-security main"):
+        assert f"https://snapshot.debian.org/archive/{suite}'" in text
     # ...and no installed package may change, so the -dev packages match the image's libraries exactly.
     hold = next(i for i, l in enumerate(lines) if "apt-mark hold" in l)
     install = next(i for i, l in enumerate(lines) if "apt-get install" in l)
@@ -116,3 +118,65 @@ def test_cli_refuses_a_base_image_outside_linux(monkeypatch, tmp_path, platform)
     with pytest.raises(SystemExit):
         cli.main(["--kicad-version", "11.0.0-rc1", "--platform", platform, "--simee-ref", "x",
                   "--base-image", "kicad/kicad:10.0.6", "--cache", str(tmp_path)])
+
+
+# The official image's history ends in the Debian image it was built FROM (debuerreotype's command).
+HISTORY = ["USER kicad", "COPY /usr/installtemp/bin /usr/bin # buildkit",
+           "ARG USER_NAME=kicad", "# debian.sh --arch 'amd64' out/ 'trixie' '@1789689600'"]
+
+
+def test_debian_base_is_the_dated_debian_image_the_official_one_was_built_from():
+    assert linux_build.debian_base(HISTORY) == "debian:trixie-20260918"
+    assert linux_build.debian_base(["# debian.sh --arch 'arm64' --slim out/ 'trixie' '@1789689600'"]) == \
+        "debian:trixie-20260918-slim"
+    with pytest.raises(RuntimeError, match="Debian"):
+        linux_build.debian_base(["FROM ubuntu"])
+
+
+def test_runtime_dockerfile_installs_the_official_images_packages_from_debians_archive_of_that_day():
+    text = linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g", "libgit2-1.9"])
+    lines = text.splitlines()
+    assert lines[0] == "FROM debian:trixie-20260918"
+    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
+                  "debian-security/20260922T125549Z/ trixie-security main"):
+        # http: the Debian image has no CA certificates yet (apt checks the archive's signatures)
+        assert f"http://snapshot.debian.org/archive/{suite}'" in text
+    # each package Debian has for the architecture (the official image has some amd64-only ones)
+    assert "printf '%s\\n' libgit2-1.9 zlib1g | sort > /tmp/wanted" in text
+    assert "apt-cache dumpavail" in text
+    assert "apt-get install -y --no-install-recommends $(comm -12 /tmp/wanted /tmp/available)" in text
+
+
+def test_native_context_lays_kicads_files_out_where_the_official_image_has_them(tmp_path):
+    built, rootfs, context = tmp_path / "built", tmp_path / "rootfs", tmp_path / "context"
+    built.mkdir()
+    for name in ("kicad-cli", "_eeschema.kiface", "_cvpcb.kiface", "_pcbnew.kiface", "libkicommon.so.10.0.6",
+                 "dpkg-sources.txt"):
+        (built / name).write_text(name)
+    (rootfs / "usr/share/kicad/schemas").mkdir(parents=True)
+    (rootfs / "usr/share/kicad/schemas/api.v1.schema.json").write_text("{}")
+    linux_build.native_context(context, "simee-kicad-linux-arm64-runtime", built, rootfs,
+                               ARCHES["arm64"], data=("usr/share/kicad/schemas",))
+    found = sorted(str(p.relative_to(context)) for p in context.rglob("*") if p.is_file())
+    assert found == ["Dockerfile", "usr/bin/_cvpcb.kiface", "usr/bin/_eeschema.kiface", "usr/bin/_pcbnew.kiface",
+                     "usr/bin/kicad-cli", "usr/lib/aarch64-linux-gnu/libkicommon.so.10.0.6",
+                     "usr/share/kicad/schemas/api.v1.schema.json"]
+    assert (context / "Dockerfile").read_text().splitlines() == ["FROM simee-kicad-linux-arm64-runtime", "COPY usr/ /usr/"]
+
+
+def test_cli_passes_an_arch_to_the_linux_packager(monkeypatch, tmp_path):
+    from kicad_bundle import cli
+    seen = {}
+    monkeypatch.setitem(cli.PACKAGERS, "linux", lambda *a, **k: seen.update(k) or [])
+    cli.main(["--kicad-version", "10.0.6", "--platform", "linux", "--arch", "arm64", "--simee-ref", "simee/10.0.6",
+              "--cache", str(tmp_path)])
+    assert seen == {"simee_ref": "simee/10.0.6", "arch": "arm64"}
+
+
+@pytest.mark.parametrize("platform", ["macos", "windows"])
+def test_cli_refuses_an_arch_outside_linux(monkeypatch, tmp_path, platform):
+    from kicad_bundle import cli
+    monkeypatch.setitem(cli.PACKAGERS, platform, lambda *a, **k: pytest.fail("packaged"))
+    with pytest.raises(SystemExit):
+        cli.main(["--kicad-version", "10.0.6", "--platform", platform, "--arch", "arm64", "--simee-ref", "x",
+                  "--cache", str(tmp_path)])

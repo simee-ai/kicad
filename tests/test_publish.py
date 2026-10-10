@@ -29,6 +29,13 @@ def test_release_notes_say_how_to_run_each_platform():
                 "glibc 2.39"):
         assert how in text
     assert "kicad/kicad:10.0.6" in text  # where the Linux binaries come from
+    assert "Linux x86_64 or arm64: `bin/kicad-cli`" in " ".join(text.split())
+
+
+def test_release_notes_say_where_the_arm64_linux_bundle_comes_from():
+    text = " ".join(release_notes("10.0.6", "https://run/1", [], simee_sha="4e18395976" + "0" * 30).split())
+    assert "kicad-cli-10.0.6-linux-arm64-sources.tar" in text
+    assert "amd64 only" in text
 
 
 def test_release_notes_say_which_commands_the_bundle_runs():
