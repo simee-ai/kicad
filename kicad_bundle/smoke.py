@@ -1,13 +1,15 @@
 """Prove a bundle works: export the netlist of a known RC filter and compare KiCad's nets, run KiCad's
 electrical rules check on it and compare the errors, then run what pcbnew does (upgrade a footprint
-library; export the filter's board as gerbers, drill and STEP) and check each output."""
+library; export the filter's board as gerbers, drill, STEP and SVG, render it in 3D) and check each output."""
 
 import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
@@ -19,6 +21,15 @@ EXPECTED_ERC = [("power_pin_not_driven", "Symbol #PWR01 Pin 1 [Power input, Line
 # The filter's board: its copper pads carry the schematic's nets (EXPECTED), each through a plated hole.
 BOARD = SCHEMATIC.with_suffix(".kicad_pcb")
 EXPECTED_HOLES = 4
+BOARD_SIZE = (20.0, 10.0)  # its outline, mm
+# How simee-db draws a board (simee UI.md 5.7): its top copper, mask, silkscreen and outline in one flat SVG
+# of the board's area, and a 3D view from the top. KiCad's SVG of the board area is a little off its outline
+# (19.9898 x 9.9822 mm for the filter), and its render up to 32 pixels smaller than asked (368 x 168 for
+# 400 x 200, 1568 x 872 for the default 1600 x 900; the same on every platform and run).
+SVG_LAYERS = "F.Cu,F.Mask,F.SilkS,Edge.Cuts"
+SVG_TOLERANCE = 0.1
+RENDER_SIZE = (400, 200)
+RENDER_SHORTFALL = 32
 # A footprint library in KiCad 5's format, which `fp upgrade` rewrites in the current one.
 FOOTPRINTS = SCHEMATIC.parent / "footprints.pretty"
 EXPECTED_FOOTPRINTS = ["R_Axial_P5.08mm"]
@@ -77,19 +88,47 @@ def erc_errors(report: str) -> list[tuple[str, str]]:
 
 
 def gerber_nets(gerbers: list[str]) -> list[list[str]]:
-    """Nets as sorted "REF.PIN" lists, from the pad attributes of gerber X2 copper layers."""
+    """Nets as sorted "REF.PIN" lists, from the pad attributes of gerber X2 copper layers. KiCad names a
+    pad on no net N/C."""
     nets = defaultdict(set)
     for text in gerbers:
         for ref, pin, net in GERBER_PAD.findall(text):
-            nets[net].add(f"{ref}.{pin}")
+            if net != "N/C":
+                nets[net].add(f"{ref}.{pin}")
     return sorted(sorted(pins) for pins in nets.values())
+
+
+def copper_nets(gerbers: dict[str, str]) -> list[list[str]]:
+    """gerber_nets of the copper layers among gerbers (file name -> text)."""
+    return gerber_nets([t for t in gerbers.values() if "%TF.FileFunction,Copper," in t])
 
 
 def drill_holes(excellon: str) -> int:
     return len(DRILL_HOLE.findall(excellon))
 
 
-def _run(cli: list[str], args: list[str], out: Path) -> Path:
+def svg_size(svg: str) -> tuple[float, float]:
+    """An SVG's width and height in mm."""
+    root = ET.fromstring(svg.encode())
+    if root.tag != "{http://www.w3.org/2000/svg}svg":
+        raise RuntimeError(f"not an SVG: {root.tag}")
+    return tuple(float(root.get(k).removesuffix("mm")) for k in ("width", "height"))
+
+
+def png_size(data: bytes) -> tuple[int, int]:
+    """A PNG's width and height, from its header."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        raise RuntimeError("not a PNG")
+    return struct.unpack(">II", data[16:24])
+
+
+def export_gerbers(cli: list[str], board: Path, folder: Path) -> dict[str, str]:
+    """board's gerbers, written to folder: file name -> text."""
+    run(cli, ["pcb", "export", "gerbers", "-o", f"{folder}/", str(board)], folder)
+    return {p.name: p.read_text() for p in folder.iterdir()}
+
+
+def run(cli: list[str], args: list[str], out: Path) -> Path:
     """Run `cli args`, which must write out (a file or folder) without logging errors; returns out."""
     result = subprocess.run([*cli, *args], env=kicad_env(out.parent), capture_output=True, text=True)
     if result.returncode != 0 or not out.exists():
@@ -104,31 +143,49 @@ def _run(cli: list[str], args: list[str], out: Path) -> Path:
 
 def _check_pcbnew(cli: list[str], tmp: Path) -> None:
     """Raise unless pcbnew's commands work: `fp upgrade` rewrites FOOTPRINTS in the current format, and
-    BOARD's gerbers have its nets' pads and its outline, its drill file its holes and its STEP file a header."""
-    up = _run(cli, ["fp", "upgrade", "-o", str(tmp / "upgraded.pretty"), str(FOOTPRINTS)], tmp / "upgraded.pretty")
+    BOARD's gerbers have its nets' pads and its outline, its drill file its holes, its STEP file a header,
+    and it draws (check_drawings)."""
+    up = run(cli, ["fp", "upgrade", "-o", str(tmp / "upgraded.pretty"), str(FOOTPRINTS)], tmp / "upgraded.pretty")
     upgraded = sorted(p.stem for p in up.glob("*.kicad_mod") if p.read_text().startswith("(footprint "))
     if upgraded != EXPECTED_FOOTPRINTS:
         raise RuntimeError(f"fp upgrade wrote footprints {upgraded} in the current format, wanted {EXPECTED_FOOTPRINTS}")
 
     # A copy: with a fresh config, pcbnew writes the board's project settings (.kicad_prl) next to it.
     board = Path(shutil.copy2(BOARD, tmp))
-    gerbers = _run(cli, ["pcb", "export", "gerbers", "-o", f"{tmp / 'gerbers'}/", str(board)], tmp / "gerbers")
-    texts = {p.name: p.read_text() for p in gerbers.iterdir()}
-    nets = gerber_nets([t for t in texts.values() if "%TF.FileFunction,Copper," in t])
+    texts = export_gerbers(cli, board, tmp / "gerbers")
+    nets = copper_nets(texts)
     if nets != EXPECTED:
         raise RuntimeError(f"unexpected gerber pads {nets}, wanted {EXPECTED}")
     if not any("%TF.FileFunction,Profile," in t for t in texts.values()):
         raise RuntimeError(f"no board outline (Edge_Cuts) among the gerbers {sorted(texts)}")
 
-    drill = _run(cli, ["pcb", "export", "drill", "-o", f"{tmp / 'drill'}/", str(board)], tmp / "drill")
+    drill = run(cli, ["pcb", "export", "drill", "-o", f"{tmp / 'drill'}/", str(board)], tmp / "drill")
     holes = sum(drill_holes(p.read_text()) for p in drill.glob("*.drl"))
     if holes != EXPECTED_HOLES:
         raise RuntimeError(f"the drill files have {holes} holes, wanted {EXPECTED_HOLES}")
 
     # STEP goes through opencascade, the bulk of pcbnew's libraries.
-    step = _run(cli, ["pcb", "export", "step", "-o", str(tmp / "board.step"), str(board)], tmp / "board.step")
+    step = run(cli, ["pcb", "export", "step", "-o", str(tmp / "board.step"), str(board)], tmp / "board.step")
     if not step.read_text().startswith("ISO-10303-21;"):
         raise RuntimeError("pcb export step wrote no STEP file")
+
+    check_drawings(cli, board, BOARD_SIZE, tmp)
+
+
+def check_drawings(cli: list[str], board: Path, size: tuple[float, float], tmp: Path) -> None:
+    """Raise unless `pcb export svg` draws board (a board in a folder of its own, where pcbnew may write)
+    the size of its outline (mm) and `pcb render` renders it in 3D. Both run without a display (#20)."""
+    svg = run(cli, ["pcb", "export", "svg", "--mode-single", "--layers", SVG_LAYERS, "--page-size-mode", "2",
+                     "--exclude-drawing-sheet", "-o", str(tmp / "board.svg"), str(board)], tmp / "board.svg")
+    drawn = svg_size(svg.read_text())
+    if any(abs(a - b) > SVG_TOLERANCE for a, b in zip(drawn, size)):
+        raise RuntimeError(f"pcb export svg drew {drawn} mm, wanted the board's {size}")
+    width, height = RENDER_SIZE
+    png = run(cli, ["pcb", "render", "--side", "top", "-w", str(width), "-h", str(height),
+                     "-o", str(tmp / "board.png"), str(board)], tmp / "board.png")
+    made = png_size(png.read_bytes())
+    if any(not want - RENDER_SHORTFALL <= got <= want for got, want in zip(made, RENDER_SIZE)):
+        raise RuntimeError(f"pcb render made a {made} image, wanted {RENDER_SIZE}")
 
 
 def check(cli: list[str]) -> None:
@@ -136,8 +193,8 @@ def check(cli: list[str]) -> None:
     errors (ERC also needs the cvpcb kiface) and pcbnew's commands their outputs (_check_pcbnew)."""
     with tempfile.TemporaryDirectory() as tmp:
         net, erc = Path(tmp) / "smoke.net", Path(tmp) / "smoke-erc.json"
-        nets = netlist_nets(_run(cli, ["sch", "export", "netlist", "-o", str(net), str(SCHEMATIC)], net).read_text())
-        errors = erc_errors(_run(cli, ["sch", "erc", "--format", "json", "--severity-all", "-o", str(erc),
+        nets = netlist_nets(run(cli, ["sch", "export", "netlist", "-o", str(net), str(SCHEMATIC)], net).read_text())
+        errors = erc_errors(run(cli, ["sch", "erc", "--format", "json", "--severity-all", "-o", str(erc),
                                        str(SCHEMATIC)], erc).read_text())
         if nets != EXPECTED:
             raise RuntimeError(f"unexpected nets {nets}, wanted {EXPECTED}")

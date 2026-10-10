@@ -18,7 +18,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import BinaryIO
 
-from kicad_bundle import debian, elf, linux_build, sch_import, simee_source, smoke
+from kicad_bundle import debian, elf, imports, linux_build, simee_source, smoke
 from kicad_bundle.bundle import KIFACES, archive
 from kicad_bundle.cache import DEBIAN_SOURCES
 from kicad_bundle.closure import closure
@@ -234,8 +234,7 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
     if run_smoke:
         smoke.check(smoke_command(root, target))
         if sha:
-            for fixture in sch_import.fixtures():
-                sch_import.check(smoke_command(root, target), fixture)
-        print(f"  smoke test passed ({SMOKE_IMAGE} {target.docker}{', sch import' if sha else ''})")
+            imports.check(smoke_command(root, target))
+        print(f"  smoke test passed ({SMOKE_IMAGE} {target.docker}{', sch and pcb import' if sha else ''})")
     bundle = archive(root, out_dir, "tar.gz")
     return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / DEBIAN_SOURCES), *extra]

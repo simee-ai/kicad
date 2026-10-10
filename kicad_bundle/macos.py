@@ -9,7 +9,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from kicad_bundle import (macbuilder, macho, macos_build, macos_third_party, release, sch_import, simee_source, smoke,
+from kicad_bundle import (imports, macbuilder, macho, macos_build, macos_third_party, release, simee_source, smoke,
                           third_party)
 from kicad_bundle.bundle import KIFACES, archive, copy_tree, prune, remove
 from kicad_bundle.closure import closure
@@ -56,15 +56,14 @@ def _overlay(app_contents: Path, built: dict[str, Path], arch: str) -> None:
     macos_build.check_imports(app_contents, [app_contents / rel for rel in built], arch)
 
 
-def _smoke(cli: list[str] | None, arch: str, imports: bool) -> None:
+def _smoke(cli: list[str] | None, arch: str, simee_built: bool) -> None:
     if cli is None:
         print(f"  smoke test skipped: can't run {arch} on {platform.machine()}")
         return
     smoke.check(cli)
-    if imports:  # `sch import` is simee's: only a bundle built from a simee branch has it
-        for fixture in sch_import.fixtures():
-            sch_import.check(cli, fixture)
-    print(f"  smoke test passed ({arch}{', sch import of every fixture' if imports else ''})")
+    if simee_built:  # `sch import` and the Eagle board fix are simee's: only a bundle built from a simee branch has them
+        imports.check(cli)
+    print(f"  smoke test passed ({arch}{', sch and pcb import of every fixture' if simee_built else ''})")
 
 
 def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True,
@@ -121,6 +120,6 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
                                                            fetch_url, work / f"build-{arch}"), arch)
         macos_third_party.write_notices(third, root, arch, version, sources, simee_sha=sha)
         if run_smoke:
-            _smoke(_cli_command(app_contents / "MacOS" / "kicad-cli", arch), arch, imports=bool(sha))
+            _smoke(_cli_command(app_contents / "MacOS" / "kicad-cli", arch), arch, simee_built=bool(sha))
         built.append(archive(root, out_dir, "tar.gz"))
     return [*built, third_party.sources_archive(third.components, out_dir / sources), *([kicad_source] if sha else [])]

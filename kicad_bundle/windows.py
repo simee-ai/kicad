@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from kicad_bundle import pe, release, sch_import, simee_source, smoke, third_party, windows_build, windows_third_party
+from kicad_bundle import imports, pe, release, simee_source, smoke, third_party, windows_build, windows_third_party
 from kicad_bundle.bundle import KIFACES, archive
 from kicad_bundle.closure import closure
 
@@ -76,9 +76,8 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         if os.name == "nt":
             smoke.check([str(bundled_cli)])
             if sha:
-                for fixture in sch_import.fixtures():
-                    sch_import.check([str(bundled_cli)], fixture)
-            print(f"  smoke test passed{' (sch import too)' if sha else ''}")
+                imports.check([str(bundled_cli)])
+            print(f"  smoke test passed{' (sch and pcb import too)' if sha else ''}")
         else:
             print("  smoke test skipped: needs Windows")
     return [archive(root, out_dir, "zip"), third_party.sources_archive(third.components, out_dir / sources), *extra]
