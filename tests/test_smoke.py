@@ -1,4 +1,5 @@
 import json
+import struct
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -6,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from kicad_bundle import linux, macos, smoke, windows_build
-from kicad_bundle.smoke import (EXPECTED, EXPECTED_ERC, EXPECTED_FOOTPRINTS, EXPECTED_HOLES, drill_holes, erc_errors,
-                                gerber_nets, netlist_nets)
+from kicad_bundle.smoke import (BOARD_SIZE, EXPECTED, EXPECTED_ERC, EXPECTED_FOOTPRINTS, EXPECTED_HOLES, RENDER_SIZE,
+                                drill_holes, erc_errors, gerber_nets, netlist_nets, png_size, svg_size)
 
 NETLIST = """(export (version "E")
   (nets
@@ -82,6 +83,22 @@ M30
 """
 FOOTPRINT = '(footprint "R_Axial_P5.08mm"\n\t(version 20260206)\n)\n'
 STEP = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n"
+# Trimmed from kicad-cli 10.0.6's `pcb export svg` of the smoke board (board area only).
+SVG = """<?xml version="1.0" standalone="no"?>
+ <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1"
+  width="19.9898mm" height="9.9822mm" viewBox="0.0000 0.0000 19.9898 9.9822">
+<g style="fill:#C83434; fill-opacity:1.0000; stroke:none;">
+<circle cx="5.0000" cy="5.0000" r="0.8000" />
+</g>
+</svg>
+"""
+
+
+def _png(width: int, height: int) -> bytes:
+    """A PNG's signature and header chunk: all png_size reads."""
+    return b"\x89PNG\r\n\x1a\n" + struct.pack(">I4sII", 13, b"IHDR", width, height) + b"\x08\x06\x00\x00\x00"
 
 # What each command writes: (file under its -o folder, or "" when -o is the file; text).
 OUTPUTS = {
@@ -92,6 +109,8 @@ OUTPUTS = {
                            ("rc_filter-Edge_Cuts.gm1", EDGE_CUTS)],
     "pcb export drill": [("rc_filter.drl", DRILL)],
     "pcb export step": [("", STEP)],
+    "pcb export svg": [("", SVG)],
+    "pcb render": [("", _png(*RENDER_SIZE))],
 }
 
 FAKE_CLI = """import sys
@@ -105,7 +124,8 @@ if cmd == {fail!r}:
 for name, text in outputs[cmd]:
     if name:
         out.mkdir(parents=True, exist_ok=True)
-    (out / name if name else out).write_text(text)
+    path = out / name if name else out
+    path.write_bytes(text) if isinstance(text, bytes) else path.write_text(text)
 """
 
 
@@ -120,6 +140,12 @@ def _fake_cli(tmp_path: Path, fail: str = "", code: str = "pass", **outputs: lis
 
 def test_gerber_nets_reads_the_pads_of_each_net():
     assert gerber_nets([GERBER, GERBER]) == EXPECTED
+
+
+def test_gerber_nets_leaves_out_pads_on_no_net():
+    # an imported board's fiducials and mounting holes
+    nc = "%TO.P,U$5,1*%\n%TO.N,N/C*%\nX0Y0D03*\n%TO.P,U$7,P$1*%\n%TO.N,N/C*%\nX1Y1D03*\n"
+    assert gerber_nets([GERBER, nc]) == EXPECTED
 
 
 def test_drill_holes_counts_the_holes_of_an_excellon_file():
@@ -138,7 +164,8 @@ def test_check_fails_when_erc_cant_load_a_kiface(tmp_path):
         smoke.check(_fake_cli(tmp_path, "sch erc", erc))
 
 
-@pytest.mark.parametrize("command", ["fp upgrade", "pcb export gerbers", "pcb export drill", "pcb export step"])
+@pytest.mark.parametrize("command", ["fp upgrade", "pcb export gerbers", "pcb export drill", "pcb export step",
+                                     "pcb export svg", "pcb render"])
 def test_check_fails_when_a_pcb_command_cant_load_pcbnew(tmp_path, command):
     # The trimmed bundle's failure before pcbnew was bundled (simee-kicad#8): exit 255, nothing written.
     fail = ("print(\"Error: Failed to load kiface library '/x/PlugIns/_pcbnew.kiface'.\", file=sys.stderr); "
@@ -170,6 +197,36 @@ def test_check_fails_on_a_step_file_that_isnt_one(tmp_path):
         smoke.check(_fake_cli(tmp_path, pcb_export_step=[("", "")]))
 
 
+def test_svg_size_reads_the_drawings_size_in_mm():
+    assert svg_size(SVG) == (19.9898, 9.9822)
+
+
+def test_png_size_reads_the_header():
+    assert png_size(_png(640, 360)) == (640, 360)
+
+
+def test_png_size_rejects_what_isnt_a_png():
+    with pytest.raises(RuntimeError, match="PNG"):
+        png_size(b"JFIF" + bytes(30))
+
+
+def test_check_fails_when_the_svg_isnt_the_boards_size(tmp_path):
+    # e.g. a page with a drawing sheet instead of the board area
+    a4 = SVG.replace('width="19.9898mm" height="9.9822mm"', 'width="297.0022mm" height="210.0072mm"')
+    with pytest.raises(RuntimeError, match="svg"):
+        smoke.check(_fake_cli(tmp_path, pcb_export_svg=[("", a4)]))
+
+
+def test_check_takes_kicads_slightly_smaller_render(tmp_path):
+    # what kicad-cli 10.0.6 makes of 400 x 200
+    smoke.check(_fake_cli(tmp_path, pcb_render=[("", _png(368, 168))]))
+
+
+def test_check_fails_when_the_render_isnt_the_size_asked_for(tmp_path):
+    with pytest.raises(RuntimeError, match="render"):
+        smoke.check(_fake_cli(tmp_path, pcb_render=[("", _png(1600, 900))]))
+
+
 def test_the_smoke_board_is_the_rc_filters_layout():
     # Its pads carry the schematic's nets, so gerber_nets of its copper layers is EXPECTED.
     board = smoke.parse_sexpr(smoke.BOARD.read_text())
@@ -181,6 +238,9 @@ def test_the_smoke_board_is_the_rc_filters_layout():
     assert sorted(sorted(p) for p in pads.values()) == EXPECTED
     assert len([p for pins in pads.values() for p in pins]) == EXPECTED_HOLES  # every pad is through-hole
     assert sorted(p.stem for p in smoke.FOOTPRINTS.glob("*.kicad_mod")) == EXPECTED_FOOTPRINTS
+    rect = next(c for c in board if isinstance(c, list) and c[0] == "gr_rect")
+    (x0, y0), (x1, y1) = (map(float, next(c[1:] for c in rect if isinstance(c, list) and c[0] == k)) for k in ("start", "end"))
+    assert (x1 - x0, y1 - y0) == BOARD_SIZE
 
 
 @pytest.mark.parametrize("kiface", ["cvpcb", "pcbnew"])

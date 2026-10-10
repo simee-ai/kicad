@@ -1,8 +1,9 @@
 #!/bin/sh
-# Development build of kicad-cli + the eeschema kiface from a simee/<version> checkout on macOS,
-# against Homebrew's libraries. For testing patches only: release bundles are built differently.
+# Development build of kicad-cli + the eeschema kiface (or the ninja targets given, e.g. kicad-cli
+# pcbnew_kiface) from a simee/<version> checkout on macOS, against Homebrew's libraries. For testing
+# patches only: release bundles are built differently.
 #
-#   dev/build-macos-homebrew.sh <kicad checkout> <build dir>
+#   dev/build-macos-homebrew.sh <kicad checkout> <build dir> [ninja target...]
 #   KICAD_CLI=<build dir>/kicad/KiCad.app/Contents/MacOS/kicad-cli uv run pytest tests/test_sch_import.py
 #
 # Needs: brew install wxwidgets glm nng unixodbc ninja swig boost protobuf opencascade libngspice \
@@ -11,6 +12,8 @@
 # -isystem dir, so on a Mac with an old x86_64 Homebrew there, its protobuf/boost headers win.
 set -eu
 src=$1 build=$2
+shift 2
+[ $# -gt 0 ] || set -- kicad-cli eeschema_kiface
 tc=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin
 brew=$(brew --prefix)
 py=$brew/opt/python@3.13/Frameworks/Python.framework
@@ -23,4 +26,4 @@ cmake -S "$src" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DNGSPICE_INCLUDE_DIR="$brew/opt/libngspice/include" -DNGSPICE_LIBRARY="$brew/opt/libngspice/lib/libngspice.dylib" \
   -DPYTHON_EXECUTABLE="$py/Versions/3.13/bin/python3.13" -DPYTHON_LIBRARY="$py/Versions/3.13/lib/libpython3.13.dylib" \
   -DPYTHON_INCLUDE_DIR="$py/Versions/3.13/include/python3.13" -DPYTHON_FRAMEWORK="$py"
-ninja -C "$build" kicad-cli eeschema_kiface
+ninja -C "$build" "$@"

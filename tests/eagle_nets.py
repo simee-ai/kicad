@@ -52,3 +52,19 @@ def eagle_nets(path: Path) -> tuple[dict[str, str], list[list[str]]]:
     pin_nets = [{f"{kicad_reference(k[0])}.{pad}" for pad in p} for k, p in pads.items() if k not in on_a_net]
     nets = sorted(sorted(n) for n in [*by_name.values(), *pin_nets] if len(n) > 1)
     return components, nets
+
+
+DIMENSION = "20"  # Eagle's board outline layer
+
+
+def eagle_board(path: Path) -> tuple[tuple[float, float], list[list[str]]]:
+    """A board's outline size (mm, the extent of its own Dimension wires) and its nets (signals) as sorted
+    "ELEMENT.PAD" lists, as KiCad's board importer names them: elements and pads keep their names.
+    Rounded corners are arcs between points on the straight edges, so their ends give the extent."""
+    root = ET.parse(path).getroot()
+    wires = [w for w in root.find("drawing/board/plain").iter("wire") if w.get("layer") == DIMENSION]
+    xs = [float(w.get(k)) for w in wires for k in ("x1", "x2")]
+    ys = [float(w.get(k)) for w in wires for k in ("y1", "y2")]
+    nets = [sorted(f"{c.get('element')}.{c.get('pad')}" for c in signal.iter("contactref"))
+            for signal in root.iter("signal")]
+    return (round(max(xs) - min(xs), 4), round(max(ys) - min(ys), 4)), sorted(n for n in nets if n)
