@@ -1,7 +1,8 @@
 name: arm-gcc
 # Package Arm's GNU toolchain for arm-none-eabi, trimmed to what an RP2040 build needs, for macOS arm64,
-# Linux x86_64 and arm64 and Windows x86_64, check each archive where it runs, and publish them as a
-# release (arm-gcc-<Arm release>-<n>) with Arm's source snapshot. The release is pinned in
+# Linux x86_64 and arm64 and Windows x86_64, build its host programs for macOS x86_64 (which Arm doesn't
+# publish) from Arm's sources, check each archive where it runs, and publish them as a release
+# (arm-gcc-<Arm release>-<n>) with Arm's source snapshot and the build scripts. The release is pinned in
 # arm_toolchain/components.py; see README, "Arm toolchain".
 
 on:
@@ -37,6 +38,25 @@ jobs:
           path: dist/*
           compression-level: 0  # archives already
 
+  macos-x86_64:  # host programs cross-built from Arm's sources on arm64, checked under Rosetta
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Rosetta (to check the x86_64 toolchain on this arm64 runner)
+        run: softwareupdate --install-rosetta --agree-to-license
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/kicad-bundle/arm-gcc-sources
+          key: arm-gcc-macos-sources-${{ hashFiles('arm_toolchain/components.py') }}
+      - run: uv run arm-toolchain package --host macos-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arm-gcc-macos-x86_64
+          path: dist/*
+          compression-level: 0
+
   check:  # each archive where it runs, unpacked into a path with a space, with an empty PATH
     needs: package
     strategy:
@@ -59,7 +79,7 @@ jobs:
         run: uv run arm-toolchain check dist/arm-gcc-*-${{ matrix.host }}.*
 
   release:
-    needs: check
+    needs: [check, macos-x86_64]
     if: inputs.publish
     runs-on: ubuntu-latest
     env:
@@ -69,7 +89,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - uses: actions/download-artifact@v4
         with:
-          name: arm-gcc
+          pattern: arm-gcc*
+          merge-multiple: true
           path: dist
       - name: Publish
         run: |

@@ -136,7 +136,7 @@ def test_notice_names_arms_download_the_trim_and_the_source_asset():
 
 def test_package_writes_the_notice_and_archives_the_root(tmp_path):
     root = package.extract(_arm_archive(tmp_path, "tar.gz"), tmp_path / "work", components.name("linux-arm64"))
-    out = package.package("linux-arm64", root, _snapshot(tmp_path), tmp_path / "dist")
+    out = package.package(root, _snapshot(tmp_path), tmp_path / "dist", package.notice("linux-arm64"), "tar.xz")
     assert out.name == f"{components.name('linux-arm64')}.tar.xz"
     with tarfile.open(out) as tar:
         names = set(tar.getnames())
@@ -164,7 +164,7 @@ def test_release_notes_list_the_checksums_to_pin_and_the_sources():
     text = publish.release_notes("https://run/1", sums)
     assert sums.strip() in text and "https://run/1" in text
     assert components.SOURCE.archive in text and "thumb/v6-m/nofp" in text and "macOS x86_64" in text
-    assert "bin/arm-none-eabi-gcc" in text
+    assert "bin/arm-none-eabi-gcc" in text and components.BUILD_SCRIPTS in text
 
 
 # The real toolchain, when one is at hand: ARM_TOOLCHAIN=<archive> uv run pytest tests/test_arm_toolchain.py

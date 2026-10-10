@@ -8,18 +8,15 @@ windows-x86_64 on Linux (with mingw-w64) after linux-x86_64.
 """
 
 import os
-import platform
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from avr_toolchain import components
 from avr_toolchain.components import AVR_LIBC, BINUTILS, GCC, IN_TREE, SOURCES
-from kicad_bundle import bundle, debian
+from kicad_bundle import bundle, debian, gnu_build
+from kicad_bundle.gnu_build import BUGURL, MACOS_CONFIGURE, MACOS_ENV, MACOS_MIN, macos_compilers, this_machine
 
-MACOS_MIN = "11.0"  # the first macOS on Apple silicon
-BUGURL = "https://github.com/simee-ai/simee-kicad/issues"
 
 
 @dataclass(frozen=True)
@@ -41,16 +38,11 @@ class Host:
 
 
 _GNU_RUNTIME = ("libstdc++.a", "libgcc.a", "libgcc_eh.a")
-_MACOS = {"MACOSX_DEPLOYMENT_TARGET": MACOS_MIN}
-# The OS's own libz: GCC's bundled zlib doesn't compile against current macOS SDKs (its fdopen macro).
-_MACOS_CONFIGURE = ("--with-system-zlib",)
-# Xcode's tools handle every architecture, and there are no <triple>-ar etc. for configure to find.
-_MACOS_TOOLS = {"AR": "ar", "RANLIB": "ranlib", "NM": "nm", "STRIP": "strip"}
 HOSTS = {h.name: h for h in (
     Host("macos-arm64", "aarch64-apple-darwin", "darwin", "arm64",
-         {**_MACOS_TOOLS, "CC": "clang -arch arm64", "CXX": "clang++ -arch arm64"}, _MACOS, _MACOS_CONFIGURE),
+         macos_compilers("arm64"), MACOS_ENV, MACOS_CONFIGURE),
     Host("macos-x86_64", "x86_64-apple-darwin", "darwin", "x86_64",
-         {**_MACOS_TOOLS, "CC": "clang -arch x86_64", "CXX": "clang++ -arch x86_64"}, _MACOS, _MACOS_CONFIGURE),
+         macos_compilers("x86_64"), MACOS_ENV, MACOS_CONFIGURE),
     Host("linux-x86_64", "x86_64-linux-gnu", "linux", "x86_64",
          {"CC": "x86_64-linux-gnu-gcc", "CXX": "x86_64-linux-gnu-g++"},
          ldflags="-static-libstdc++ -static-libgcc", runtime_files=_GNU_RUNTIME),
@@ -62,35 +54,28 @@ HOSTS = {h.name: h for h in (
 )}
 
 
-def this_machine() -> tuple[str, str]:
-    return sys.platform, platform.machine()
-
-
 def native_host() -> Host | None:
     return next((h for h in HOSTS.values() if h.native(*this_machine())), None)
 
 
 def runnable(host: Host) -> bool:
     """Whether this machine runs host's binaries: its own, or Intel macOS ones under Rosetta."""
-    return host.native(*this_machine()) or (host.os == sys.platform == "darwin")
-
-
-def _host_args(host: Host, cross_from: str | None) -> list[str]:
-    return [f"--build={cross_from}", f"--host={host.triple}"] if cross_from else []
+    return host.native(*this_machine()) or (host.os == this_machine()[0] == "darwin")
 
 
 def binutils_args(host: Host, prefix: Path, cross_from: str | None) -> list[str]:
     """cross_from: this machine's triple when cross-building host, else None."""
-    return ["--target=avr", f"--prefix={prefix}", *_host_args(host, cross_from), "--disable-nls", "--disable-werror",
-            "--disable-gdb", "--disable-gdbserver", "--disable-sim", "--disable-readline", "--disable-libdecnumber",
-            "--disable-gprofng", "--without-zstd", "--without-debuginfod", *host.configure]
+    return ["--target=avr", f"--prefix={prefix}", *gnu_build.host_args(host.triple, cross_from), "--disable-nls",
+            "--disable-werror", "--disable-gdb", "--disable-gdbserver", "--disable-sim", "--disable-readline",
+            "--disable-libdecnumber", "--disable-gprofng", "--without-zstd", "--without-debuginfod", *host.configure]
 
 
 def gcc_args(host: Host, prefix: Path, cross_from: str | None) -> list[str]:
     # No --with-as/--with-ld: GCC then finds the assembler and linker relative to itself (avr/bin/).
-    return ["--target=avr", f"--prefix={prefix}", *_host_args(host, cross_from), "--enable-languages=c,c++",
-            "--with-avrlibc", "--with-dwarf2", "--disable-nls", "--disable-libssp", "--disable-shared",
-            "--disable-threads", "--disable-libgomp", "--disable-libcc1", "--disable-plugin", "--without-isl",
+    return ["--target=avr", f"--prefix={prefix}", *gnu_build.host_args(host.triple, cross_from),
+            "--enable-languages=c,c++", "--with-avrlibc", "--with-dwarf2", "--disable-nls", "--disable-libssp",
+            "--disable-shared", "--disable-threads", "--disable-libgomp", "--disable-libcc1", "--disable-plugin",
+            "--without-isl",
             "--without-zstd", f"--with-pkgversion=simee avr-gcc {GCC.version}, avr-libc {AVR_LIBC.version}",
             f"--with-bugurl={BUGURL}", *host.configure]
 
@@ -114,13 +99,6 @@ def _target_env(target_tools: Path) -> dict[str, str]:
     return env
 
 
-def _make(source: Path, build_dir: Path, args: list[str], env: dict[str, str], jobs: int, install: str) -> None:
-    build_dir.mkdir(parents=True)
-    print(f"  {source.name}: configure {' '.join(args)}", flush=True)
-    for cmd in ([str(source / "configure"), *args], ["make", f"-j{jobs}"], ["make", install]):
-        subprocess.run(cmd, cwd=build_dir, env=env, check=True)
-
-
 def _unpack(archives: dict[str, Path], dest: Path) -> None:
     dest.mkdir(parents=True)
     for c in SOURCES:
@@ -142,14 +120,13 @@ def build(host: Host, archives: dict[str, Path], work: Path, jobs: int, build_to
     _unpack(archives, top / "src")
     root = top / components.name(host.name)
     tools = (root if native else build_tools) / "bin"
-    cross_from = None if native else subprocess.run(
-        [str(top / "src" / GCC.folder / "config.guess")], capture_output=True, text=True, check=True).stdout.strip()
+    cross_from = None if native else gnu_build.config_guess(top / "src" / GCC.folder)
     env = build_env(host, native, tools)
-    _make(top / "src" / BINUTILS.folder, top / "build-binutils", binutils_args(host, root, cross_from), env, jobs,
-          "install-strip")
-    _make(top / "src" / GCC.folder, top / "build-gcc", gcc_args(host, root, cross_from), env, jobs, "install-strip")
-    _make(top / "src" / AVR_LIBC.folder, top / "build-avr-libc", avr_libc_args(root), _target_env(tools), jobs,
-          "install")
+    src = top / "src"
+    gnu_build.make(src / BINUTILS.folder, top / "build-binutils", binutils_args(host, root, cross_from), env, jobs,
+                   ("install-strip",))
+    gnu_build.make(src / GCC.folder, top / "build-gcc", gcc_args(host, root, cross_from), env, jobs, ("install-strip",))
+    gnu_build.make(src / AVR_LIBC.folder, top / "build-avr-libc", avr_libc_args(root), _target_env(tools), jobs)
     strip_target_libraries(root, tools)
     for docs in ("share/info", "share/man"):  # manuals in formats nothing reads from here
         if (root / docs).exists():
