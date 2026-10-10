@@ -30,11 +30,11 @@ def prune(tops: list[Path], keep: set[Path]) -> None:
 
 
 def archive(root: Path, out_dir: Path, fmt: str) -> Path:
-    """root/ as out_dir/<root name>.tar.gz or .zip, with root's name as the top-level folder."""
+    """root/ as out_dir/<root name>.tar.gz, .tar.xz or .zip, with root's name as the top-level folder."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    if fmt == "tar.gz":
-        dest = out_dir / f"{root.name}.tar.gz"
-        with tarfile.open(dest, "w:gz") as tar:
+    if fmt in ("tar.gz", "tar.xz"):
+        dest = out_dir / f"{root.name}.{fmt}"
+        with tarfile.open(dest, f"w:{fmt[4:]}") as tar:
             tar.add(root, arcname=root.name)  # keeps symlinks as symlinks
         return dest
     dest = Path(shutil.make_archive(str(out_dir / root.name), "zip", root.parent, root.name))

@@ -5,9 +5,6 @@
 writes dist/SHA256SUMS and notes.md and prints the release tag (avr-gcc-<gcc version>-<n>).
 """
 
-import argparse
-from pathlib import Path
-
 from avr_toolchain import components
 from avr_toolchain.components import SOURCES, VERSION
 from kicad_bundle import publish
@@ -47,18 +44,7 @@ Built by {run_url}
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dist", type=Path, required=True)
-    parser.add_argument("--tags", type=Path, required=True, help="file with existing release tags, one per line")
-    parser.add_argument("--run-url", required=True)
-    parser.add_argument("--notes", type=Path, default=Path("notes.md"))
-    args = parser.parse_args(argv)
-
-    sums = publish.sha256sums(args.dist)
-    (args.dist / "SHA256SUMS").write_text(sums)
-    args.notes.write_text(release_notes(args.run_url, sums))
-    print(next_tag(VERSION, args.tags.read_text().split()))
-    return 0
+    return publish.toolchain_main(argv, VERSION, PREFIX, release_notes)
 
 
 if __name__ == "__main__":
