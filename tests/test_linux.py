@@ -61,6 +61,7 @@ def _image(rootfs, extra_lib: str | None = None):
     make_elf(rootfs / "usr/bin/kicad-cli", needed=("libkicommon.so.10.0.6", "libc.so.6")).chmod(0o755)
     make_elf(rootfs / "usr/bin/_eeschema.kiface", needed=("libgit2.so.1.9", *([extra_lib] if extra_lib else [])))
     make_elf(rootfs / "usr/bin/_cvpcb.kiface", needed=("libkicommon.so.10.0.6",))
+    make_elf(rootfs / "usr/bin/_pcbnew.kiface", needed=("libkicommon.so.10.0.6",))
     if extra_lib:
         make_elf(libdir / extra_lib)
     (rootfs / "usr/share/kicad/schemas").mkdir(parents=True)
@@ -74,7 +75,7 @@ def test_assemble_lays_out_a_relocatable_bundle(tmp_path):
     sources = linux.assemble(rootfs, root, "10.0.6")
     found = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
     assert found == ["THIRD-PARTY.txt", "bin/kicad-cli", "lib/libgit2.so.1.9", "lib/libkicommon.so.10.0.6",
-                     "libexec/_cvpcb.kiface", "libexec/_eeschema.kiface", "libexec/kicad-cli",
+                     "libexec/_cvpcb.kiface", "libexec/_eeschema.kiface", "libexec/_pcbnew.kiface", "libexec/kicad-cli",
                      "share/doc/libgit2-1.9/copyright",
                      "share/kicad/schemas/api.v1.schema.json"]
     assert os.access(root / "bin/kicad-cli", os.X_OK) and os.access(root / "libexec/kicad-cli", os.X_OK)
