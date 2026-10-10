@@ -2,6 +2,7 @@
 licence files found in its source archive, and the archive of every component's sources."""
 
 import re
+import sys
 import tarfile
 import zipfile
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from kicad_bundle.fetch import add_dir
+
+REPO = Path(__file__).resolve().parent.parent
 
 LICENCE = re.compile(r"(licen[cs]e|copying|copyright|notice|ftl|l?gpl|mpl|patents|unlicense)(v?\d)?([-._ ].*)?", re.I)
 
@@ -93,6 +96,17 @@ def sources_archive(components: Iterable[Component], dest: Path) -> Path:
             for name, path in c.sources:
                 tar.add(path, arcname=f"{top}/{c.folder}/{name}")
     return dest
+
+
+def build_scripts(package: str, files: Iterable[str]) -> Component:
+    """simee-build/, the scripts that build a toolchain release (built by simee, so its sources): the
+    modules of this repo that are loaded from package and the kicad_bundle helpers it uses, and files
+    (paths in the repo: pyproject.toml, uv.lock, ...)."""
+    found = {str(p.relative_to(REPO)): p for m in list(sys.modules.values())
+             if (f := getattr(m, "__file__", None)) and (p := Path(f).resolve()).is_relative_to(REPO)
+             and p.suffix == ".py" and m.__name__.split(".")[0] in (package, "kicad_bundle")}
+    found.update((rel, REPO / rel) for rel in files)
+    return Component("simee-build", "", "simee-build", REPO, tuple(sorted(found.items())))
 
 
 def credits(names: Iterable[str], year: str) -> str:

@@ -1,7 +1,6 @@
 """What the AVR toolchain is built from: upstream source archives pinned by SHA256, and how the release
 names its assets. Every release carries these archives and the scripts that built them (GPL-3.0)."""
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,7 +8,6 @@ from kicad_bundle import third_party
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 
 GNU = "https://ftp.gnu.org/gnu"
-REPO = Path(__file__).resolve().parent.parent
 
 
 @dataclass(frozen=True)
@@ -66,22 +64,12 @@ def fetch(cache: Path, get: Fetch = fetch_url) -> dict[str, Path]:
     return {c.name: cached_file(c.archive, c.url, c.sha256, cache / SOURCES_CACHE, get) for c in SOURCES}
 
 
-def build_scripts() -> list[tuple[str, Path]]:
-    """(path in the repo, file) of everything that builds a release: the modules of this repo that are
-    loaded (the build's own, and the kicad_bundle helpers it uses) and BUILD_FILES."""
-    files = {str(p.relative_to(REPO)): p for m in list(sys.modules.values())
-             if (f := getattr(m, "__file__", None)) and (p := Path(f).resolve()).is_relative_to(REPO)
-             and p.suffix == ".py" and m.__name__.split(".")[0] in ("avr_toolchain", "kicad_bundle")}
-    files.update((rel, REPO / rel) for rel in BUILD_FILES)
-    return sorted(files.items())
-
-
 def source_archive(archives: dict[str, Path], dest: Path) -> Path:
     """dest: <its stem>/<component folder>/<upstream archive> for every component, and simee-build/
     with the scripts that built the release from them."""
     parts = [third_party.Component(c.name, c.version, c.folder, archives[c.name], ((c.archive, archives[c.name]),))
              for c in SOURCES]
-    parts.append(third_party.Component("simee-build", "", "simee-build", REPO, tuple(build_scripts())))
+    parts.append(third_party.build_scripts("avr_toolchain", BUILD_FILES))
     return third_party.sources_archive(parts, dest)
 
 

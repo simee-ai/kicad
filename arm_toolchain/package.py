@@ -11,6 +11,7 @@ from pathlib import Path
 from arm_toolchain import components
 from arm_toolchain.components import BINARIES, MULTILIBS, RELEASE, SHIPPED, SOURCE
 from kicad_bundle import bundle, third_party
+from kicad_bundle.gnu_build import REPO
 
 # What is kept, as paths below the release's top folder; a pattern naming a folder keeps all of it.
 # The C and C++ drivers, binutils, the compilers and LTO, and the headers of newlib, libstdc++ and GCC.
@@ -89,6 +90,8 @@ and links: the C and C++ drivers, binutils, cc1, cc1plus and LTO, and newlib, li
 the {multilibs} multilib(s).
 The manifest file next to this one is Arm's record of how it configured each component.
 
+"""
+COMPONENTS = """\
 Components (each one's licence files are in share/doc/<folder>/, from Arm's source snapshot):
 
 \tbinutils-gdb\tbinutils (as, ld, objcopy, ...)\tGPL-3.0-or-later
@@ -98,7 +101,8 @@ Components (each one's licence files are in share/doc/<folder>/, from Arm's sour
 \tgmp, mpfr, mpc\tlinked into the compilers\tLGPL-3.0-or-later
 \tisl\tlinked into the compilers\tMIT
 \tlibiconv\tcharacter set conversion in the compilers\tLGPL-2.1-or-later
-{extra}
+"""
+SOURCES = """
 The GitHub release this archive comes from also holds {source}, Arm's
 source snapshot for this release, which the programs and libraries above are built from:
 {source_url}
@@ -111,20 +115,20 @@ https://sourceforge.net/p/mingw-w64/mingw-w64/ci/master/tree/COPYING.MinGW-w64-r
 
 def notice(host: str) -> str:
     b = BINARIES[host]
-    return NOTICE.format(release=RELEASE, host=host, url=b.url, sha256=b.sha256,
-                         repo="https://github.com/simee-ai/simee-kicad", multilibs=", ".join(MULTILIBS),
-                         extra=MINGW if host.startswith("windows") else "", source=SOURCE.archive,
-                         source_url=SOURCE.url)
+    return (NOTICE.format(release=RELEASE, host=host, url=b.url, sha256=b.sha256, repo=REPO,
+                          multilibs=", ".join(MULTILIBS))
+            + COMPONENTS + (MINGW if host.startswith("windows") else "")
+            + SOURCES.format(source=SOURCE.archive, source_url=SOURCE.url))
 
 
-def package(host: str, root: Path, snapshot: Path, out: Path) -> Path:
-    """Add the licences and THIRD-PARTY.txt to root (from extract), and archive it into out."""
+def package(root: Path, snapshot: Path, out: Path, text: str, fmt: str) -> Path:
+    """Add the licences and THIRD-PARTY.txt (text) to root, and archive it into out as fmt."""
     write_licences(snapshot, root)
-    (root / "THIRD-PARTY.txt").write_text(notice(host))
-    return bundle.archive(root, out, BINARIES[host].format)
+    (root / "THIRD-PARTY.txt").write_text(text)
+    return bundle.archive(root, out, fmt)
 
 
 def make(host: str, cache: Path, work: Path, out: Path) -> Path:
     """Download (or reuse) Arm's archive for host and the source snapshot, and package the trimmed toolchain."""
     root = extract(components.fetch(BINARIES[host], cache), work, components.name(host))
-    return package(host, root, components.fetch(SOURCE, cache), out)
+    return package(root, components.fetch(SOURCE, cache), out, notice(host), BINARIES[host].format)

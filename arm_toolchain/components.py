@@ -33,7 +33,7 @@ def _binary(arm_host: str, ext: str, sha256: str) -> Binary:
     return Binary(archive, f"{DOWNLOADS}/binrel/{archive}", sha256, arm_host)
 
 
-# Arm builds no macOS x86_64 toolchain after 14.2.rel1 (README, "Arm toolchain").
+# Arm builds no macOS x86_64 toolchain after 14.2.rel1: simee builds that one (arm_toolchain/build.py).
 BINARIES = {
     "macos-arm64": _binary("darwin-arm64", "tar.xz", "1938a84b7105c192e3fb4fa5e893ba25f425f7ddab40515ae608cd40f68669a8"),
     "linux-x86_64": _binary("x86_64", "tar.xz", "597893282ac8c6ab1a4073977f2362990184599643b4c5ee34870a8215783a16"),
@@ -55,6 +55,10 @@ SHIPPED = ("binutils-gdb", "gcc", "newlib-cygwin", "gmp", "mpfr", "mpc", "isl", 
 # RP2350 (Cortex-M33) will add thumb/v8-m.main+fp/softfp (simee-core#111).
 MULTILIBS = ("thumb/v6-m/nofp",)
 SOURCES_CACHE = "arm-gcc-sources"  # under kicad-bundle's download cache
+# The macOS x86_64 programs are built by simee (arm_toolchain/build.py), so the release also carries the
+# scripts that build them, beside Arm's snapshot they are built from.
+BUILD_SCRIPTS = f"arm-gcc-{RELEASE}-build-scripts.tar"
+BUILD_FILES = ("pyproject.toml", "uv.lock")
 
 
 def name(host: str) -> str:

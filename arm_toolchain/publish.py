@@ -5,7 +5,7 @@
 writes dist/SHA256SUMS and notes.md and prints the release tag (arm-gcc-<Arm release>-<n>).
 """
 
-from arm_toolchain.components import DOWNLOADS, GCC_VERSION, MULTILIBS, RELEASE, SOURCE
+from arm_toolchain.components import BUILD_SCRIPTS, DOWNLOADS, GCC_VERSION, MULTILIBS, RELEASE, SOURCE
 from kicad_bundle import publish
 
 PREFIX = "arm-gcc"
@@ -24,11 +24,15 @@ multilib), about 185 MB of the 1 GB release.
 Each archive has one top folder, the toolchain root: `bin/arm-none-eabi-gcc` (`bin\\arm-none-eabi-gcc.exe`
 on Windows), `bin/arm-none-eabi-objcopy` and the rest of binutils, `arm-none-eabi/`, `lib/gcc/arm-none-eabi/`.
 It runs from wherever it is copied: macOS arm64, Linux x86_64 and arm64, Windows x86_64, as Arm's own
-builds do. Arm builds no macOS x86_64 toolchain after 14.2.rel1, so there is none here. `THIRD-PARTY.txt`
-lists the components and their licences, whose texts are in `share/doc/`.
+builds do, and macOS x86_64 (macOS 11 or later). Arm builds no macOS x86_64 toolchain after 14.2.rel1, so
+simee builds that one's host programs (binutils, the drivers, cc1, cc1plus, LTO) from Arm's source snapshot,
+configured as Arm's macOS arm64 build, with the target files (headers, newlib, libstdc++, libgcc) from
+Arm's macOS arm64 archive, unchanged. `THIRD-PARTY.txt` lists the components and their licences, whose
+texts are in `share/doc/`.
 
 Sources: `{SOURCE.archive}` is Arm's source snapshot for the release
-({SOURCE.url}), unchanged.
+({SOURCE.url}), unchanged; `{BUILD_SCRIPTS}` holds the scripts that built the macOS x86_64
+programs from it.
 
 SHA256 (also in `SHA256SUMS`), to pin in simee-core's `cmake/SimeePicoSdk.cmake`:
 
