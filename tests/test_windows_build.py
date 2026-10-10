@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from fake_gitlab import branch
 from kicad_bundle import windows_build
 from tiny_pe import make_pe
 
@@ -12,10 +13,13 @@ THIRD_PARTY = ("wxbase332u_vc_x64_custom.dll", "libprotobuf.dll", "msvcp140.dll"
 def test_vcpkg_commit_is_the_one_build_ps1_pinned_when_kicad_published_the_installer():
     build_ps1 = '$SentryDsn = ""\n)\n\n$vcpkgCommit = "66c0373dc7fca549e5803087b9487edfe3aca0a1";\n$cmakeVersion = "3.31.10"\n'
 
+    history = branch("kicad/packaging/kicad-win-builder", "master",
+                     [("kwb2", "2026-10-03T08:00:00.000+02:00"), ("kwb1", "2026-10-02T22:00:00.000Z")])
+
     def fetch(url: str) -> bytes:
         kwb = "https://gitlab.com/api/v4/projects/kicad%2Fpackaging%2Fkicad-win-builder/repository"
-        if url == f"{kwb}/commits?ref_name=master&until=2026-10-02T23%3A06%3A15Z&per_page=1":
-            return b'[{"id": "kwb1"}]'
+        if url in history:
+            return history[url]
         if url == f"{kwb}/files/build.ps1/raw?ref=kwb1":
             return build_ps1.encode()
         raise AssertionError(url)

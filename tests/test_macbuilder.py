@@ -1,9 +1,9 @@
-import json
 import subprocess
 import tarfile
 
 import pytest
 
+from fake_gitlab import branch, not_found
 from kicad_bundle import macbuilder
 from kicad_bundle.macbuilder import GitSource, Pins
 
@@ -45,10 +45,13 @@ def test_pins_come_from_the_builders_release_branch_as_it_was_at_the_release():
     files = {"kicad-mac-builder/wx.cmake": WX_CMAKE, "kicad-mac-builder/ngspice.cmake": NGSPICE_CMAKE,
              "kicad-mac-builder/CMakeLists.txt": LISTS}
 
+    history = branch("kicad/packaging/kicad-mac-builder", "10.0",
+                     [("kmb2", "2026-09-02T10:00:00.000Z"), ("kmb1", "2026-08-20T10:00:00.000Z")])
+
     def fetch(url: str) -> bytes:
         kmb = f"{API}/kicad%2Fpackaging%2Fkicad-mac-builder/repository"
-        if url == f"{kmb}/commits?ref_name=10.0&until=2026-08-29T15%3A43%3A28Z&per_page=1":
-            return json.dumps([{"id": "kmb1"}]).encode()
+        if url in history:
+            return history[url]
         for path, text in files.items():
             if url == f"{kmb}/files/{path.replace('/', '%2F')}/raw?ref=kmb1":
                 return text.encode()
@@ -64,12 +67,14 @@ def test_a_release_candidate_from_before_its_release_branch_takes_the_pins_from_
     files = {"kicad-mac-builder/wx.cmake": WX_CMAKE, "kicad-mac-builder/ngspice.cmake": NGSPICE_CMAKE,
              "kicad-mac-builder/CMakeLists.txt": LISTS}
 
+    history = branch("kicad/packaging/kicad-mac-builder", "master", [("kmb-master", "2027-02-01T10:00:00.000Z")])
+
     def fetch(url: str) -> bytes:
         kmb = f"{API}/kicad%2Fpackaging%2Fkicad-mac-builder/repository"
-        if url == f"{kmb}/commits?ref_name=11.0&until=2027-02-12T22%3A27%3A56Z&per_page=1":
-            return b"[]"  # no such branch yet
-        if url == f"{kmb}/commits?ref_name=master&until=2027-02-12T22%3A27%3A56Z&per_page=1":
-            return json.dumps([{"id": "kmb-master"}]).encode()
+        if url == f"{kmb}/branches/11.0":
+            raise not_found(url)  # no such branch yet
+        if url in history:
+            return history[url]
         for path, text in files.items():
             if url == f"{kmb}/files/{path.replace('/', '%2F')}/raw?ref=kmb-master":
                 return text.encode()
@@ -82,10 +87,11 @@ def test_commit_of_a_tag_is_exact_and_of_a_gitlab_branch_is_its_head_at_the_rele
     refs = {"https://git.code.sf.net/p/ngspice/ngspice": "aaa\trefs/tags/ngspice-45.2\nbbb\trefs/tags/ngspice-45.2^{}\n",
             "https://gitlab.com/kicad/code/wxWidgets.git": "ccc\trefs/heads/kicad/macos-wx-3.2\n"}
 
+    wx = branch("kicad/code/wxWidgets", "kicad/macos-wx-3.2",
+                [("wx-now", "2026-09-23T17:12:23.000-07:00"), ("wx-then", "2026-08-01T09:00:00.000Z")])
+
     def fetch(url: str) -> bytes:
-        assert url == (f"{API}/kicad%2Fcode%2FwxWidgets/repository/commits"
-                       "?ref_name=kicad%2Fmacos-wx-3.2&until=2026-08-29T15%3A43%3A28Z&per_page=1")
-        return json.dumps([{"id": "wx-then"}]).encode()
+        return wx[url]
 
     def ls_remote(url: str, ref: str) -> str:
         return refs[url]
