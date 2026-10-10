@@ -29,7 +29,8 @@ Each archive has one top folder, the toolchain root: `bin/avr-gcc` (`bin\\avr-gc
 `bin/avr-objcopy` and the rest of binutils, `avr/include`, `avr/lib`, `lib/gcc/avr/{VERSION}/`. It runs
 from wherever it is copied, with nothing else installed: macOS 11 or later (arm64, x86_64), Linux x86_64
 with glibc 2.36 or later, Windows 10 or later (x86_64). `THIRD-PARTY.txt` lists the components and their
-licences, whose texts are in `share/doc/`.
+licences, whose texts are in `share/doc/`. On Windows, `-flto` needs the toolchain in a path without
+spaces (GCC escapes them in lto-wrapper's path with backslashes); plain compiles work from any path.
 
 Sources: `{components.SOURCE_ARCHIVE}` holds every upstream archive above and the scripts that built the
 toolchain; `{components.RUNTIME_SOURCES}` the exact Debian sources of the C/C++ runtime the Linux and
