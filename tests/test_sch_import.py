@@ -2,6 +2,7 @@ import json
 import os
 import shlex
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
@@ -44,9 +45,31 @@ def test_stray_files_are_the_hidden_ones(tmp_path):
 
 def test_check_rejects_an_import_that_leaves_stray_files(monkeypatch):
     fixture = FIXTURES[0]
-    monkeypatch.setattr(sch_import, "imported", lambda cli, f: (f.components, f.nets, [".kicad_sch"]))
+    monkeypatch.setattr(sch_import, "imported", lambda cli, f, layout: (f.components, f.nets, [".kicad_sch"]))
     with pytest.raises(RuntimeError, match=r"stray files.*\.kicad_sch"):
         sch_import.check(["kicad-cli"], fixture)
+
+
+def test_layouts_nest_the_output_in_the_source_folder_and_the_other_way_round():
+    # A multi-sheet import put its sheets in <out>/<out relative to the source's folder> (#18)
+    pairs = [tuple(Path(d) for d in pair) for pair in sch_import.LAYOUTS.values()]
+    assert any(out != src and out.is_relative_to(src) for src, out in pairs)
+    assert any(src != out and src.is_relative_to(out) for src, out in pairs)
+    assert any(not src.is_relative_to(out) and not out.is_relative_to(src) for src, out in pairs)
+
+
+def test_check_imports_in_every_layout_and_names_the_one_that_failed(monkeypatch):
+    fixture = FIXTURES[0]
+    seen = []
+
+    def imported(cli, f, layout):
+        seen.append(layout)
+        return ({}, f.nets, []) if layout == "output inside source" else (f.components, f.nets, [])
+
+    monkeypatch.setattr(sch_import, "imported", imported)
+    with pytest.raises(RuntimeError, match=r"^[^;]*output inside source: components differ[^;]*$"):
+        sch_import.check(["kicad-cli"], fixture)
+    assert seen == list(sch_import.LAYOUTS)
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
