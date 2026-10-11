@@ -3,6 +3,7 @@ their checksum, so sources a build already fetched are reused by the next one.""
 
 import hashlib
 import os
+import ssl
 import tarfile
 import time
 import urllib.error
@@ -10,7 +11,12 @@ import urllib.request
 from pathlib import Path
 from typing import BinaryIO, Callable
 
+import certifi
+
 Fetch = Callable[[str], bytes]
+# certifi's roots, the same on every OS: macOS's /etc/ssl/cert.pem lacks some its Keychain has (GlobalSign
+# Root R46, which signs gitlab.arm.com, where Arm's toolchain downloads are from 15.3).
+SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 
 def request(url: str) -> urllib.request.Request:
@@ -27,7 +33,7 @@ def request(url: str) -> urllib.request.Request:
 def fetch_url(url: str, tries: int = 4) -> bytes:
     for attempt in range(tries):
         try:
-            with urllib.request.urlopen(request(url), timeout=600) as resp:
+            with urllib.request.urlopen(request(url), timeout=600, context=SSL_CONTEXT) as resp:
                 return resp.read()
         except (urllib.error.URLError, TimeoutError) as e:
             if attempt == tries - 1 or getattr(e, "code", 500) in (403, 404):

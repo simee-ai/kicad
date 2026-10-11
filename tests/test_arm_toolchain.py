@@ -43,7 +43,9 @@ ARM_FILES = {
 
 def test_every_arm_download_is_pinned_by_sha256():
     for b in [*BINARIES.values(), components.SOURCE]:
-        assert len(b.sha256) == 64 and b.url.startswith(f"https://developer.arm.com/-/media/Files/downloads/gnu/{RELEASE}/")
+        # From 15.3, Arm publishes its downloads as GitLab generic packages, linked from the release branch's README.
+        assert len(b.sha256) == 64 and b.url.startswith(
+            f"https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/{RELEASE}/")
         assert b.url.endswith("/" + b.archive)
     assert components.SOURCE.archive == f"arm-gnu-toolchain-src-snapshot-{RELEASE}.tar.xz"
 
@@ -156,6 +158,25 @@ def test_extract_keeps_hard_links_within_the_kept_files(tmp_path):
     assert (nofp / "libc.a").stat().st_ino == (nofp / "libg.a").stat().st_ino
 
 
+def test_extract_keeps_a_hard_link_whose_target_is_trimmed(tmp_path):
+    """From 15.3, Arm's Linux archives hold arm-none-eabi-c++, which isn't kept, and arm-none-eabi-g++ as a
+    hard link to it: the link gets the file's data, and further links to it link to that."""
+    arm = tmp_path / "arm.tar.gz"
+    with tarfile.open(arm, "w:gz") as tar:
+        info = tarfile.TarInfo(f"{ARM_TOP}/bin/arm-none-eabi-c++")
+        info.size, info.mode = 3, 0o755
+        tar.addfile(info, io.BytesIO(b"cxx"))
+        for name in ("arm-none-eabi-g++", "arm-none-eabi-g++-15.3.1"):
+            info = tarfile.TarInfo(f"{ARM_TOP}/bin/{name}")
+            info.type, info.linkname, info.mode = tarfile.LNKTYPE, f"{ARM_TOP}/bin/arm-none-eabi-c++", 0o755
+            tar.addfile(info)
+    root = package.extract(arm, tmp_path / "work", "arm-gcc-x")
+    assert sorted(p.name for p in (root / "bin").iterdir()) == ["arm-none-eabi-g++", "arm-none-eabi-g++-15.3.1"]
+    gxx = root / "bin/arm-none-eabi-g++"
+    assert gxx.read_bytes() == b"cxx" and os.access(gxx, os.X_OK)
+    assert gxx.stat().st_ino == (root / "bin/arm-none-eabi-g++-15.3.1").stat().st_ino
+
+
 def _snapshot(tmp_path: Path) -> Path:
     files = {f"./{c}/COPYING": c.encode() for c in (*components.SHIPPED, "glibc", "linux", "binutils-gdb--gdb")}
     files["./gcc/COPYING.RUNTIME"] = b"exception"
@@ -185,7 +206,8 @@ def test_notice_names_arms_download_the_trim_and_the_source_asset():
     assert b.url in text and b.sha256 in text and RELEASE in text
     assert "thumb/v6-m/nofp" in text and "thumb/v8-m.main+fp/softfp" in text and components.SOURCE.archive in text
     assert "RP2350" in text
-    for licence in ("GPL-3.0-or-later", "Runtime Library Exception", "LGPL-3.0-or-later", "COPYING.NEWLIB"):
+    for licence in ("GPL-3.0-or-later", "Runtime Library Exception", "LGPL-3.0-or-later", "COPYING.NEWLIB",
+                    "BSD-3-Clause"):  # zstd, linked into the compilers from 15.3
         assert licence in text
     assert "MinGW-w64" in text and "MinGW-w64" not in package.notice("linux-x86_64")
 
@@ -211,8 +233,9 @@ def test_elf_check_wants_an_arm_executable(tmp_path):
 
 def test_release_tag_counts_builds_of_one_arm_release_apart_from_the_others():
     tags = ["cli-10.0.6-1", "avr-gcc-15.3.0-1", "arm-gcc-15.2.rel1-1", "arm-gcc-14.2.rel1-3"]
-    assert publish.next_tag(RELEASE, tags) == "arm-gcc-15.2.rel1-2"
-    assert publish.next_tag(RELEASE, ["avr-gcc-15.2.rel1-4"]) == "arm-gcc-15.2.rel1-1"
+    assert publish.next_tag("15.2.rel1", tags) == "arm-gcc-15.2.rel1-2"
+    assert publish.next_tag("15.2.rel1", ["avr-gcc-15.2.rel1-4"]) == "arm-gcc-15.2.rel1-1"
+    assert publish.next_tag(RELEASE, tags) == f"arm-gcc-{RELEASE}-1"
 
 
 def test_release_notes_list_the_checksums_to_pin_and_the_sources():
@@ -222,6 +245,7 @@ def test_release_notes_list_the_checksums_to_pin_and_the_sources():
     assert components.SOURCE.archive in text and "macOS x86_64" in text
     assert "thumb/v6-m/nofp" in text and "thumb/v8-m.main+fp/softfp" in text and "RP2350" in text
     assert "bin/arm-none-eabi-gcc" in text and components.BUILD_SCRIPTS in text
+    assert components.BINARIES["linux-x86_64"].url.rpartition("/")[0] + "/" in text  # where Arm's builds are
 
 
 # The real toolchain, when one is at hand: ARM_TOOLCHAIN=<archive> uv run pytest tests/test_arm_toolchain.py

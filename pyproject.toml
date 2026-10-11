@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Repackage official KiCad releases into small, self-contained kicad-cli bundles, and build the AVR and Arm toolchains simee ships"
 requires-python = ">=3.11"
 dependencies = [
+    "certifi>=2024.2.2",
     "pefile>=2023.2.7",
     "pyelftools>=0.33",
 ]

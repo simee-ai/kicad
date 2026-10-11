@@ -5,7 +5,7 @@ The target side doesn't depend on the host: the headers, newlib, libstdc++, libg
 package.KEEP keeps outside the host programs) come unchanged from Arm's macOS arm64 archive. Only the host
 programs are built, for x86_64, from Arm's source snapshot: binutils, and GCC's all-gcc (the drivers, cc1,
 cc1plus, lto1, collect2, lto-wrapper) and its LTO plugin, with GMP, MPFR, MPC and isl from the snapshot in
-GCC's tree, linked statically. They are configured as Arm configured its macOS arm64 build (the manifest
+GCC's tree, and the snapshot's zstd (which Arm links into cc1 and lto1 from 15.3), linked statically. They are configured as Arm configured its macOS arm64 build (the manifest
 in its archive), so the driver picks the same multilibs and searches the same paths, against Arm's own
 sysroot. On an arm64 Mac they are cross-built with `clang -arch x86_64`, with Arm's arm64 toolchain as the
 compiler for this machine that GCC's build runs, and they run under Rosetta.
@@ -29,14 +29,15 @@ PKGVERSION = f"Arm GNU Toolchain {RELEASE}, built by simee for macOS x86_64"
 # What runs on the host, below the toolchain root: the drivers and binutils, the compilers, and the
 # binutils GCC runs (as, ld, ...).
 HOST_PROGRAMS = ("bin", "libexec", "arm-none-eabi/bin")
-SNAPSHOT_FOLDERS = ("binutils-gdb", "gcc", "gmp", "mpfr", "mpc", "isl")
+SNAPSHOT_FOLDERS = ("binutils-gdb", "gcc", "gmp", "mpfr", "mpc", "isl", "zstd")
 IN_TREE = ("gmp", "mpfr", "mpc", "isl")  # GCC builds them itself when they sit in its tree
 # Arm's options that name its build machine's folders, or that are set otherwise here: they are replaced.
 REPLACED = ("--prefix", "--with-sysroot", "--with-bugurl", "--with-pkgversion", "--enable-languages",
-            "--with-gmp", "--with-mpfr", "--with-mpc", "--with-isl", "--build", "--host")
-# Arm's macOS programs link only the OS's libraries (libSystem, libc++, libiconv), so no zstd; and the OS's
-# libz, as binutils' and GCC's bundled zlib don't compile against current macOS SDKs (MACOS_CONFIGURE).
-_OURS = ("--without-zstd", *MACOS_CONFIGURE)
+            "--with-gmp", "--with-mpfr", "--with-mpc", "--with-isl", "--with-zstd", "--build", "--host")
+# Arm's macOS programs link only the OS's libraries (libSystem, libc++, libiconv) and, statically, what they
+# are built with; and the OS's libz here, as binutils' and GCC's bundled zlib don't compile against current
+# macOS SDKs (MACOS_CONFIGURE).
+_OURS = MACOS_CONFIGURE
 
 
 def host_program(rel: str) -> bool:
@@ -68,13 +69,26 @@ def _configure(arm: list[str], prefix: Path, cross_from: str | None, *ours: str)
 
 
 def binutils_args(arm: list[str], prefix: Path, cross_from: str | None) -> list[str]:
-    """arm: Arm's options (arm_options); cross_from: this machine's triple when cross-building."""
-    return _configure(arm, prefix, cross_from, "--disable-werror", "--disable-sim")
+    """arm: Arm's options (arm_options); cross_from: this machine's triple when cross-building. Arm's
+    binutils link no zstd: without --without-zstd they would take any the build machine has."""
+    return _configure(arm, prefix, cross_from, "--disable-werror", "--disable-sim", "--without-zstd")
 
 
-def gcc_args(arm: list[str], prefix: Path, cross_from: str | None) -> list[str]:
+def gcc_args(arm: list[str], prefix: Path, cross_from: str | None, zstd: Path) -> list[str]:
+    """zstd: the prefix build_zstd installed the snapshot's zstd in, which Arm links into cc1 and lto1 from
+    15.3 (zstd-compressed LTO objects)."""
     # C and C++ only: Arm's fortran compiler (f951) isn't kept.
-    return _configure(arm, prefix, cross_from, "--enable-languages=c,c++", f"--with-pkgversion={PKGVERSION}")
+    return _configure(arm, prefix, cross_from, "--enable-languages=c,c++", f"--with-pkgversion={PKGVERSION}",
+                      f"--with-zstd={zstd}")
+
+
+def build_zstd(source: Path, prefix: Path, env: dict[str, str], jobs: int) -> Path:
+    """The snapshot's zstd (source) built for the host as a static library only, so GCC links it in, and
+    installed with its headers in prefix; returns prefix. zstd builds with plain make, no configure."""
+    lib = ["make", "-C", str(source / "lib")]
+    subprocess.run([*lib, f"-j{jobs}", "libzstd.a"], env=env, check=True)
+    subprocess.run([*lib, "install-static", "install-includes", f"PREFIX={prefix}"], env=env, check=True)
+    return prefix
 
 
 # Arm's snapshot is a git checkout, without the generated .info manuals, which aren't kept anyway: none
@@ -146,7 +160,8 @@ def build(arm_archive: Path, snapshot: Path, work: Path, jobs: int) -> Path:
     binutils = binutils_args(arm_options(options, "binutils"), stage, cross_from)
     gnu_build.make(src / "binutils-gdb", top / "build-binutils", binutils, env, jobs, ("install-strip",),
                    make_vars=MAKE_VARS)
-    gcc = gcc_args(arm_options(options, "gcc2"), stage, cross_from)
+    zstd = build_zstd(src / "zstd", top / "zstd", env, jobs)
+    gcc = gcc_args(arm_options(options, "gcc2"), stage, cross_from, zstd)
     gnu_build.make(src / "gcc", top / "build-gcc", gcc, env, jobs, ("install-strip-gcc", "install-strip-lto-plugin"),
                    ("all-gcc", "all-lto-plugin"), MAKE_VARS)
     root = assemble(arm, stage, top / components.name(HOST))
@@ -165,7 +180,7 @@ simee ({repo}) assembles it from two of Arm's downloads for the release:
 \tsha256 {source_sha256}
 
   configured as Arm configured its macOS arm64 build (the manifest file next to this one is Arm's record
-  of that), with GMP, MPFR, MPC and isl from the snapshot linked in statically. They link only macOS's
+  of that), with GMP, MPFR, MPC, isl and zstd from the snapshot linked in statically. They link only macOS's
   own libraries (libSystem, libc++, libiconv, libz);
 
 - the target files (the headers, and newlib, libstdc++ and libgcc for the multilibs {multilibs}),
