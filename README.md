@@ -403,7 +403,10 @@ arm-none-eabi (simee-core#107, #111), and ships it in its package as it ships av
 sources: GitHub releases named `arm-gcc-<Arm release>-<n>` (for example `arm-gcc-15.2.rel1-1`, never marked
 latest), from Actions → **arm-gcc** (`gh workflow run arm-gcc.yml`; `-f publish=false` packages and checks
 only). The release is pinned in `arm_toolchain/components.py`, with the SHA256 Arm publishes next to each
-download.
+download. From 15.3, Arm publishes them as GitLab generic packages, linked from the README of its
+`releases/<release>` branch at gitlab.arm.com/tooling/gnu-toolchains-for-arm, no longer on developer.arm.com;
+downloads check certificates against certifi's roots, as macOS's `/etc/ssl/cert.pem` lacks the one
+gitlab.arm.com's chain ends in.
 
 | asset | contents |
 |---|---|
@@ -433,7 +436,7 @@ and a C++ program (`arm_toolchain/smoke/`, with newlib's `nosys.specs`) into Arm
 ```bash
 uv run arm-toolchain package --host macos-arm64    # -> dist/, checked when it runs here
 uv run arm-toolchain sources                       # -> dist/<Arm's source snapshot>
-ARM_TOOLCHAIN=dist/arm-gcc-15.2.rel1-macos-arm64.tar.xz uv run pytest tests/test_arm_toolchain.py
+ARM_TOOLCHAIN=dist/arm-gcc-15.3.rel2-macos-arm64.tar.xz uv run pytest tests/test_arm_toolchain.py
 ```
 
 Arm builds no macOS x86_64 toolchain after 14.2.rel1, so simee builds that one (`arm_toolchain/build.py`, #26)
@@ -442,11 +445,12 @@ newlib, libstdc++, libgcc and the specs (everything `package.KEEP` keeps outside
 `arm-none-eabi/bin/`) come unchanged from Arm's macOS arm64 archive. Only the host programs are built, from
 Arm's source snapshot: binutils from its `binutils-gdb`, and GCC's `all-gcc` and `all-lto-plugin` (the
 drivers, cc1, cc1plus, lto1, collect2, lto-wrapper, liblto_plugin) from its `gcc`, with the snapshot's GMP,
-MPFR, MPC and isl in GCC's tree, linked statically. They take Arm's own configure options, read from the
+MPFR, MPC and isl in GCC's tree, linked statically, and its zstd, built first as a static library and linked
+into cc1 and lto1 as Arm does from 15.3 (zstd-compressed LTO objects; binutils get none, as Arm's). They take Arm's own configure options, read from the
 `*-manifest.txt` in its arm64 archive at build time (`--with-multilib-list=aprofile,rmprofile`,
-`--with-native-system-header-dir=/include`, `--enable-checking=release`, ...), with only the folders, the
+`--with-native-system-header-dir=/include`, `--enable-checking=release`, ...), with only the folders (zstd's too), the
 bug URL, the languages (C and C++: Arm's Fortran isn't kept) and the pkgversion (`Arm GNU Toolchain
-15.2.rel1, built by simee for macOS x86_64`) replaced, and they are built against Arm's sysroot, so the
+15.3.rel2, built by simee for macOS x86_64`) replaced, and they are built against Arm's sysroot, so the
 driver picks the same multilibs and searches the same paths. The sysroot is under the install prefix, which
 GCC and ld then find relative to themselves wherever the root is copied; the build deletes that prefix once
 the programs are copied out, so the check can't reach into it, and fails if any program Arm's arm64 archive
@@ -455,7 +459,7 @@ x86_64` for macOS 11 and checked under Rosetta; on an Intel Mac they build nativ
 build runs an `arm-none-eabi-gcc` for the build machine (`-dumpspecs`): Arm's own arm64 one, from the same
 archive. Arm's snapshot is a git checkout without the generated `.info` manuals, so make runs with
 `MAKEINFO=true` and makes none (none are kept). Like Arm's, the programs link only macOS's own libraries
-(libSystem, libc++, libiconv), and no zstd; but the OS's libz rather than the bundled zlib, which doesn't
+(libSystem, libc++, libiconv) and, statically, what they are built with; but the OS's libz rather than the bundled zlib, which doesn't
 compile against current macOS SDKs (as for avr-gcc). Checked against Arm's arm64 build on an M-series Mac
 (#26): the same files, the same `-print-multi-lib` (39 multilibs), `-print-search-dirs` and
 `-print-sysroot`, byte-identical raw images of the smoke programs (with and without `-flto`), and identical
@@ -469,7 +473,8 @@ uv run arm-toolchain package --host macos-x86_64   # -> dist/, checked (under Ro
 Licences: binutils and GCC are GPL-3.0-or-later, libgcc and libstdc++ under the GCC Runtime Library
 Exception, so firmware linked with them carries no GPL obligation; newlib's libc, libm and libnosys are under
 the BSD-style licences its `COPYING.NEWLIB` lists; GMP, MPFR and MPC (LGPL-3.0-or-later), isl (MIT) and
-libiconv (LGPL-2.1-or-later) are linked into the compilers; the Windows programs also hold MinGW-w64's runtime.
+libiconv (LGPL-2.1-or-later) are linked into the compilers, and from 15.3 zstd (BSD-3-Clause, or GPL-2.0-only)
+into cc1 and lto1; the Windows programs also hold MinGW-w64's runtime.
 Each archive has the licence files of each of those components from Arm's source snapshot in
 `share/doc/<folder>/` (`components.SHIPPED`), and a `THIRD-PARTY.txt` naming Arm's download, the trim and the
 components. As for kicad-cli and avr-gcc, every release carries the complete corresponding source rather than

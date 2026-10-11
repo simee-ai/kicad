@@ -7,9 +7,12 @@ from pathlib import Path
 
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 
-RELEASE = "15.2.rel1"
-GCC_VERSION = "15.2.1"
-DOWNLOADS = f"https://developer.arm.com/-/media/Files/downloads/gnu/{RELEASE}"
+RELEASE = "15.3.rel2"
+GCC_VERSION = "15.3.1"
+# From 15.3, Arm publishes each release's downloads as GitLab generic packages, linked from the README of
+# its releases/<release> branch, no longer under developer.arm.com's /-/media/Files/downloads/gnu/.
+DOWNLOADS = ("https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/"
+             f"gnu-toolchain/{RELEASE}")
 
 
 @dataclass(frozen=True)
@@ -30,26 +33,27 @@ class Binary(Download):
 
 def _binary(arm_host: str, ext: str, sha256: str) -> Binary:
     archive = f"arm-gnu-toolchain-{RELEASE}-{arm_host}-arm-none-eabi.{ext}"
-    return Binary(archive, f"{DOWNLOADS}/binrel/{archive}", sha256, arm_host)
+    return Binary(archive, f"{DOWNLOADS}/{archive}", sha256, arm_host)
 
 
 # Arm builds no macOS x86_64 toolchain after 14.2.rel1: simee builds that one (arm_toolchain/build.py).
 BINARIES = {
-    "macos-arm64": _binary("darwin-arm64", "tar.xz", "1938a84b7105c192e3fb4fa5e893ba25f425f7ddab40515ae608cd40f68669a8"),
-    "linux-x86_64": _binary("x86_64", "tar.xz", "597893282ac8c6ab1a4073977f2362990184599643b4c5ee34870a8215783a16"),
-    "linux-arm64": _binary("aarch64", "tar.xz", "d061559d814b205ed30c5b7c577c03317ec447ca51cd5a159d26b12a5bbeb20c"),
+    "macos-arm64": _binary("darwin-arm64", "tar.xz", "b6ccf805aa4fb8c50406256f99cf802385894b86c0cb6c0185dc0e2b5f8288b9"),
+    "linux-x86_64": _binary("x86_64", "tar.xz", "0662b2f01e0cd8b951fd110911d339c35b05998c68a12b3530bbbb4bf6c7874e"),
+    "linux-arm64": _binary("aarch64", "tar.xz", "9fc9e6baedf2b6779bd39ce4cc458d3529e200bc92bebe28be18f8942a456ad8"),
     "windows-x86_64": _binary("mingw-w64-x86_64", "zip",
-                              "7936cac895611023ffb22a64b8e426098c7104cb689778c1894572ca840b9ece"),
+                              "062888d4f8a213f930e367189804910e5215c4e623e5063e64494c302f94b889"),
 }
 _SOURCE_ARCHIVE = f"arm-gnu-toolchain-src-snapshot-{RELEASE}.tar.xz"
 # Published unchanged as the release's source asset (GPL).
-SOURCE = Download(_SOURCE_ARCHIVE, f"{DOWNLOADS}/srcrel/{_SOURCE_ARCHIVE}",
-                  "06f4e5792b566a771c300ac6f46c3422e23e34f4e3a5d44a8cb5594ead6fb82e")
+SOURCE = Download(_SOURCE_ARCHIVE, f"{DOWNLOADS}/{_SOURCE_ARCHIVE}",
+                  "fec2f0008bbe6be5016328f9f95ec750db00499653d775d934b2330f717c274c")
 
 # The snapshot's folders whose code the kept files hold: binutils, GCC (with libgcc and libstdc++),
-# newlib (libc, libm, libnosys), and GMP, MPFR, MPC, isl and libiconv linked into the programs. The
-# others (gdb's binutils-gdb--gdb, glibc, linux, ncurses, libexpat) only go into files that are dropped.
-SHIPPED = ("binutils-gdb", "gcc", "newlib-cygwin", "gmp", "mpfr", "mpc", "isl", "libiconv")
+# newlib (libc, libm, libnosys), and GMP, MPFR, MPC, isl, libiconv and (from 15.3, in cc1 and lto1) zstd
+# linked into the programs. The others (gdb's binutils-gdb--gdb, glibc, linux, ncurses, libexpat) only go
+# into files that are dropped.
+SHIPPED = ("binutils-gdb", "gcc", "newlib-cygwin", "gmp", "mpfr", "mpc", "isl", "libiconv", "zstd")
 
 
 @dataclass(frozen=True)
