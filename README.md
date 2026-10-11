@@ -358,7 +358,7 @@ lto-wrapper's path with each space escaped by a backslash (`C:/with\ space/...`)
 Plain compiles work from any path, and simee-core doesn't use `-flto`; the check compiles the Windows LTO
 variant from a copy in a path without spaces.
 
-Which build: simee builds GCC 15.3.0, binutils 2.47 and avr-libc 2.3.2 from GNU's and avrdudes' release
+Which build: simee builds GCC 16.2.0, binutils 2.47 and avr-libc 2.3.2 from GNU's and avrdudes' release
 archives, unmodified (pins and SHA256s in `avr_toolchain/components.py`), rather than repackaging
 Arduino's `avr-gcc 7.3.0-atmel3.6.1-arduino7` (what simee-core's tests used on the Mac host) or
 Microchip's toolchain. Arduino's is built for macOS x86_64 only (Rosetta on Apple silicon) and for 32-bit
@@ -382,7 +382,7 @@ info is stripped (`avr-strip --strip-debug`), which takes a toolchain from about
 ```bash
 uv run avr-toolchain build --host macos-arm64     # -> dist/, checked
 uv run avr-toolchain build --host macos-x86_64    # cross-built with the arm64 one in work/
-AVR_TOOLCHAIN=dist/avr-gcc-15.3.0-macos-arm64.tar.gz uv run pytest tests/test_avr_toolchain.py
+AVR_TOOLCHAIN=dist/avr-gcc-16.2.0-macos-arm64.tar.gz uv run pytest tests/test_avr_toolchain.py
 ```
 
 Licences: binutils and GCC are GPL-3.0-or-later, libgcc (and libstdc++, which isn't built for the AVR)

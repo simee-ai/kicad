@@ -29,10 +29,11 @@ class Source:
 
 BINUTILS = Source("binutils", "2.47", f"{GNU}/binutils/binutils-2.47.tar.xz",
                   "154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff", "GPL-3.0-or-later")
-GCC = Source("gcc", "15.3.0", f"{GNU}/gcc/gcc-15.3.0/gcc-15.3.0.tar.xz",
-             "fa59c1beef8995f27c4d71c1df227587189315d3e6faff1bb4306e61b0c530eb",
+GCC = Source("gcc", "16.2.0", f"{GNU}/gcc/gcc-16.2.0/gcc-16.2.0.tar.xz",
+             "e6738e29597f733270731aa90600f37ffdc045079dfc27ec7e8192cc81085c3e",
              "GPL-3.0-or-later; libgcc and libstdc++ also under the GCC Runtime Library Exception 3.1")
-# Built inside GCC's tree and linked statically into cc1 and cc1plus.
+# Built inside GCC's tree and linked statically into cc1 and cc1plus; the versions GCC's own
+# contrib/download_prerequisites names (16.2.0's: GMP 6.3.0, MPFR 4.2.2, MPC 1.3.1).
 GMP = Source("gmp", "6.3.0", f"{GNU}/gmp/gmp-6.3.0.tar.xz",
              "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898", "LGPL-3.0-or-later")
 MPFR = Source("mpfr", "4.2.2", f"{GNU}/mpfr/mpfr-4.2.2.tar.xz",
