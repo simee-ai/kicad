@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Callable
 
-from kicad_bundle.fetch import Fetch, fetch_url, request, write_atomically
+from kicad_bundle.fetch import SSL_CONTEXT, Fetch, fetch_url, request, write_atomically
 
 API = "https://api.github.com/repos/KiCad/kicad-source-mirror/releases"
 DOWNLOADS = "https://kicad-downloads.s3.cern.ch"
@@ -59,7 +59,7 @@ def installer(version: str, pattern: str, download: str, fetch: Fetch = fetch_ur
 
 
 def _stream(url: str) -> BinaryIO:
-    return urllib.request.urlopen(request(url), timeout=600)
+    return urllib.request.urlopen(request(url), timeout=600, context=SSL_CONTEXT)
 
 
 def cached(found: Installer, version: str, cache: Path, stream: Callable[[str], BinaryIO] = _stream) -> Path:

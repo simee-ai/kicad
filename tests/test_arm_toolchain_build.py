@@ -23,6 +23,7 @@ MANIFEST = (
     "gcc2_configure=--target=arm-none-eabi \t\t\t--prefix=/Volumes/data/jenkins/install "
     "\t\t\t--with-gmp=/Volumes/data/jenkins/host-tools \t\t\t--with-mpfr=/Volumes/data/jenkins/host-tools "
     "\t\t\t--with-mpc=/Volumes/data/jenkins/host-tools \t\t\t \t\t\t--with-isl=/Volumes/data/jenkins/host-tools "
+    "\t\t\t--with-zstd=/Volumes/data/jenkins/host-tools "
     "\t\t\t--disable-shared \t\t\t--disable-nls \t\t\t--disable-threads \t\t\t--enable-checking=release "
     "\t\t\t--enable-languages=c,c++,fortran \t\t\t--with-newlib                         --with-gnu-as "
     "\t\t\t--with-headers=yes                         --with-gnu-ld "
@@ -57,7 +58,7 @@ def _flags(args: list[str]) -> dict[str, list[str]]:
 @pytest.mark.parametrize("step", ["binutils", "gcc2"])
 def test_binutils_and_gcc_are_configured_as_arm_did_in_our_folders(step):
     make_args = build.binutils_args if step == "binutils" else build.gcc_args
-    args = make_args(build.arm_options(MANIFEST, step), ROOT, CROSS)
+    args = make_args(build.arm_options(MANIFEST, step), ROOT, CROSS, *([Path("/w/zstd")] if step == "gcc2" else []))
     flags = _flags(args)
     for arm in build.arm_options(MANIFEST, step):  # each of Arm's options, but those naming its folders
         flag = arm.partition("=")[0]
@@ -70,12 +71,33 @@ def test_binutils_and_gcc_are_configured_as_arm_did_in_our_folders(step):
     assert flags["--with-sysroot"] == [f"{ROOT}/arm-none-eabi"]
     assert flags["--build"] == [CROSS] and flags["--host"] == ["x86_64-apple-darwin"]
     assert flags["--with-bugurl"] == [build.BUGURL]
-    assert "--without-zstd" in args  # Arm's programs link nothing but the OS's libraries
     assert "--with-system-zlib" in args  # binutils' and GCC's bundled zlib don't compile against current SDKs
 
 
+def test_binutils_links_no_zstd_and_gcc_the_one_built_from_the_snapshot():
+    """From 15.3, Arm links zstd into cc1 and lto1 (zstd-compressed LTO objects), statically; not into
+    binutils, which would otherwise pick up any zstd it finds on the build machine."""
+    binutils = _flags(build.binutils_args(build.arm_options(MANIFEST, "binutils"), ROOT, CROSS))
+    assert "--without-zstd" in binutils and "--with-zstd" not in binutils
+    gcc = _flags(build.gcc_args(build.arm_options(MANIFEST, "gcc2"), ROOT, CROSS, Path("/w/zstd")))
+    assert gcc["--with-zstd"] == ["/w/zstd"] and "--without-zstd" not in gcc
+
+
+def test_zstd_is_built_as_a_static_library_for_the_host(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(build.subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw)))
+    env = build.build_env({"PATH": "/usr/bin"}, None)
+    prefix = build.build_zstd(tmp_path / "src" / "zstd", tmp_path / "zstd", env, 4)
+    assert prefix == tmp_path / "zstd"
+    [(make, kw), (install, _)] = calls
+    assert make[:3] == ["make", "-C", str(tmp_path / "src/zstd/lib")] and "-j4" in make and "libzstd.a" in make
+    assert kw["env"]["CC"] == "clang -arch x86_64" and kw["check"]
+    assert {"install-static", "install-includes", f"PREFIX={prefix}"} <= set(install)
+    assert "install-shared" not in install  # static only: the programs link no zstd at run time
+
+
 def test_gcc_builds_only_c_and_cxx_and_says_whose_build_it_is():
-    flags = _flags(build.gcc_args(build.arm_options(MANIFEST, "gcc2"), ROOT, None))
+    flags = _flags(build.gcc_args(build.arm_options(MANIFEST, "gcc2"), ROOT, None, Path("/w/zstd")))
     assert flags["--enable-languages"] == ["c,c++"]  # Arm's fortran (f951) isn't kept
     [pkgversion] = flags["--with-pkgversion"]
     assert "Arm GNU Toolchain" in pkgversion and RELEASE in pkgversion and "simee" in pkgversion
@@ -155,6 +177,8 @@ def test_the_snapshot_unpacks_only_what_the_build_compiles_with_gccs_libraries_i
         *build.SNAPSHOT_FOLDERS, "glibc", "binutils-gdb--gdb")})
     src = build.unpack_snapshot(snapshot, tmp_path / "src")
     assert sorted(p.name for p in src.iterdir()) == sorted(build.SNAPSHOT_FOLDERS)
+    assert "zstd" in build.SNAPSHOT_FOLDERS  # built on its own, not in GCC's tree
+    assert not (src / "gcc" / "zstd").exists()
     for lib in ("gmp", "mpfr", "mpc", "isl"):
         assert (src / "gcc" / lib / "configure").read_text() == lib
 
@@ -177,7 +201,7 @@ def test_notice_names_both_of_arms_downloads_the_build_and_the_sources():
     text = build.notice()
     arm64 = BINARIES[build.TARGET_FROM]
     for s in (arm64.url, arm64.sha256, SOURCE.url, SOURCE.sha256, SOURCE.archive, components.BUILD_SCRIPTS,
-              "x86_64", "thumb/v6-m/nofp", "GPL-3.0-or-later", "COPYING.NEWLIB", "LGPL-3.0-or-later"):
+              "x86_64", "thumb/v6-m/nofp", "GPL-3.0-or-later", "COPYING.NEWLIB", "LGPL-3.0-or-later", "zstd"):
         assert s in text
     assert "MinGW" not in text
 

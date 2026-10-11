@@ -66,12 +66,30 @@ def extract(archive: Path, work: Path, name: str) -> Path:
     with tarfile.open(archive) as tar:
         members = tar.getmembers()
         top = _top([m.name for m in members])
-        # A hard link names its target by its path in the archive (a symbolic one relative to itself).
-        tar.extractall(root, filter="tar", members=[
-            m.replace(name=m.name.removeprefix(top), deep=False,
-                      linkname=m.linkname.removeprefix(top) if m.islnk() else m.linkname)
-            for m in members if not m.isdir() and kept(m.name.removeprefix(top))])
+        tar.extractall(root, filter="tar", members=_kept_members(members, top))
     return root
+
+
+def _kept_members(members: list[tarfile.TarInfo], top: str) -> list[tarfile.TarInfo]:
+    """The kept members, renamed below top. A hard link names its target by its path in the archive (a
+    symbolic one relative to itself); one whose target isn't kept (Arm's Linux arm-none-eabi-g++ links to
+    arm-none-eabi-c++ from 15.3) takes the target's data, and further links to that target link to it."""
+    by_name = {m.name: m for m in members}
+    holder: dict[str, str] = {}  # a target that isn't kept -> the kept link holding its data
+    out = []
+    for m in members:
+        rel = m.name.removeprefix(top)
+        if m.isdir() or not kept(rel):
+            continue
+        if m.islnk() and not kept(target := m.linkname.removeprefix(top)):
+            if target in holder:
+                out.append(m.replace(name=rel, linkname=holder[target], deep=False))
+            else:
+                holder[target] = rel
+                out.append(by_name[m.linkname].replace(name=rel, deep=False))
+            continue
+        out.append(m.replace(name=rel, deep=False, linkname=m.linkname.removeprefix(top) if m.islnk() else m.linkname))
+    return out
 
 
 def write_licences(snapshot: Path, root: Path) -> None:
@@ -101,6 +119,7 @@ Components (each one's licence files are in share/doc/<folder>/, from Arm's sour
 \tgmp, mpfr, mpc\tlinked into the compilers\tLGPL-3.0-or-later
 \tisl\tlinked into the compilers\tMIT
 \tlibiconv\tcharacter set conversion in the compilers\tLGPL-2.1-or-later
+\tzstd\tLTO compression in cc1 and lto1\tBSD-3-Clause (or GPL-2.0-only)
 """
 SOURCES = """
 The GitHub release this archive comes from also holds {source}, Arm's
