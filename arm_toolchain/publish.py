@@ -17,7 +17,7 @@ def next_tag(release: str, existing: list[str]) -> str:
 
 def release_notes(run_url: str, sums: str) -> str:
     return f"""Arm GNU Toolchain {RELEASE} (GCC {GCC_VERSION}, arm-none-eabi) for simee-core's package: Arm's own
-builds from {DOWNLOADS}/binrel/, unmodified, trimmed to what a build for the
+builds from {DOWNLOADS}/, unmodified, trimmed to what a build for the
 {CHIPS} runs and links (the C and C++ drivers, binutils, cc1, cc1plus, LTO, and newlib,
 libstdc++ and libgcc for the multilibs {MULTILIB_LIST}), about 205 MB of the 1 GB release.
 
