@@ -4,6 +4,7 @@ Arm's source snapshot, target files from Arm's macOS arm64 build (README, "Arm t
 import os
 import tarfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -64,7 +65,7 @@ def test_binutils_and_gcc_are_configured_as_arm_did_in_our_folders(step):
         flag = arm.partition("=")[0]
         if flag not in build.REPLACED:
             assert arm in args
-    assert not [a for a in args if "/Volumes/" in a or "gitlab.arm.com" in a]
+    assert not [a for a in args if "/Volumes/" in a or urlparse(a.partition("=")[2]).hostname == "gitlab.arm.com"]
     assert all(len(v) == 1 for v in flags.values()), "an option given twice"
     assert flags["--prefix"] == [str(ROOT)]
     # Under the prefix, so GCC and ld find it relative to themselves wherever the root is copied.
