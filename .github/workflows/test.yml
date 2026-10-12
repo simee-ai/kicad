@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [simee-ci]
 
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
