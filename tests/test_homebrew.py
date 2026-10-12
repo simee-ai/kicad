@@ -3,6 +3,7 @@ import io
 import json
 import tarfile
 import urllib.error
+from urllib.parse import urlparse
 
 import pytest
 
@@ -139,12 +140,12 @@ def test_match_walks_back_to_the_bottle_holding_the_libraries_uuids(tmp_path):
     # c1 added the bottle; c2 still names it but its formula is already 2.88.4's
     assert (bottle.formula, bottle.version, bottle.tag, bottle.commit) == ("glib", "2.88.3", "arm64_sonoma", "c1")
     assert bottle.sha256 == hashlib.sha256(_bottle("2.88.3", OLD)).hexdigest()
-    blobs = [u for u in web.calls if "ghcr.io" in u]
+    blobs = [u for u in web.calls if urlparse(u).hostname == "ghcr.io"]
     assert len(blobs) == 2  # the 2.88.4 bottle, then 2.88.3 once although c2 and c1 both name it
 
     web.calls.clear()
     assert homebrew.match("glib", "arm64", libs, "2026-08-29T15:43:28Z", tmp_path, web) == bottle
-    assert not [u for u in web.calls if "ghcr.io" in u]  # the bottles' UUIDs are cached
+    assert not [u for u in web.calls if urlparse(u).hostname == "ghcr.io"]  # the bottles' UUIDs are cached
 
 
 def test_match_reaches_a_bottle_from_a_build_machines_months_old_homebrew(tmp_path):
