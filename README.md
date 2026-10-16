@@ -267,6 +267,18 @@ review; a human then creates `simee/<version>` from it.
   by its extension and comes before PADS in the importer list, so `sch import --format auto` read a PADS Logic
   export saved as `.asc`, and even a PADS Layout board, as a garbage LTspice sheet and exited 0. Upstream master
   has the same bug (#31).
+- `kicad-cli sch import` and `pcb import` of an EasyEDA Pro project holding several boards or schematics take
+  the first board by name (a board's schematic + PCB pair before a lone schematic or PCB) and say on stdout
+  which, and what they left out. The importers asked a project chooser only the GUI registers, and the
+  empty `std::function` threw `std::bad_function_call` (#29).
+- EasyEDA Pro schematic import, all upstream bugs (#29): the symbol library is saved in the project's
+  folder, where its library table points, not next to the source (an import elsewhere wrote into the
+  source's folder, named a library that wasn't there, and a second import failed with "already exists");
+  a wire's net name is a global label, as EasyEDA Pro joins it on every page; a short symbol (type 22)
+  joins the nets on its pins with a wire, and it and drawing frames (type 20) get hidden virtual references
+  (`#SHORT1`, `#FRAME1`), out of BOM and board, where each was a part `?` joining nothing; board names
+  are read as UTF-8, not with the C library's locale, which in a container's C locale made a Chinese one
+  `""` and so the board a headless import took.
 
 To build them into a bundle: `uv run kicad-bundle --kicad-version 10.0.6 --platform linux --simee-ref
 simee/10.0.6` (the package workflow's `simee_ref` input does the same; it resolves the branch to one
@@ -320,16 +332,18 @@ target...]` builds `kicad-cli` and the eeschema kiface, or the targets given (`k
 `KICAD_CLI=<build dir>/kicad/KiCad.app/Contents/MacOS/kicad-cli uv run pytest` also runs the import
 tests, which skip without `KICAD_CLI`. They import each real circuit in `kicad_bundle/smoke/import/`
 (Adafruit BME280, SparkFun logic level converter and SparkFun's two-sheet Tsunami Qwiic in Eagle,
-Digispark ATtiny85 in Altium, Easy-SDR coax power supply in EasyEDA, AYAB Interface in gEDA, a divider
-in LTspice), export the netlist and compare
-it with the source tool's, three times: with the source and output folders apart, and with each inside
-the other (`sch_import.LAYOUTS`). For Eagle the expected nets are read straight from the Eagle XML
-(`tests/eagle_nets.py`); for the others, checked by hand against the project's own schematic export, as
-each `fixture.json` says. An
-import that leaves a hidden file next to its output fails too. A fixture whose `fixture.json` has a `board`
-(the Adafruit BME280's Eagle `.brd`) is also imported with `pcb import` (`pcb_import.py`): the pads of its
-gerbers must carry the nets of the board's signals, read from its XML like the schematic's, and it must draw
-(`pcb export svg` the size of its outline, `pcb render`). Each fixture keeps its source's licence. And
+Digispark ATtiny85 in Altium, Easy-SDR coax power supply in EasyEDA, the AYAB Interface in gEDA, a
+divider in LTspice, the Yuzuki Chameleon, an H616 board in a project of two boards and three schematics, in
+EasyEDA Pro), export the netlist and compare it with the source tool's, three times: with the source and
+output folders apart, and with each inside the other (`sch_import.LAYOUTS`). For Eagle the expected nets are
+read straight from the Eagle XML (`tests/eagle_nets.py`), for gEDA from gEDA's own netlister's output
+(`tests/geda_nets.py`), for EasyEDA Pro from the pad nets EasyEDA Pro keeps in the board's PCB document
+(`tests/easyedapro_nets.py`); for the others, checked by hand against the project's own schematic export, as
+each `fixture.json` says. An import that leaves a hidden file next to its output, or any file in its source's
+folder, fails too. A fixture whose `fixture.json` has a `board` (the Adafruit BME280's Eagle `.brd`, the
+Yuzuki Chameleon's PCB) is also imported with `pcb import` (`pcb_import.py`): the pads of its gerbers must
+carry the nets of the board's signals, read from the source like the schematic's, and it must draw (`pcb
+export svg` the size of its outline, `pcb render`). Each fixture keeps its source's licence. And
 `--format auto`, which simee-core runs, must pick each fixture's own importer, and the right one or none for
 each file in `kicad_bundle/smoke/detect/` (`detect.json`: a PADS Logic export as `.txt` and as `.asc`, a PADS
 Layout `.asc` board), and for each LTspice fixture saved as UTF-16LE (`sch_import.check_detection`).
