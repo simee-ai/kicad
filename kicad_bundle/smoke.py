@@ -130,7 +130,7 @@ def png_size(data: bytes) -> tuple[int, int]:
 def export_gerbers(cli: list[str], board: Path, folder: Path) -> dict[str, str]:
     """board's gerbers, written to folder: file name -> text."""
     run(cli, ["pcb", "export", "gerbers", "-o", f"{folder}/", str(board)], folder)
-    return {p.name: p.read_text() for p in folder.iterdir()}
+    return {p.name: p.read_text(encoding="utf-8") for p in folder.iterdir()}
 
 
 def run(cli: list[str], args: list[str], out: Path) -> Path:
@@ -151,7 +151,7 @@ def _check_pcbnew(cli: list[str], tmp: Path, models: bool = True) -> None:
     BOARD's gerbers have its nets' pads and its outline, its drill file its holes, its STEP and VRML files a
     header, and it draws (check_drawings), with those files as 3D models too (check_models) if models."""
     up = run(cli, ["fp", "upgrade", "-o", str(tmp / "upgraded.pretty"), str(FOOTPRINTS)], tmp / "upgraded.pretty")
-    upgraded = sorted(p.stem for p in up.glob("*.kicad_mod") if p.read_text().startswith("(footprint "))
+    upgraded = sorted(p.stem for p in up.glob("*.kicad_mod") if p.read_text(encoding="utf-8").startswith("(footprint "))
     if upgraded != EXPECTED_FOOTPRINTS:
         raise RuntimeError(f"fp upgrade wrote footprints {upgraded} in the current format, wanted {EXPECTED_FOOTPRINTS}")
 
@@ -165,7 +165,7 @@ def _check_pcbnew(cli: list[str], tmp: Path, models: bool = True) -> None:
         raise RuntimeError(f"no board outline (Edge_Cuts) among the gerbers {sorted(texts)}")
 
     drill = run(cli, ["pcb", "export", "drill", "-o", f"{tmp / 'drill'}/", str(board)], tmp / "drill")
-    holes = sum(drill_holes(p.read_text()) for p in drill.glob("*.drl"))
+    holes = sum(drill_holes(p.read_text(encoding="utf-8")) for p in drill.glob("*.drl"))
     if holes != EXPECTED_HOLES:
         raise RuntimeError(f"the drill files have {holes} holes, wanted {EXPECTED_HOLES}")
 
@@ -217,7 +217,7 @@ def check_models(cli: list[str], bare: bytes, models: list[Path], tmp: Path) -> 
         folder.mkdir()
         shutil.copy2(model, folder / f"model{model.suffix}")
         board = folder / BOARD.name
-        board.write_text(with_model(BOARD.read_text(), f"${{KIPRJMOD}}/model{model.suffix}"))
+        board.write_text(with_model(BOARD.read_text(encoding="utf-8"), f"${{KIPRJMOD}}/model{model.suffix}"))
         if render(cli, board, folder / "board.png") == bare:
             raise RuntimeError(f"pcb render drew no {model.suffix} 3D model: are the 3D plugins bundled?")
 
@@ -228,7 +228,7 @@ def check_drawings(cli: list[str], board: Path, size: tuple[float, float], tmp: 
     display (#20)."""
     svg = run(cli, ["pcb", "export", "svg", "--mode-single", "--layers", SVG_LAYERS, "--page-size-mode", "2",
                      "--exclude-drawing-sheet", "-o", str(tmp / "board.svg"), str(board)], tmp / "board.svg")
-    drawn = svg_size(svg.read_text())
+    drawn = svg_size(svg.read_text(encoding="utf-8"))
     if any(abs(a - b) > SVG_TOLERANCE for a, b in zip(drawn, size)):
         raise RuntimeError(f"pcb export svg drew {drawn} mm, wanted the board's {size}")
     return render(cli, board, tmp / "board.png")
@@ -240,9 +240,9 @@ def check(cli: list[str], models: bool = True) -> None:
     renders draw 3D models, which a Linux bundle can only do when built from a simee/<version> branch)."""
     with tempfile.TemporaryDirectory() as tmp:
         net, erc = Path(tmp) / "smoke.net", Path(tmp) / "smoke-erc.json"
-        nets = netlist_nets(run(cli, ["sch", "export", "netlist", "-o", str(net), str(SCHEMATIC)], net).read_text())
+        nets = netlist_nets(run(cli, ["sch", "export", "netlist", "-o", str(net), str(SCHEMATIC)], net).read_text(encoding="utf-8"))
         errors = erc_errors(run(cli, ["sch", "erc", "--format", "json", "--severity-all", "-o", str(erc),
-                                       str(SCHEMATIC)], erc).read_text())
+                                       str(SCHEMATIC)], erc).read_text(encoding="utf-8"))
         if nets != EXPECTED:
             raise RuntimeError(f"unexpected nets {nets}, wanted {EXPECTED}")
         if errors != EXPECTED_ERC:

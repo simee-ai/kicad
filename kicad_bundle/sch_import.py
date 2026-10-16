@@ -148,7 +148,7 @@ def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[d
              Path(tmp))
         stray = stray_files(out)
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))
-        text = net.read_text()
+        text = net.read_text(encoding="utf-8")
     return netlist_components(text), [n for n in netlist_nets(text) if len(n) > 1], stray
 
 
