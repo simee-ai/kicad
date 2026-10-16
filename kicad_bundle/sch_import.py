@@ -4,10 +4,10 @@ export the result's netlist and compare KiCad's components and nets with the sou
 schematic."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -143,17 +143,27 @@ def source_files(src: Path, out: Path) -> set[Path]:
 
 
 def written_beside(src: Path, out: Path, before: set[Path]) -> list[str]:
-    """Files an import wrote into its source folder (outside its output), such as a symbol library. Not
-    checked on Windows until #36: its bundle also writes a multi-sheet EasyEDA Pro import's sheets there."""
-    if sys.platform == "win32":
-        return []
+    """Files an import wrote into its source folder (outside its output), such as a symbol library."""
     return sorted(str(p.relative_to(src)) for p in source_files(src, out) - before)
+
+
+def sheets_outside(out: Path) -> list[str]:
+    """Each sheet a schematic under `out` names by a file outside `out`, as "<schematic> names <file>": a
+    Windows %TEMP% with 8.3 short names had the import name its sheets by ../../.. paths into the source's
+    folder or elsewhere, which still read back, so the netlist matched (#36)."""
+    found = []
+    for sch in sorted(out.rglob("*.kicad_sch")):
+        for name in re.findall(r'\(property "Sheetfile" "([^"]*)"', sch.read_text(encoding="utf-8")):
+            target = Path(os.path.normpath(sch.parent / name))
+            if not target.is_relative_to(Path(os.path.normpath(out))):
+                found.append(f"{sch.relative_to(out).as_posix()} names {name}")
+    return found
 
 
 def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[dict[str, str], list[list[str]], list[str]]:
     """Components and nets (two or more nodes) of `fixture` as KiCad imports it, its source and output
     folders placed as `layout` says, and the stray files the import wrote: hidden ones next to its output,
-    any into its source's folder."""
+    any into its source's folder, and any sheet it named outside its output."""
     with tempfile.TemporaryDirectory() as tmp:
         src_dir, out = (Path(tmp) / "job" / d for d in LAYOUTS[layout])
         shutil.copytree(fixture.source.parent, src_dir, dirs_exist_ok=True)
@@ -163,7 +173,8 @@ def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[d
         before = source_files(src_dir, out)
         _run(cli, ["sch", "import", "--format", format_hint(fixture.format), "-o", str(sch), str(source)],
              Path(tmp))
-        stray = stray_files(out) + [f"{name} (beside the source)" for name in written_beside(src_dir, out, before)]
+        stray = (stray_files(out) + [f"{name} (beside the source)" for name in written_beside(src_dir, out, before)]
+                 + [f"{named} (outside the output)" for named in sheets_outside(out)])
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))
         text = net.read_text(encoding="utf-8")
     return netlist_components(text), [n for n in netlist_nets(text) if len(n) > 1], stray
