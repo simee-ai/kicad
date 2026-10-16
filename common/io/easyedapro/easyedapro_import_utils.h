@@ -29,7 +29,8 @@
 #include <wx/stream.h>
 #include <wx/string.h>
 #include <lib_id.h>
-#include <nlohmann/json_fwd.hpp>
+#include <json_common.h>
+#include <core/json_serializers.h>
 
 struct IMPORT_PROJECT_DESC;
 
@@ -64,7 +65,29 @@ std::vector<nlohmann::json> ParseJsonLines( wxInputStream& aInput, const wxStrin
 std::vector<std::vector<nlohmann::json>> ParseJsonLinesWithSeparation( wxInputStream&  aInput,
                                                                        const wxString& aSource );
 
-std::map<wxString, wxString> AnyMapToStringMap( const std::map<wxString, nlohmann::json>& aInput );
+/**
+ * A JSON object as a map keyed by wxString, its keys read as UTF-8. Converting a JSON object to such a
+ * map directly makes each key with wxString's implicit std::string constructor, which uses the C
+ * library's locale: in the C locale (kicad-cli in a container) a key it can't encode, such as a Chinese
+ * attribute or board name, becomes "", and such keys collapse into one. Use this wherever a key can be
+ * user text.
+ */
+template <typename T>
+std::map<wxString, T> ToWxStringMap( const nlohmann::json& aObject )
+{
+    std::map<wxString, T> result;
+
+    for( auto it = aObject.begin(); it != aObject.end(); ++it )
+        result.emplace( wxString::FromUTF8( it.key() ), it.value().template get<T>() );
+
+    return result;
+}
+
+/**
+ * A JSON object's string and number values as strings (numbers in the C locale), keyed as
+ * ToWxStringMap keys them.
+ */
+std::map<wxString, wxString> AnyMapToStringMap( const nlohmann::json& aInput );
 
 } // namespace EASYEDAPRO
 

@@ -1681,7 +1681,7 @@ void PCB_IO_EASYEDAPRO_PARSER::ParseBoard(
 
             if( type == wxS( "COMPONENT" ) )
             {
-                localCompAttribs = line.at( 7 );
+                localCompAttribs = EASYEDAPRO::ToWxStringMap<wxString>( line.at( 7 ) );
             }
             else if( type == wxS( "ATTR" ) )
             {
