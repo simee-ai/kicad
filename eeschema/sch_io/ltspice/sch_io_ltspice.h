@@ -56,6 +56,12 @@ public:
         return IO_BASE::IO_FILE_DESC( wxEmptyString, { } );
     }
 
+    /**
+     * `.asc` is also the extension of PADS's ASCII files (Logic schematics and Layout boards),
+     * so only a file whose first line is LTspice's `Version` line is accepted.
+     */
+    bool CanReadSchematicFile( const wxString& aFileName ) const override;
+
     int GetModifyHash() const override;
 
     SCH_SHEET* LoadSchematicFile( const wxString& aFileName, SCHEMATIC* aSchematic,

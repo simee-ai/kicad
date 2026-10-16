@@ -28,10 +28,35 @@
 #include <sch_sheet.h>
 #include <sch_screen.h>
 #include <kiplatform/environment.h>
+#include <richio.h>
 
 /**
  * @brief schematic PLUGIN for LTspice (*.asc) and (.asy) format.
  */
+
+bool SCH_IO_LTSPICE::CanReadSchematicFile( const wxString& aFileName ) const
+{
+    if( !SCH_IO::CanReadSchematicFile( aFileName ) )
+        return false;
+
+    try
+    {
+        // SafeReadFile reads LTspice's UTF-16LE saves as well as its plain ones.
+        wxString header = SafeReadFile( aFileName, wxS( "r" ) ).BeforeFirst( '\n' );
+
+        if( header.StartsWith( wxString( wxUniChar( 0xFEFF ) ) ) )
+            header.Remove( 0, 1 );
+
+        // Every LTspice (and SwitcherCAD III) schematic starts "Version 4" or "Version 4.1";
+        // PADS files start "*PADS-" (Logic) or "!PADS-" (Layout).
+        return header.Trim( false ).Lower().StartsWith( wxS( "version" ) );
+    }
+    catch( const IO_ERROR& )
+    {
+        return false;
+    }
+}
+
 
 int SCH_IO_LTSPICE::GetModifyHash() const
 {
