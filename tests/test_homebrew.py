@@ -1,3 +1,4 @@
+import gzip
 import hashlib
 import io
 import json
@@ -58,12 +59,20 @@ def _bottle(version: str, uuid: str, sbom: bool = True, rb: str | None = None) -
     if not sbom_present:
         del files[f"{keg}/sbom.spdx.json"]
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+    # mtime=0: "w:gz" would stamp the gzip header with the time it was built
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz, tarfile.open(fileobj=gz, mode="w") as tar:
         for name, data in files.items():
             info = tarfile.TarInfo(name)
             info.size = len(data)
             tar.addfile(info, io.BytesIO(data))
     return buf.getvalue()
+
+
+def test_a_fake_bottle_is_the_same_bytes_whenever_it_is_built(monkeypatch):
+    # tests hash a bottle built again later; a gzip header holding the build time broke that across a second boundary
+    first = _bottle("2.88.3", OLD)
+    monkeypatch.setattr("time.time", lambda: 2_000_000_000.0)
+    assert _bottle("2.88.3", OLD) == first
 
 
 class FakeWeb:
