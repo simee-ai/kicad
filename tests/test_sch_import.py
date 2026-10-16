@@ -60,15 +60,34 @@ def test_written_beside_the_source_are_new_files_outside_the_output(tmp_path):
     assert sch_import.written_beside(out, tmp_path, set()) == ["imported.kicad_sch"]
 
 
-def test_writes_beside_the_source_are_not_checked_on_windows_until_36(tmp_path, monkeypatch):
-    # The Windows bundle also writes a multi-sheet EasyEDA Pro import's sheets beside the source (#36)
+def test_sheets_written_beside_the_source_are_listed(tmp_path):
+    # The Windows bundle wrote a multi-sheet EasyEDA Pro import's sheets beside the source (#36)
     (tmp_path / "board.epro").touch()
     before = sch_import.source_files(tmp_path, tmp_path / "out")
     (tmp_path / "1_POWER.kicad_sch").touch()
-    monkeypatch.setattr(sch_import.sys, "platform", "win32")
-    assert sch_import.written_beside(tmp_path, tmp_path / "out", before) == []
-    monkeypatch.setattr(sch_import.sys, "platform", "darwin")
     assert sch_import.written_beside(tmp_path, tmp_path / "out", before) == ["1_POWER.kicad_sch"]
+
+
+def sheet(folder: Path, name: str, *sheetfiles: str) -> None:
+    (folder / name).parent.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_text("(kicad_sch\n" + "".join(
+        f'\t(sheet\n\t\t(property "Sheetname" "s{i}")\n\t\t(property "Sheetfile" "{f}")\n\t)\n'
+        for i, f in enumerate(sheetfiles)) + ")\n", encoding="utf-8")
+
+
+def test_sheets_named_outside_the_output_are_listed(tmp_path):
+    # On Windows a %TEMP% with 8.3 short names (RUNNER~1) had the import name its sheets by ../../.. paths,
+    # into the source's folder or nowhere near either; the netlist still matched (#36)
+    out = tmp_path / "out"
+    sheet(out, "imported.kicad_sch", "1_POWER.kicad_sch", "sub/2_DRAM.kicad_sch")
+    sheet(out, "sub/2_DRAM.kicad_sch", "../3_IO.kicad_sch")
+    assert sch_import.sheets_outside(out) == []
+    sheet(out, "imported.kicad_sch", "1_POWER.kicad_sch", "../src/4_PREP.kicad_sch",
+          "../../../../RUNNER~1/AppData/Local/Temp/job/src/5_X.kicad_sch", str(tmp_path / "elsewhere.kicad_sch"))
+    assert sch_import.sheets_outside(out) == [
+        "imported.kicad_sch names ../src/4_PREP.kicad_sch",
+        "imported.kicad_sch names ../../../../RUNNER~1/AppData/Local/Temp/job/src/5_X.kicad_sch",
+        f"imported.kicad_sch names {tmp_path / 'elsewhere.kicad_sch'}"]
 
 
 def test_check_rejects_an_import_that_leaves_stray_files(monkeypatch):
