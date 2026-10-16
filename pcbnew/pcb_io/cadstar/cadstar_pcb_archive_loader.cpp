@@ -46,6 +46,7 @@
 #include <wx/debug.h>
 #include <wx/log.h>
 
+#include <functional>
 #include <limits> // std::numeric_limits
 
 
@@ -853,6 +854,65 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryFigures( const SYMDEF_PCB& aComponen
 void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryCoppers( const SYMDEF_PCB& aComponent,
                                                      FOOTPRINT* aFootprint )
 {
+    auto loadsAsPad =
+            [&]( const COMPONENT_COPPER& aCopper )
+            {
+                LSET copperLayers = LSET::AllCuMask() & getKiCadLayerSet( aCopper.LayerID );
+
+                return aCopper.AssociatedPadIDs.size() > 0 && copperLayers.count() > 0
+                       && aCopper.Shape.Type == SHAPE_TYPE::SOLID;
+            };
+
+    // The first non-PCB-only pad of aPads, or the first one if all are PCB-only
+    auto anchorOf =
+            [&]( const std::vector<PAD_ID>& aPads ) -> const COMPONENT_PAD&
+            {
+                for( PAD_ID padID : aPads )
+                {
+                    if( !aComponent.ComponentPads.at( padID ).PCBonlyPad )
+                        return aComponent.ComponentPads.at( padID );
+                }
+
+                return aComponent.ComponentPads.at( aPads.front() );
+            };
+
+    // Pads joined by copper elements are one pad, also when a chain of elements joins them (a
+    // thermal pad drawn as a row of elements, each joining two of its pads): every pad of such a
+    // group gets the number of the group's anchor, whatever the order of the elements.
+    std::map<PAD_ID, PAD_ID> parent;
+
+    std::function<PAD_ID( PAD_ID )> root =
+            [&]( PAD_ID aPad ) -> PAD_ID
+            {
+                if( !parent.count( aPad ) || parent[aPad] == aPad )
+                    return aPad;
+
+                return parent[aPad] = root( parent[aPad] );
+            };
+
+    for( const COMPONENT_COPPER& compCopper : aComponent.ComponentCoppers )
+    {
+        if( !loadsAsPad( compCopper ) )
+            continue;
+
+        for( PAD_ID padID : compCopper.AssociatedPadIDs )
+        {
+            parent.emplace( padID, padID );
+
+            PAD_ID a = root( compCopper.AssociatedPadIDs.front() );
+            PAD_ID b = root( padID );
+            parent[std::max( a, b )] = std::min( a, b );
+        }
+    }
+
+    std::map<PAD_ID, std::vector<PAD_ID>> groups; // root -> its pads, in PAD_ID order
+
+    for( const auto& padPair : aComponent.ComponentPads )
+    {
+        if( parent.count( padPair.first ) )
+            groups[root( padPair.first )].push_back( padPair.first );
+    }
+
     for( COMPONENT_COPPER compCopper : aComponent.ComponentCoppers )
     {
         int lineThickness = getKiCadLength( getCopperCode( compCopper.CopperCodeID ).CopperWidth );
@@ -860,37 +920,23 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryCoppers( const SYMDEF_PCB& aComponen
         LSET copperLayers = LSET::AllCuMask() & layers;
         LSET remainingLayers = layers;
 
-        if( compCopper.AssociatedPadIDs.size() > 0 && copperLayers.count() > 0
-            && compCopper.Shape.Type == SHAPE_TYPE::SOLID )
+        if( loadsAsPad( compCopper ) )
         {
             // The copper is associated with pads and in an electrical layer which means it can
             // have a net associated with it. Load as a pad instead.
             // Note: we can only handle SOLID copper shapes. If the copper shape is an outline or
             // hatched or outline, then we give up and load as a graphical shape instead.
 
-            // Find the first non-PCB-only pad. If there are none, use the first one
-            COMPONENT_PAD anchorPad;
-            bool          found = false;
-
-            for( PAD_ID padID : compCopper.AssociatedPadIDs )
-            {
-                anchorPad = aComponent.ComponentPads.at( padID );
-
-                if( !anchorPad.PCBonlyPad )
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if( !found )
-                anchorPad = aComponent.ComponentPads.at( compCopper.AssociatedPadIDs.front() );
+            // Its shape is anchored on one of its own pads, its number is its group's
+            const COMPONENT_PAD& anchorPad = anchorOf( compCopper.AssociatedPadIDs );
+            const std::vector<PAD_ID>& group = groups.at( root( anchorPad.ID ) );
+            const COMPONENT_PAD& groupAnchor = anchorOf( group );
 
             std::unique_ptr<PAD> pad = std::make_unique<PAD>( aFootprint );
             pad->SetAttribute( PAD_ATTRIB::SMD );
             pad->SetLayerSet( copperLayers );
-            pad->SetNumber( anchorPad.Identifier.IsEmpty() ? wxString::Format( wxT( "%ld" ), anchorPad.ID )
-                                                           : anchorPad.Identifier );
+            pad->SetNumber( groupAnchor.Identifier.IsEmpty() ? wxString::Format( wxT( "%ld" ), groupAnchor.ID )
+                                                             : groupAnchor.Identifier );
 
             // Custom pad shape with an anchor at the position of one of the associated
             // pads and same size as the pad. Shape circle as it fits inside a rectangle
@@ -911,10 +957,8 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryCoppers( const SYMDEF_PCB& aComponen
             shapePolys.Move( -anchorPos );
             pad->AddPrimitivePoly( PADSTACK::ALL_LAYERS, shapePolys, 0, true );
 
-            // Now renumber all the associated pads
-            COMPONENT_PAD associatedPad;
-
-            for( PAD_ID padID : compCopper.AssociatedPadIDs )
+            // Now renumber all the pads of the group
+            for( PAD_ID padID : group )
             {
                 PAD* assocPad = getPadReference( aFootprint, padID );
                 assocPad->SetNumber( pad->GetNumber() );
@@ -923,7 +967,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryCoppers( const SYMDEF_PCB& aComponen
             aFootprint->Add( pad.release(), ADD_MODE::APPEND ); // Append so that we get the correct behaviour
                                                                 // when finding pads by PAD_ID. See loadNets()
 
-            m_librarycopperpads[aComponent.ID][anchorPad.ID].push_back( aFootprint->Pads().size() );
+            m_librarycopperpads[aComponent.ID][groupAnchor.ID].push_back( aFootprint->Pads().size() );
 
             remainingLayers ^= copperLayers; // don't process copper layers again!
         }
