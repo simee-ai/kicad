@@ -91,6 +91,7 @@
 #include <project_sch.h>
 
 #include <libraries/symbol_library_adapter.h>
+#include <io/altium/altium_project_variants.h>
 
 
 EESCHEMA_JOBS_HANDLER::EESCHEMA_JOBS_HANDLER( KIWAY* aKiway ) :
@@ -1594,10 +1595,15 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
     // AUTO restricts autodetect to non-KiCad plugins so a native file is not re-imported.
     SCH_IO_MGR::SCH_FILE_T fileType = SCH_IO_MGR::SCH_FILE_UNKNOWN;
 
+    // An Altium project imports every schematic it lists, as the project manager's import does.
+    bool altiumProject = !wxFileName( job->m_inputFile ).GetExt().CmpNoCase( wxS( "PrjPcb" ) );
+
     switch( job->m_format )
     {
     case JOB_SCH_IMPORT::FORMAT::AUTO:
-        fileType = SCH_IO_MGR::GuessPluginTypeFromSchPath( job->m_inputFile, KICTL_NONKICAD_ONLY );
+        fileType = altiumProject ? SCH_IO_MGR::SCH_ALTIUM
+                                 : SCH_IO_MGR::GuessPluginTypeFromSchPath( job->m_inputFile,
+                                                                           KICTL_NONKICAD_ONLY );
         break;
     case JOB_SCH_IMPORT::FORMAT::ALTIUM:     fileType = SCH_IO_MGR::SCH_ALTIUM;          break;
     case JOB_SCH_IMPORT::FORMAT::EAGLE:      fileType = SCH_IO_MGR::SCH_EAGLE;           break;
@@ -1697,7 +1703,34 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
                                               inputFn.GetFullPath(), formatName ),
                             RPT_SEVERITY_INFO );
 
-        loadedSheet = pi->LoadSchematicFile( inputFn.GetFullPath(), schematic.get() );
+        if( altiumProject && fileType == SCH_IO_MGR::SCH_ALTIUM )
+        {
+            std::map<std::string, UTF8> properties;
+            properties["project_file"] = UTF8( inputFn.GetFullPath() );
+
+            // Numbered so the keys keep the project's order of sheets (page numbers).
+            for( const wxString& sch : ParseAltiumProjectSchematics( inputFn.GetFullPath() ) )
+            {
+                wxString key = wxString::Format( wxS( "sch%04d" ), (int) properties.size() );
+                properties[key.ToStdString()] = UTF8( sch );
+            }
+
+            if( properties.size() == 1 )
+            {
+                m_reporter->Report( wxString::Format( _( "Altium project '%s' lists no "
+                                                         "schematic\n" ),
+                                                      inputFn.GetFullPath() ),
+                                    RPT_SEVERITY_ERROR );
+                return CLI::EXIT_CODES::ERR_INVALID_INPUT_FILE;
+            }
+
+            loadedSheet = pi->LoadSchematicFile( wxEmptyString, schematic.get(), nullptr,
+                                                 &properties );
+        }
+        else
+        {
+            loadedSheet = pi->LoadSchematicFile( inputFn.GetFullPath(), schematic.get() );
+        }
 
         if( !loadedSheet )
         {

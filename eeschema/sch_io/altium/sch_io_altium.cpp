@@ -387,6 +387,93 @@ wxFileName SCH_IO_ALTIUM::getLibFileName()
 }
 
 
+/**
+ * Replaces every label of \a aType on \a aScreen by a global label of its name, or adds one beside
+ * it when \a aKeep.
+ */
+static void makeLabelsGlobal( SCH_SCREEN* aScreen, KICAD_T aType, bool aKeep )
+{
+    std::vector<SCH_LABEL_BASE*> labels;
+
+    for( SCH_ITEM* item : aScreen->Items().OfType( aType ) )
+        labels.push_back( static_cast<SCH_LABEL_BASE*>( item ) );
+
+    for( SCH_LABEL_BASE* label : labels )
+    {
+        SCH_GLOBALLABEL* globalLabel = new SCH_GLOBALLABEL( label->GetPosition(),
+                                                             label->GetText() );
+        globalLabel->SetShape( label->GetShape() );
+        globalLabel->SetSpinStyle( label->GetSpinStyle() );
+        globalLabel->GetField( FIELD_T::INTERSHEET_REFS )->SetVisible( false );
+
+        if( !aKeep )
+        {
+            aScreen->Remove( label );
+            delete label;
+        }
+
+        aScreen->Append( globalLabel );
+    }
+}
+
+
+void SCH_IO_ALTIUM::ApplyNetIdentifierScope( const std::map<std::string, UTF8>* aProperties )
+{
+    // KiCad joins sheets only through sheet pins and global names, so Altium's ports become
+    // hierarchical labels. Which names Altium joins across sheets is the project's net identifier
+    // scope, though; with sheet symbols but no sheet entries, its default (Automatic) joins every
+    // port of a name, and with no ports either, every net label of a name.
+    ALTIUM_NET_SCOPE scope = ALTIUM_NET_SCOPE::AUTOMATIC;
+
+    if( aProperties && aProperties->count( "project_file" ) )
+        scope = ParseAltiumProjectNetScope( aProperties->at( "project_file" ) );
+
+    std::vector<SCH_SCREEN*> screens;
+    bool                     hasSheetEntries = false;
+    bool                     hasPorts = false;
+    SCH_SCREENS              allScreens( m_rootSheet );
+
+    for( SCH_SCREEN* screen = allScreens.GetFirst(); screen; screen = allScreens.GetNext() )
+    {
+        // A project import's root only holds its top-level sheets.
+        if( m_rootSheet->m_Uuid == niluuid && screen == m_rootSheet->GetScreen() )
+            continue;
+
+        screens.push_back( screen );
+
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_SHEET_T ) )
+            hasSheetEntries |= !static_cast<SCH_SHEET*>( item )->GetPins().empty();
+
+        // (EE_TYPE::empty() is about the whole screen, not the type.)
+        EE_RTREE::EE_TYPE ports = screen->Items().OfType( SCH_HIER_LABEL_T );
+        hasPorts |= ports.begin() != ports.end();
+    }
+
+    // On one sheet there is nothing to join.
+    if( screens.size() < 2 )
+        return;
+
+    if( scope == ALTIUM_NET_SCOPE::AUTOMATIC )
+    {
+        scope = hasSheetEntries ? ALTIUM_NET_SCOPE::HIERARCHICAL
+                : hasPorts      ? ALTIUM_NET_SCOPE::FLAT
+                                : ALTIUM_NET_SCOPE::GLOBAL;
+    }
+
+    if( scope != ALTIUM_NET_SCOPE::FLAT && scope != ALTIUM_NET_SCOPE::GLOBAL )
+        return;
+
+    for( SCH_SCREEN* screen : screens )
+    {
+        // A port still meets its sheet entry, if it has one.
+        makeLabelsGlobal( screen, SCH_HIER_LABEL_T, hasSheetEntries );
+
+        if( scope == ALTIUM_NET_SCOPE::GLOBAL )
+            makeLabelsGlobal( screen, SCH_LABEL_T, false );
+    }
+}
+
+
 SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicProject( SCHEMATIC* aSchematic, const std::map<std::string, UTF8>* aProperties )
 {
     int x = 1;
@@ -579,6 +666,8 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicFile( const wxString& aFileName, SCHEMATI
     else
         ParseAltiumSch( aFileName );
 
+    ApplyNetIdentifierScope( aProperties );
+
     if( aFileName.empty() )
     {
         std::vector<SCH_SHEET*> topLevelSheets;
@@ -609,23 +698,7 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicFile( const wxString& aFileName, SCHEMATI
             if( !screen )
                 continue;
 
-            std::vector<SCH_HIERLABEL*> hierLabels;
-
-            for( SCH_ITEM* item : screen->Items().OfType( SCH_HIER_LABEL_T ) )
-                hierLabels.push_back( static_cast<SCH_HIERLABEL*>( item ) );
-
-            for( SCH_HIERLABEL* hierLabel : hierLabels )
-            {
-                SCH_GLOBALLABEL* globalLabel = new SCH_GLOBALLABEL( hierLabel->GetPosition(),
-                                                                     hierLabel->GetText() );
-                globalLabel->SetShape( hierLabel->GetShape() );
-                globalLabel->SetSpinStyle( hierLabel->GetSpinStyle() );
-                globalLabel->GetField( FIELD_T::INTERSHEET_REFS )->SetVisible( false );
-
-                screen->Remove( hierLabel );
-                screen->Append( globalLabel );
-                delete hierLabel;
-            }
+            makeLabelsGlobal( screen, SCH_HIER_LABEL_T, false );
         }
 
         m_rootSheet = &aSchematic->Root();

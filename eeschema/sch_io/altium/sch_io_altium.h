@@ -156,6 +156,9 @@ private:
     void EnsureSheetSymbolNames();
     wxFileName ResolveSheetFileName( const wxString& aParentPath, const wxString& aSheetFileName ) const;
     void NormalizeRepeatedSheetInstances();
+
+    /// Makes global the labels the project's net identifier scope joins across sheets.
+    void ApplyNetIdentifierScope( const std::map<std::string, UTF8>* aProperties );
     void AddTextBox( const ASCH_TEXT_FRAME* aElem );
     void AddLibTextBox( const ASCH_TEXT_FRAME* aElem, std::vector<LIB_SYMBOL*>& aSymbol = nullsym,
                         std::vector<int>& aFontSize = nullint );
