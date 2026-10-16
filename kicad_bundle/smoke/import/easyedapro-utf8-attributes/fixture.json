@@ -1,0 +1,18 @@
+{
+ "source": "utf8-attributes.epro",
+ "format": "easyedapro",
+ "origin": "made for simee-ai/simee-kicad#35 by make_epro.py beside it: two resistors whose values come from device attributes with Chinese names, R1 ={阻值} (10k) and R2 ={阻值} {精度} (4.7k 1%); in the C locale KiCad's importer once read every such name as \"\" and found none of them",
+ "licence": "made for simee, no outside author; GPL-3.0-or-later like the rest of this fork",
+ "licence_file": "LICENSE",
+ "checked": "the values are EasyEDA Pro's rule for ={name}: the part's device attribute of that name; the one net (R1.2 and R2.1 on MID) is the PAD_NET lines of its PCB document (tests/easyedapro_nets.py), which make_epro.py writes to match the schematic's wire",
+ "components": {
+  "R1": "10k",
+  "R2": "4.7k 1%"
+ },
+ "nets": [
+  [
+   "R1.2",
+   "R2.1"
+  ]
+ ]
+}

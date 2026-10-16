@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import shlex
@@ -279,6 +280,18 @@ def test_easyedapro_expectations_are_what_easyeda_pro_connects(fixture):
     designators, _, _ = easyedapro_board(fixture.source)
     assert fixture.nets == easyedapro_nets(fixture.source)
     assert set(fixture.components) == designators
+
+
+def test_utf8_attributes_epro_is_what_its_script_writes(tmp_path):
+    # Its parts' values come from device attributes with Chinese names, which the C locale lost (#35)
+    folder = sch_import.FIXTURES / "easyedapro-utf8-attributes"
+    spec = importlib.util.spec_from_file_location("make_epro", folder / "make_epro.py")
+    make_epro = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(make_epro)
+    make_epro.write(tmp_path / "made.epro")
+    assert (tmp_path / "made.epro").read_bytes() == (folder / "utf8-attributes.epro").read_bytes()
+    attributes = json.loads(zipfile.ZipFile(folder / "utf8-attributes.epro").read("project.json"))["devices"]
+    assert any(not key.isascii() for device in attributes.values() for key in device["attributes"])
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
