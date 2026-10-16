@@ -193,6 +193,15 @@ def test_import_matches_source_tool(fixture):
     sch_import.check(shlex.split(KICAD_CLI), fixture)
 
 
+@pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "ltspice"],
+                         ids=[f.name for f in FIXTURES if f.format == "ltspice"])
+def test_ltspice_fixtures_bring_every_symbol_they_place(fixture):
+    # KiCad takes LTspice's own symbols from its install, if any (none on CI), after the schematic's folder
+    symbols = {line.split()[1].split("\\")[-1].lower() for line in fixture.source.read_text().splitlines()
+               if line.startswith("SYMBOL ")}
+    assert symbols and all((fixture.source.parent / f"{s}.asy").is_file() for s in symbols)
+
+
 DETECTIONS = sch_import.detections()
 DETECTION_IDS = [d.label for d in DETECTIONS]
 

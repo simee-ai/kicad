@@ -1,0 +1,14 @@
+Version 4
+SymbolType CELL
+LINE Normal 16 16 16 32
+RECTANGLE Normal 0 32 32 80
+LINE Normal 16 80 16 96
+SYMATTR Prefix R
+SYMATTR Value R
+SYMATTR Description Resistor
+PIN 16 16 NONE 0
+PINATTR PinName A
+PINATTR SpiceOrder 1
+PIN 16 96 NONE 0
+PINATTR PinName B
+PINATTR SpiceOrder 2
