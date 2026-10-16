@@ -42,8 +42,8 @@ def test_eagle_board_reads_the_outline_and_the_signals(tmp_path):
     assert eagle_board(brd) == ((20.5, 10.0), [["C1.1", "U$1.P$2"], ["C1.2"]])
 
 
-def test_boards_cover_eagle():
-    assert "eagle" in {b.format for b in BOARDS}
+def test_boards_cover_eagle_and_altium():
+    assert {"eagle", "altium"} <= {b.format for b in BOARDS}
 
 
 def test_an_eagle_board_has_items_on_a_layer_kicad_doesnt_map():
