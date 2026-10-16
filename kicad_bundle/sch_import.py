@@ -37,7 +37,7 @@ class Fixture:
 
     @classmethod
     def load(cls, folder: Path) -> "Fixture":
-        meta = json.loads((folder / "fixture.json").read_text())
+        meta = json.loads((folder / "fixture.json").read_text(encoding="utf-8"))
         return cls(folder.name, folder / meta["source"], meta["format"], meta["components"],
                    meta["nets"], meta)
 
