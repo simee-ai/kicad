@@ -116,6 +116,7 @@
 #include "pcbnew_scripting_helpers.h"
 #include <locale_io.h>
 #include <confirm.h>
+#include <io/common/plugin_common_choose_project.h>
 
 
 #ifdef _WIN32
@@ -2879,6 +2880,10 @@ int PCBNEW_JOBS_HANDLER::JobImport( JOB* aJob )
         m_reporter->Report( wxString::Format( _( "Importing '%s' using %s format...\n" ),
                                               job->m_inputFile, formatName ),
                             RPT_SEVERITY_INFO );
+
+        // A source holding several projects (EasyEDA Pro) is imported without asking which
+        if( PROJECT_CHOOSER_PLUGIN* chooser = dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() ) )
+            chooser->RegisterCallback( ChooseFirstProject( m_reporter ) );
 
         board = pi->LoadBoard( job->m_inputFile, nullptr, nullptr, nullptr );
 
