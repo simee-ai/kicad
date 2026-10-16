@@ -249,6 +249,10 @@ review; a human then creates `simee/<version>` from it.
   wire on tRestrict (Adafruit draws its fiducials and logos there) was saved on layer `UNDEFINED` and every
   later command failed with "One or more items were found on undefined layers". Upstream master has the
   same bug (#20).
+- a gEDA component with no refdes, neither its own nor its symbol's (the `input-1`/`output-1` port flags that
+  only carry `net=`), is no part: it gets a hidden virtual reference (`#GEDA0001`, ...), as gEDA's netlister
+  leaves it out. Before, every such flag became one part `?` joined to each net they name. Upstream master has
+  the same bug (#30; smoke fixture `ayab-interface`, checked against `lepton-netlist`).
 - `KICAD_STOCK_3D_PLUGINS_HOME` names the folder of KiCad's 3D model plugins, as `KICAD_STOCK_DATA_HOME`
   names its data: on Linux KiCad otherwise only looks in the compiled-in absolute
   `/usr/lib/<multiarch>/kicad/plugins/3d` (or under `APPDIR`, with a hard-coded x86_64 triplet), so the

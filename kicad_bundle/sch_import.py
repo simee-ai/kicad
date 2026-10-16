@@ -37,6 +37,14 @@ class Fixture:
                    meta["nets"], meta)
 
 
+# The formats `sch import --format` takes a hint for. Any other (gEDA) is found by the file's content.
+FORMAT_HINTS = {"altium", "eagle", "cadstar", "easyeda", "easyedapro", "ltspice", "pads"}
+
+
+def format_hint(format: str) -> str:
+    return format if format in FORMAT_HINTS else "auto"
+
+
 def fixtures() -> list[Fixture]:
     return [Fixture.load(d) for d in sorted(FIXTURES.iterdir()) if (d / "fixture.json").exists()]
 
@@ -62,7 +70,8 @@ def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[d
         out.mkdir(parents=True, exist_ok=True)
         sch, net = out / "imported.kicad_sch", Path(tmp) / "imported.net"
         source = src_dir / fixture.source.name
-        _run(cli, ["sch", "import", "--format", fixture.format, "-o", str(sch), str(source)], Path(tmp))
+        _run(cli, ["sch", "import", "--format", format_hint(fixture.format), "-o", str(sch), str(source)],
+             Path(tmp))
         stray = stray_files(out)
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))
         text = net.read_text()
