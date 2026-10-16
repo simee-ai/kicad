@@ -71,7 +71,14 @@ EASYEDAPRO::ProjectToSelectorDialog( const nlohmann::json& aProject, bool aPcbOn
     std::vector<IMPORT_PROJECT_DESC> result;
 
     std::map<wxString, EASYEDAPRO::PRJ_SCHEMATIC> prjSchematics = aProject.at( "schematics" );
-    std::map<wxString, EASYEDAPRO::PRJ_BOARD>     prjBoards = aProject.at( "boards" );
+    std::map<wxString, EASYEDAPRO::PRJ_BOARD>     prjBoards;
+
+    // Boards are keyed by name. Converting a key to wxString implicitly uses the C library's locale,
+    // which makes a name it can't encode (a Chinese one, in the C locale) "", so convert them as UTF-8.
+    const nlohmann::json& boards = aProject.at( "boards" );
+
+    for( auto it = boards.begin(); it != boards.end(); ++it )
+        prjBoards.emplace( wxString::FromUTF8( it.key() ), it.value().get<EASYEDAPRO::PRJ_BOARD>() );
 
     std::map<wxString, wxString>       prjPcbNames;
     std::map<wxString, nlohmann::json> prjPcbs = aProject.at( "pcbs" );
