@@ -106,6 +106,47 @@ BOOST_AUTO_TEST_CASE( CadstarFootprintImport )
 
 
 /**
+ * Pads joined by a chain of copper elements, each joining two of them (as TI's CC1101EM board
+ * draws a QFN's thermal pad), are one pad: all get the number of the first, as when one element
+ * joins them all (footprint-with-thermal-pad.cpa), whatever the order of the elements.
+ */
+BOOST_AUTO_TEST_CASE( CadstarChainedCopperPadsShareOneNumber )
+{
+    std::string dataPath = KI_TEST::GetPcbnewTestDataDir() + "plugins/cadstar/lib/";
+
+    auto padNumbers =
+            [&]( const wxString& aFile )
+            {
+                std::unique_ptr<FOOTPRINT> fp( cstarPlugin.FootprintLoad( dataPath + aFile,
+                                                                          wxT( "CP_32_7" ), false,
+                                                                          nullptr ) );
+                BOOST_REQUIRE( fp );
+
+                std::map<wxString, int> numbers;
+
+                for( PAD* pad : fp->Pads() )
+                    numbers[pad->GetNumber()]++;
+
+                return numbers;
+            };
+
+    std::map<wxString, int> single = padNumbers( wxT( "footprint-with-thermal-pad.cpa" ) );
+    std::map<wxString, int> chained = padNumbers( wxT( "footprint-with-chained-thermal-pad.cpa" ) );
+
+    // 9 thermal vias and the copper as one custom pad, or a custom pad per element of the chain
+    BOOST_CHECK_EQUAL( single[wxT( "33" )], 10 );
+    BOOST_CHECK_EQUAL( chained[wxT( "33" )], 9 + 8 );
+
+    for( int number = 34; number <= 41; number++ )
+        BOOST_CHECK_EQUAL( chained.count( wxString::Format( wxT( "%d" ), number ) ), 0 );
+
+    chained.erase( wxT( "33" ) );
+    single.erase( wxT( "33" ) );
+    BOOST_CHECK( chained == single );
+}
+
+
+/**
  * Test that CADSTAR Revision 7 format files without ROUTEWIDTH nodes can be imported.
  * This tests the fix for GitLab issue #17783.
  */
