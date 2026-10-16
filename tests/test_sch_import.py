@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from altium_nets import altium_nets, pads, properties
 from eagle_nets import eagle_nets, kicad_reference
 from geda_nets import geda_nets
 from kicad_bundle import sch_import
@@ -142,6 +143,39 @@ def test_geda_nets_read_a_lepton_pcb_netlist(tmp_path):
                          ids=[f.name for f in FIXTURES if f.format == "geda"])
 def test_geda_expectations_are_what_lepton_netlists(fixture):
     assert fixture.nets == geda_nets(fixture.source.parent / fixture.meta["netlist"])
+
+
+def test_fixtures_cover_a_multi_sheet_altium_project():
+    # A .PrjPcb opens every sheet it lists, and Altium's net identifier scope joins them (#33)
+    projects = [f for f in FIXTURES if f.source.suffix.lower() == ".prjpcb"]
+    assert projects
+    assert max(len(list(f.source.parent.glob("*.SchDoc"))) for f in projects) >= 2
+
+
+def _subrecord(data: bytes) -> bytes:
+    return len(data).to_bytes(4, "little") + data
+
+
+def _pad(name: str, net: int, component: int) -> bytes:
+    main = bytes([1, 0, 0]) + net.to_bytes(2, "little") + b"\0\0" + component.to_bytes(2, "little")
+    return (bytes([2]) + _subrecord(bytes([len(name)]) + name.encode()) + _subrecord(b"")
+            + _subrecord(b"") + _subrecord(b"") + _subrecord(main.ljust(110, b"\0")))
+
+
+def test_altium_board_records_name_each_pads_net_and_component():
+    record = b"|NAME=GND|ID=1\0"
+    assert properties(len(record).to_bytes(4, "little") + record) == [{"NAME": "GND", "ID": "1"}]
+    # The second pad has a sixth subrecord, the third is on no net
+    data = _pad("1", 0, 3) + _pad("A5", 1, 0) + _subrecord(b"sizes") + _pad("2", 0xFFFF, 0)
+    assert pads(data) == [("1", 0, 3), ("A5", 1, 0), ("2", 0xFFFF, 0)]
+
+
+ALTIUM_BOARDS = [f for f in FIXTURES if f.format == "altium" and "board" in f.meta]
+
+
+@pytest.mark.parametrize("fixture", ALTIUM_BOARDS, ids=[f.name for f in ALTIUM_BOARDS])
+def test_altium_expectations_are_what_its_board_connects(fixture):
+    assert fixture.nets == altium_nets(fixture.source.parent / fixture.meta["board"])
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
