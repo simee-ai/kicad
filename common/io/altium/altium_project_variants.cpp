@@ -27,6 +27,7 @@
 #include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include <wx/filename.h>
 #include <wx/fileconf.h>
 #include <wx/log.h>
 
@@ -224,4 +225,63 @@ std::vector<ALTIUM_PROJECT_VARIANT> ParseAltiumProjectVariants( const wxString& 
     }
 
     return variants;
+}
+
+
+std::vector<wxString> ParseAltiumProjectSchematics( const wxString& aPrjPcbPath )
+{
+    wxFileConfig config( wxEmptyString, wxEmptyString, wxEmptyString, aPrjPcbPath,
+                         wxCONFIG_USE_NO_ESCAPE_CHARACTERS );
+
+    std::map<long, wxString> byNumber;
+    wxString                 groupname;
+    long                     groupid;
+
+    for( bool more = config.GetFirstGroup( groupname, groupid ); more;
+         more = config.GetNextGroup( groupname, groupid ) )
+    {
+        if( !groupname.StartsWith( wxS( "Document" ) ) )
+            continue;
+
+        long number;
+
+        if( !groupname.Mid( 8 ).ToLong( &number ) )
+            continue;
+
+        wxString path = config.Read( groupname + wxS( "/DocumentPath" ), wxEmptyString );
+
+        if( path.empty() )
+            continue;
+
+        wxFileName fname( path, wxPATH_WIN );
+
+        if( fname.GetExt().CmpNoCase( wxS( "SchDoc" ) ) )
+            continue;
+
+        if( !fname.IsAbsolute() )
+            fname.MakeAbsolute( wxFileName( aPrjPcbPath ).GetPath() );
+
+        byNumber[number] = fname.GetFullPath();
+    }
+
+    std::vector<wxString> schematics;
+
+    for( const auto& [number, path] : byNumber )
+        schematics.push_back( path );
+
+    return schematics;
+}
+
+
+ALTIUM_NET_SCOPE ParseAltiumProjectNetScope( const wxString& aPrjPcbPath )
+{
+    wxFileConfig config( wxEmptyString, wxEmptyString, wxEmptyString, aPrjPcbPath,
+                         wxCONFIG_USE_NO_ESCAPE_CHARACTERS );
+
+    long mode = config.ReadLong( wxS( "Design/HierarchyMode" ), 0 );
+
+    if( mode < 0 || mode > static_cast<long>( ALTIUM_NET_SCOPE::STRICT_HIERARCHICAL ) )
+        return ALTIUM_NET_SCOPE::AUTOMATIC;
+
+    return static_cast<ALTIUM_NET_SCOPE>( mode );
 }

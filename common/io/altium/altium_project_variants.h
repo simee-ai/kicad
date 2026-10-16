@@ -96,4 +96,36 @@ std::map<wxString, wxString> ParseAltiumProjectParameters( const wxString& aPrjP
  */
 KIID AltiumUniqueIdToKiid( const wxString& aUniqueId );
 
+
+/**
+ * The schematic documents an Altium .PrjPcb file lists: the [DocumentN] sections whose
+ * DocumentPath is a .SchDoc, in N's order, as absolute paths (relative ones are taken from the
+ * project file's folder).
+ *
+ * @param aPrjPcbPath Full path to the .PrjPcb file.
+ */
+std::vector<wxString> ParseAltiumProjectSchematics( const wxString& aPrjPcbPath );
+
+
+/**
+ * Altium's net identifier scope (Project Options > Options): which names connect across sheets.
+ * The values are those of the .PrjPcb's HierarchyMode key.
+ */
+enum class ALTIUM_NET_SCOPE
+{
+    AUTOMATIC = 0,           ///< HIERARCHICAL with sheet entries, else FLAT with ports, else GLOBAL
+    FLAT = 1,                ///< ports connect across all sheets, net labels stay on their sheet
+    HIERARCHICAL = 2,        ///< ports connect only to their sheet entry, power ports are global
+    GLOBAL = 3,              ///< ports and net labels connect across all sheets
+    STRICT_HIERARCHICAL = 4  ///< as HIERARCHICAL, but power ports stay on their sheet
+};
+
+
+/**
+ * The net identifier scope of an Altium .PrjPcb file (AUTOMATIC when it sets none).
+ *
+ * @param aPrjPcbPath Full path to the .PrjPcb file.
+ */
+ALTIUM_NET_SCOPE ParseAltiumProjectNetScope( const wxString& aPrjPcbPath );
+
 #endif // ALTIUM_PROJECT_VARIANTS_H
