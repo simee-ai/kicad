@@ -257,6 +257,10 @@ review; a human then creates `simee/<version>` from it.
   names its data: on Linux KiCad otherwise only looks in the compiled-in absolute
   `/usr/lib/<multiarch>/kicad/plugins/3d` (or under `APPDIR`, with a hard-coded x86_64 triplet), so the
   relocatable bundle couldn't load its plugins (#28).
+- the LTspice importer only claims an `.asc` whose first line is LTspice's `Version` line. It took every `.asc`
+  by its extension and comes before PADS in the importer list, so `sch import --format auto` read a PADS Logic
+  export saved as `.asc`, and even a PADS Layout board, as a garbage LTspice sheet and exited 0. Upstream master
+  has the same bug (#31).
 
 To build them into a bundle: `uv run kicad-bundle --kicad-version 10.0.6 --platform linux --simee-ref
 simee/10.0.6` (the package workflow's `simee_ref` input does the same; it resolves the branch to one
@@ -310,7 +314,8 @@ target...]` builds `kicad-cli` and the eeschema kiface, or the targets given (`k
 `KICAD_CLI=<build dir>/kicad/KiCad.app/Contents/MacOS/kicad-cli uv run pytest` also runs the import
 tests, which skip without `KICAD_CLI`. They import each real circuit in `kicad_bundle/smoke/import/`
 (Adafruit BME280, SparkFun logic level converter and SparkFun's two-sheet Tsunami Qwiic in Eagle,
-Digispark ATtiny85 in Altium, Easy-SDR coax power supply in EasyEDA), export the netlist and compare
+Digispark ATtiny85 in Altium, Easy-SDR coax power supply in EasyEDA, AYAB Interface in gEDA, a divider
+in LTspice), export the netlist and compare
 it with the source tool's, three times: with the source and output folders apart, and with each inside
 the other (`sch_import.LAYOUTS`). For Eagle the expected nets are read straight from the Eagle XML
 (`tests/eagle_nets.py`); for the others, checked by hand against the project's own schematic export, as
@@ -318,7 +323,10 @@ each `fixture.json` says. An
 import that leaves a hidden file next to its output fails too. A fixture whose `fixture.json` has a `board`
 (the Adafruit BME280's Eagle `.brd`) is also imported with `pcb import` (`pcb_import.py`): the pads of its
 gerbers must carry the nets of the board's signals, read from its XML like the schematic's, and it must draw
-(`pcb export svg` the size of its outline, `pcb render`). Each fixture keeps its source's licence.
+(`pcb export svg` the size of its outline, `pcb render`). Each fixture keeps its source's licence. And
+`--format auto`, which simee-core runs, must pick each fixture's own importer, and the right one or none for
+each file in `kicad_bundle/smoke/detect/` (`detect.json`: a PADS Logic export as `.txt` and as `.asc`, a PADS
+Layout `.asc` board), and for each LTspice fixture saved as UTF-16LE (`sch_import.check_detection`).
 
 ## AVR toolchain
 

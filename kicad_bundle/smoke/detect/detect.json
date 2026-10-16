@@ -1,0 +1,12 @@
+{
+ "origin": "KiCad 10.0.6's own QA data (https://gitlab.com/kicad/code/kicad/-/tree/10.0.6/qa/data): multigate_schematic.txt from eeschema/plugins/pads (a PADS Logic export), synthetic_filled_copper.asc from pcbnew/plugins/pads (a PADS Layout board)",
+ "licence": "GPL-3.0-or-later (KiCad)",
+ "licence_file": "LICENSE",
+ "cases": [
+  {"source": "multigate_schematic.txt", "format": "pads", "why": "a PADS Logic export"},
+  {"source": "multigate_schematic.txt", "name": "multigate_schematic.asc", "format": "pads",
+   "why": "PADS Logic also exports .asc, LTspice's extension (#31)"},
+  {"source": "synthetic_filled_copper.asc", "format": null,
+   "why": "a PADS Layout board is no schematic: the app opens it as a board (simee-core#463)"}
+ ]
+}
