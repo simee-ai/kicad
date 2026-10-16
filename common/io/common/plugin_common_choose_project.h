@@ -22,6 +22,9 @@
 
 #include <functional>
 #include <map>
+#include <vector>
+#include <reporter.h>
+#include <wx/intl.h>
 #include <wx/string.h>
 
 /**
@@ -48,6 +51,49 @@ using CHOOSE_PROJECT_HANDLER = std::function<std::vector<IMPORT_PROJECT_DESC>( c
 
 
 /**
+ * @brief The choice made with nobody to ask (kicad-cli, or no handler registered): the first
+ * project offered, which is a board's schematic + PCB pair when the source has one.
+ *
+ * @param aReporter if given, told which project was imported and which were left out.
+ */
+inline CHOOSE_PROJECT_HANDLER ChooseFirstProject( REPORTER* aReporter = nullptr )
+{
+    return [aReporter]( const std::vector<IMPORT_PROJECT_DESC>& aProjects )
+    {
+        if( aProjects.empty() )
+            return aProjects;
+
+        if( aReporter )
+        {
+            auto describe = []( const IMPORT_PROJECT_DESC& aDesc ) -> wxString
+            {
+                if( !aDesc.ComboName.empty() )
+                    return wxString::Format( _( "board '%s'" ), aDesc.ComboName );
+
+                if( !aDesc.SchematicName.empty() )
+                    return wxString::Format( _( "schematic '%s'" ), aDesc.SchematicName );
+
+                return wxString::Format( _( "PCB '%s'" ), aDesc.PCBName );
+            };
+
+            wxString others;
+
+            for( size_t i = 1; i < aProjects.size(); ++i )
+                others << ( i > 1 ? wxS( ", " ) : wxS( "" ) ) << describe( aProjects[i] );
+
+            aReporter->Report( wxString::Format( _( "The source holds %d projects; importing the "
+                                                    "first, %s (left out: %s)\n" ),
+                                                 (int) aProjects.size(), describe( aProjects[0] ),
+                                                 others ),
+                               RPT_SEVERITY_INFO );
+        }
+
+        return std::vector<IMPORT_PROJECT_DESC>{ aProjects[0] };
+    };
+}
+
+
+/**
  * @brief Plugin class for import plugins that support choosing a project
  */
 class PROJECT_CHOOSER_PLUGIN
@@ -68,7 +114,8 @@ public:
     virtual ~PROJECT_CHOOSER_PLUGIN() = default;
 
 protected:
-    CHOOSE_PROJECT_HANDLER m_choose_project_handler; ///< Callback to choose projects to import
+    /// Callback to choose projects to import; the first one until a caller registers another
+    CHOOSE_PROJECT_HANDLER m_choose_project_handler = ChooseFirstProject();
 };
 
 #endif // PLUGIN_COMMON_CHOOSE_PROJECT_H

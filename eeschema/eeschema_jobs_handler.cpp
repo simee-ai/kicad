@@ -88,6 +88,7 @@
 #include <dialogs/dialog_erc_job_config.h>
 #include <dialogs/dialog_symbol_fields_table.h>
 #include <confirm.h>
+#include <io/common/plugin_common_choose_project.h>
 #include <project_sch.h>
 
 #include <libraries/symbol_library_adapter.h>
@@ -1702,6 +1703,10 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
         m_reporter->Report( wxString::Format( _( "Importing '%s' using %s format...\n" ),
                                               inputFn.GetFullPath(), formatName ),
                             RPT_SEVERITY_INFO );
+
+        // A source holding several projects (EasyEDA Pro) is imported without asking which
+        if( PROJECT_CHOOSER_PLUGIN* chooser = dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() ) )
+            chooser->RegisterCallback( ChooseFirstProject( m_reporter ) );
 
         if( altiumProject && fileType == SCH_IO_MGR::SCH_ALTIUM )
         {
