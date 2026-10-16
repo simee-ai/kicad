@@ -1,0 +1,18 @@
+{
+ "source": "divider.asc",
+ "format": "ltspice",
+ "origin": "https://github.com/simee-ai/simee-core/blob/33d70ecf/fixtures/foreign/ltspice-divider/divider.asc (made for simee-core#444): a 5 V source across two 10k resistors, the output at their middle (LTspice's built-in voltage and res symbols)",
+ "licence": "made for simee, no outside author; GPL-3.0-or-later like the rest of this fork",
+ "licence_file": "LICENSE",
+ "checked": "nets read off the .asc's WIRE and FLAG lines by hand: V1+ to R1.1, R1.2 and R2.1 at out, R2.2 and V1- at ground (0)",
+ "components": {
+  "R1": "10k",
+  "R2": "10k",
+  "V1": "5"
+ },
+ "nets": [
+  ["R1.1", "V1.1"],
+  ["R1.2", "R2.1"],
+  ["R2.2", "V1.2"]
+ ]
+}

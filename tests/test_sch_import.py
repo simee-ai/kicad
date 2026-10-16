@@ -156,3 +156,79 @@ def test_fixture_nets_are_sorted_and_disjoint(fixture):
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
 def test_import_matches_source_tool(fixture):
     sch_import.check(shlex.split(KICAD_CLI), fixture)
+
+
+DETECTIONS = sch_import.detections()
+DETECTION_IDS = [d.label for d in DETECTIONS]
+
+
+def test_every_fixture_format_has_kicads_importer_name():
+    assert {f.format for f in FIXTURES} <= set(sch_import.FORMAT_NAMES)
+
+
+def test_detections_cover_every_fixture_and_the_asc_files_ltspice_must_leave_alone():
+    # `.asc` is LTspice's extension and PADS's (Logic schematics, Layout boards): #31
+    cases = {(d.name, d.format, d.utf16) for d in DETECTIONS}
+    assert {(f.source.name, f.format, False) for f in FIXTURES} <= cases
+    assert ("multigate_schematic.asc", "pads", False) in cases
+    assert ("synthetic_filled_copper.asc", None, False) in cases
+    # LTspice XVII saves UTF-16LE
+    assert any(fmt == "ltspice" and utf16 for _, fmt, utf16 in cases)
+
+
+def test_detection_files_are_redistributable():
+    meta = json.loads((sch_import.DETECT / "detect.json").read_text())
+    for key in ("origin", "licence", "licence_file"):
+        assert meta.get(key), f"detect.json needs {key}"
+    assert (sch_import.DETECT / meta["licence_file"]).is_file()
+    for d in DETECTIONS:
+        assert d.source.is_file()
+
+
+def fake_cli(tmp_path, output: str, code: int = 0) -> list[str]:
+    script = tmp_path / "kicad-cli"
+    script.write_text(f"#!/bin/sh\ncat <<'EOF'\n{output}\nEOF\nexit {code}\n")
+    script.chmod(0o755)
+    return [str(script)]
+
+
+def test_detected_is_the_importer_kicad_cli_names(tmp_path):
+    case = next(d for d in DETECTIONS if d.format == "pads")
+    cli = fake_cli(tmp_path, "Importing '/x/mg.asc' using LTspice format...\nError: Extra data found on line 22")
+    assert sch_import.detected(cli, case) == "LTspice"
+
+
+def test_detected_is_none_when_no_importer_recognizes_the_file(tmp_path):
+    case = next(d for d in DETECTIONS if d.format is None)
+    cli = fake_cli(tmp_path, "No schematic importer recognizes the file format of '/x/b.asc'", code=6)
+    assert sch_import.detected(cli, case) is None
+
+
+def test_detected_refuses_output_it_cannot_read(tmp_path):
+    with pytest.raises(RuntimeError, match="names no importer"):
+        sch_import.detected(fake_cli(tmp_path, "Segmentation fault", code=139), DETECTIONS[0])
+
+
+def test_utf16_detection_imports_the_source_re_encoded(tmp_path):
+    case = next(d for d in DETECTIONS if d.utf16)
+    script = tmp_path / "kicad-cli"
+    # the input is the last argument; report its first bytes
+    script.write_text('#!/bin/sh\nfor a; do f=$a; done\necho "using $(head -c 4 "$f" | xxd -p) format..."\n')
+    script.chmod(0o755)
+    assert sch_import.detected([str(script)], case) == case.source.read_bytes()[:2].decode().encode("utf-16-le").hex()
+
+
+def test_check_detection_names_every_misdetected_file(monkeypatch):
+    names = {d.label: "LTspice" for d in DETECTIONS}
+    monkeypatch.setattr(sch_import, "detected", lambda cli, d: names[d.label])
+    with pytest.raises(RuntimeError) as e:
+        sch_import.check_detection(["kicad-cli"])
+    assert "multigate_schematic.asc: imported as LTspice, wanted PADS Logic" in str(e.value)
+    assert "synthetic_filled_copper.asc: imported as LTspice, wanted no importer" in str(e.value)
+    assert not [d.label for d in DETECTIONS if d.format == "ltspice" and f"{d.label}:" in str(e.value)]
+
+
+@pytest.mark.skipif(not KICAD_CLI, reason="set KICAD_CLI to a kicad-cli built from a simee/<version> branch")
+@pytest.mark.parametrize("case", DETECTIONS, ids=DETECTION_IDS)
+def test_auto_import_picks_the_files_own_importer(case):
+    assert sch_import.detected(shlex.split(KICAD_CLI), case) == sch_import.FORMAT_NAMES.get(case.format)
