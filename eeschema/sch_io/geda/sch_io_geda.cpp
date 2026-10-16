@@ -1477,6 +1477,7 @@ SCH_IO_GEDA::SCH_IO_GEDA() :
         m_fileFormatVersion( 0 ),
         m_symLibraryInitialized( false ),
         m_powerCounter( 0 ),
+        m_virtualCounter( 0 ),
         m_properties( nullptr )
 {
     m_reporter = &WXLOG_REPORTER::GetInstance();
@@ -2929,8 +2930,12 @@ void SCH_IO_GEDA::parseRcFileForLibraries( const wxString& aPath, const wxString
 
 std::unique_ptr<LIB_SYMBOL> SCH_IO_GEDA::loadSymbolFile( const wxString& aPath,
                                                           wxString* aSymversion,
-                                                          wxString* aNetAttr )
+                                                          wxString* aNetAttr,
+                                                          bool*     aHasRefdes )
 {
+    if( aHasRefdes )
+        *aHasRefdes = false;
+
     wxTextFile file;
 
     if( !file.Open( aPath ) )
@@ -3021,6 +3026,9 @@ std::unique_ptr<LIB_SYMBOL> SCH_IO_GEDA::loadSymbolFile( const wxString& aPath,
 
                 if( aNetAttr && textLine.StartsWith( wxT( "net=" ) ) )
                     *aNetAttr = textLine.Mid( 4 );
+
+                if( aHasRefdes && textLine.StartsWith( wxT( "refdes=" ) ) )
+                    *aHasRefdes = true;
 
                 lineIdx++;
             }
@@ -3524,11 +3532,15 @@ std::unique_ptr<LIB_SYMBOL> SCH_IO_GEDA::loadBuiltinSymbol( const wxString& aBas
     }
 
     wxString netAttr;
-    auto result = loadSymbolFile( tempPath, nullptr, &netAttr );
+    bool     hasRefdes = false;
+    auto result = loadSymbolFile( tempPath, nullptr, &netAttr, &hasRefdes );
     wxRemoveFile( tempPath );
 
     if( result )
     {
+        if( !hasRefdes )
+            m_symbolsWithoutRefdes.insert( aBasename );
+
         wxString symName = aBasename;
 
         if( symName.EndsWith( wxT( ".sym" ) ) )
@@ -3566,7 +3578,8 @@ LIB_SYMBOL* SCH_IO_GEDA::getOrLoadSymbol( const wxString& aBasename )
         {
             cacheIt->second.symbol = loadSymbolFile( cacheIt->second.path,
                                                       &cacheIt->second.symversion,
-                                                      &cacheIt->second.netAttr );
+                                                      &cacheIt->second.netAttr,
+                                                      &cacheIt->second.hasRefdes );
 
             // When a project-local symbol overrides a builtin power symbol but lacks a
             // net= attribute, inherit the builtin's net= so power detection still works.
@@ -3598,6 +3611,9 @@ LIB_SYMBOL* SCH_IO_GEDA::getOrLoadSymbol( const wxString& aBasename )
 
         if( cacheIt->second.symbol )
         {
+            if( !cacheIt->second.hasRefdes )
+                m_symbolsWithoutRefdes.insert( aBasename );
+
             m_libSymbols[aBasename] = std::make_unique<LIB_SYMBOL>( *cacheIt->second.symbol );
             return m_libSymbols[aBasename].get();
         }
@@ -3870,17 +3886,33 @@ void SCH_IO_GEDA::flushPendingComponent()
         symbol->GetField( FIELD_T::VALUE )->SetVisible( true );
     }
 
+    wxString refdes   = findAttr( m_pendingComp->attrs, wxT( "refdes" ) );
+
+    // gEDA's netlister leaves out a component with no refdes, neither its own nor its symbol's:
+    // input-1.sym and output-1.sym port flags only join their pin to the net their net= names
+    // (the global label added below). A virtual reference keeps it out of KiCad's netlist too,
+    // where an empty one would make every such flag one part "?" joined to each of their nets.
+    bool isVirtual = !isPowerSym && refdes.IsEmpty()
+                     && m_symbolsWithoutRefdes.count( m_pendingComp->basename );
+
+    if( isVirtual )
+    {
+        wxString virtualRef = wxString::Format( wxT( "#GEDA%04d" ), ++m_virtualCounter );
+        symbol->SetRef( &m_schematic->CurrentSheet(), virtualRef );
+        symbol->GetField( FIELD_T::REFERENCE )->SetText( virtualRef );
+        symbol->GetField( FIELD_T::REFERENCE )->SetVisible( false );
+    }
+
     // Mark graphical-only symbols as excluded from BOM, board, and simulation
     wxString graphicalAttr = findAttr( m_pendingComp->attrs, wxT( "graphical" ) );
 
-    if( graphicalAttr == wxT( "1" ) )
+    if( graphicalAttr == wxT( "1" ) || isVirtual )
     {
         symbol->SetExcludedFromBOM( true );
         symbol->SetExcludedFromBoard( true );
         symbol->SetExcludedFromSim( true );
     }
 
-    wxString refdes   = findAttr( m_pendingComp->attrs, wxT( "refdes" ) );
     wxString value    = findAttr( m_pendingComp->attrs, wxT( "value" ) );
     wxString footprint = findAttr( m_pendingComp->attrs, wxT( "footprint" ) );
 
@@ -4513,6 +4545,7 @@ SCH_SHEET* SCH_IO_GEDA::LoadSchematicFile( const wxString& aFileName, SCHEMATIC*
     m_schematic = aSchematic;
     m_filename = wxFileName( aFileName );
     m_libSymbols.clear();
+    m_symbolsWithoutRefdes.clear();
     m_netEndpoints.clear();
     m_netAttrRecords.clear();
     m_busSegments.clear();
@@ -4525,6 +4558,7 @@ SCH_SHEET* SCH_IO_GEDA::LoadSchematicFile( const wxString& aFileName, SCHEMATIC*
     m_releaseVersion = 0;
     m_fileFormatVersion = 0;
     m_powerCounter = 0;
+    m_virtualCounter = 0;
 
     if( aAppendToMe )
     {
