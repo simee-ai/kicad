@@ -106,6 +106,11 @@ public:
 protected:
     SCHEMATIC* m_schematic;
 
+    /// Short symbols and drawing frames placed so far, on every page, for their references
+    /// (#SHORT1, #FRAME1, ...)
+    int m_shortCount = 0;
+    int m_frameCount = 0;
+
     wxString ResolveFieldVariables( const wxString                      aInput,
                                     const std::map<wxString, wxString>& aDeviceAttributes );
 
