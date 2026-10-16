@@ -467,7 +467,9 @@ SCH_SHEET* SCH_IO_EASYEDAPRO::LoadSchematicFile( const wxString& aFileName,
     wxFileName            fname( aFileName );
     wxString              libName = EASYEDAPRO::ShortenLibName( fname.GetName() );
 
-    wxFileName libFileName( fname.GetPath(), libName, FILEEXT::KiCadSymbolLibFileExtension );
+    // In the project's folder, where its library table's ${KIPRJMOD} row points (as Eagle's)
+    wxFileName libFileName( aSchematic->Project().GetProjectPath(), libName,
+                            FILEEXT::KiCadSymbolLibFileExtension );
 
     if( fname.GetExt() != wxS( "epro" ) && fname.GetExt() != wxS( "zip" ) )
         return rootSheet;
