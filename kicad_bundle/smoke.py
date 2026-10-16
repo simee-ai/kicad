@@ -42,8 +42,10 @@ EXPECTED_FOOTPRINTS = ["R_Axial_P5.08mm"]
 KICAD_HOMES = ("KICAD_CONFIG_HOME", "KICAD_DOCUMENTS_HOME", "KICAD_CACHE_HOME")
 UNESCAPE = re.compile(r"\\(.)")
 TOKEN = re.compile(r'\(|\)|"(?:\\.|[^"\\])*"|[^\s()]+')
-# A gerber X2 pad: its pad attribute (ref, pin[, function]) then its net attribute.
-GERBER_PAD = re.compile(r"%TO\.P,([^,*]+),([^,*]+)[^*]*\*%\s*%TO\.N,([^*]*)\*%")
+# A gerber's commands: an extended one (%...%, X2 attributes among them) or a word (up to its *).
+GERBER_COMMAND = re.compile(r"%[^%]*%|[^%*]*\*")
+# A flash (D03), after an optional G code and coordinates.
+GERBER_FLASH = re.compile(r"(?:G\d+)?(?:[XYIJ][+-]?\d+)*D0*3\*")
 DRILL_HOLE = re.compile(r"^X-?[\d.]+Y-?[\d.]+$", re.M)
 
 
@@ -94,13 +96,31 @@ def erc_errors(report: str) -> list[tuple[str, str]]:
 
 def gerber_nets(gerbers: list[str]) -> list[list[str]]:
     """Nets as sorted "REF.PIN" lists, from the pad attributes of gerber X2 copper layers. KiCad names a
-    pad on no net N/C."""
+    pad on no net N/C, or leaves its net empty if the pad has no number either (a fiducial, a mounting hole)."""
     nets = defaultdict(set)
     for text in gerbers:
-        for ref, pin, net in GERBER_PAD.findall(text):
-            if net != "N/C":
-                nets[net].add(f"{ref}.{pin}")
+        for pad, net in gerber_pads(text):
+            if net not in ("", "N/C"):
+                nets[net].add(pad)
     return sorted(sorted(pins) for pins in nets.values())
+
+
+def gerber_pads(text: str) -> set[tuple[str, str]]:
+    """("REF.PIN", net) of each pad flashed or drawn as a region in a gerber X2 layer. Attributes persist
+    until changed or deleted (%TD...*%), and KiCad leaves out a %TO.N that repeats the net already set, so
+    walk the commands in order, keeping the current pad (%TO.P,ref,pin[,function]*%) and net (%TO.N,net*%)."""
+    pads, attrs = set(), {}
+    for cmd in (c.strip() for c in GERBER_COMMAND.findall(text)):
+        if cmd.startswith("%TO."):
+            name, _, value = cmd[4:-2].partition(",")
+            attrs[name] = value.split(",")
+        elif cmd.startswith("%TD"):
+            name = cmd[4:-2]
+            attrs = {k: v for k, v in attrs.items() if name and k != name}
+        elif (cmd == "G37*" or GERBER_FLASH.fullmatch(cmd)) and "P" in attrs and "N" in attrs:
+            ref, pin = attrs["P"][:2]
+            pads.add((f"{ref}.{pin}", ",".join(attrs["N"])))
+    return pads
 
 
 def copper_nets(gerbers: dict[str, str]) -> list[list[str]]:

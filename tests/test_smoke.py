@@ -150,9 +150,43 @@ def test_gerber_nets_reads_the_pads_of_each_net():
 
 
 def test_gerber_nets_leaves_out_pads_on_no_net():
-    # an imported board's fiducials and mounting holes
-    nc = "%TO.P,U$5,1*%\n%TO.N,N/C*%\nX0Y0D03*\n%TO.P,U$7,P$1*%\n%TO.N,N/C*%\nX1Y1D03*\n"
+    # an imported board's fiducials and mounting holes: N/C, or an empty net for a pad with no number
+    nc = ("%TO.P,U$5,1*%\n%TO.N,N/C*%\nX0Y0D03*\n%TO.P,U$7,P$1*%\n%TO.N,N/C*%\nX1Y1D03*\n"
+          "%TO.P,FID1,*%\n%TO.N,*%\nX2Y2D03*\n")
     assert gerber_nets([GERBER, nc]) == EXPECTED
+
+
+# X2 attributes persist until changed: KiCad leaves out a %TO.N that repeats the net already set, so a pad
+# on the same net as the pad before has only its %TO.P (simee-kicad#34, from an imported Altium board).
+REPEATED_NET = """%TO.P,U7,11*%
+%TO.N,GND*%
+X160909185Y-117816265D03*
+%TO.P,U7,12*%
+X160909185Y-118466265D03*
+%TO.P,U7,13*%
+X160909185Y-119116265D03*
+%TO.P,U7,14*%
+%TO.N,VCC*%
+X160909185Y-119766265D03*
+"""
+
+
+def test_gerber_nets_keeps_the_net_set_for_the_pads_before():
+    assert gerber_nets([REPEATED_NET]) == [["U7.11", "U7.12", "U7.13"], ["U7.14"]]
+
+
+def test_gerber_nets_forgets_attributes_deleted_with_td():
+    # a flash after %TD.P*% (a via or a track's end) is no pad; %TD*% deletes the net too
+    text = ("%TO.P,R1,1*%\n%TO.N,A*%\nX0Y0D03*\n%TD.P*%\nX1Y1D03*\n%TD*%\n%TO.P,R1,2*%\nX2Y2D03*\n"
+            "%TO.N,B*%\n%TD.N*%\n%TO.P,R2,1*%\nX3Y3D03*\n")
+    assert gerber_nets([text]) == [["R1.1"]]
+
+
+def test_gerber_nets_reads_pads_drawn_as_regions():
+    # a custom-shaped pad is a region, not a flash; the track after it carries no pad attribute
+    text = ("%TO.P,J1,1*%\n%TO.N,GND*%\nG36*\nX0Y0D02*\nX1Y0D01*\nX1Y1D01*\nX0Y0D01*\nG37*\n"
+            "%TD.P*%\nX0Y0D02*\nX5Y5D01*\n%TO.P,J1,2*%\nX6Y6D03*\n")
+    assert gerber_nets([text]) == [["J1.1", "J1.2"]]
 
 
 def test_drill_holes_counts_the_holes_of_an_excellon_file():

@@ -1,6 +1,7 @@
 """Prove `kicad-cli pcb import` converts real boards (simee/<version> builds): import each fixture's board,
 compare the nets its gerbers give its pads with the source tool's, and draw it as simee-db does
-(smoke.check_drawings). A fixture's board is the "board" of its fixture.json, next to its schematic."""
+(smoke.check_drawings). A fixture's board is the "board" of its fixture.json, next to its schematic; its nets are
+the schematic's unless it names its own."""
 
 import shutil
 import tempfile
@@ -20,7 +21,7 @@ class Board:
 
 
 def boards() -> list[Board]:
-    return [Board(f.name, f.source.parent / b["source"], f.format, tuple(b["size_mm"]), b["nets"])
+    return [Board(f.name, f.source.parent / b["source"], f.format, tuple(b["size_mm"]), b.get("nets", f.nets))
             for f in sch_import.fixtures() if (b := f.meta.get("board"))]
 
 

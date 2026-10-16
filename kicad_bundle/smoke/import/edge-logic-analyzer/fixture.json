@@ -686,5 +686,13 @@
    "U7.4"
   ]
  ],
- "altium_board": "Edge_logic_analyzer.PcbDoc"
+ "altium_board": "Edge_logic_analyzer.PcbDoc",
+ "board": {
+  "source": "Edge_logic_analyzer.PcbDoc",
+  "checked": "altium_board itself: its outline is Board6's (76.03 x 55.0 mm), its nets the schematic's (Altium's own, read from it by tests/altium_nets.py)",
+  "size_mm": [
+   76.03,
+   55.0
+  ]
+ }
 }
