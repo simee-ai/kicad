@@ -1412,6 +1412,35 @@ void SCH_EASYEDAPRO_PARSER::ParseSchematic( SCHEMATIC* aSchematic, SCH_SHEET* aR
                 }
             }
 
+            // Symbols that are no part: a drawing frame, and a short, which makes the nets on its pins
+            // one (as EasyEDA Pro's PCB has them) with a wire between them. A virtual reference keeps
+            // them out of the netlist, where every "?" was one part, and out of BOM and board.
+            bool isShort = esymInfo.head.symbolType == EASYEDAPRO::SYMBOL_TYPE::SHORT;
+
+            if( isShort || esymInfo.head.symbolType == EASYEDAPRO::SYMBOL_TYPE::SHEET_SYMBOL )
+            {
+                std::vector<SCH_PIN*> pins = schSym->GetPins( &aSchematic->CurrentSheet() );
+
+                for( size_t i = 1; isShort && i < pins.size(); ++i )
+                {
+                    std::unique_ptr<SCH_LINE> wire = std::make_unique<SCH_LINE>(
+                            schSym->GetPinPhysicalPosition( pins[0]->GetLibPin() ), LAYER_WIRE );
+                    wire->SetEndPoint( schSym->GetPinPhysicalPosition( pins[i]->GetLibPin() ) );
+
+                    createdItems.push_back( std::move( wire ) );
+                }
+
+                wxString ref = isShort ? wxString::Format( wxS( "#SHORT%d" ), ++m_shortCount )
+                                       : wxString::Format( wxS( "#FRAME%d" ), ++m_frameCount );
+
+                schSym->SetRef( &aSchematic->CurrentSheet(), ref );
+                schSym->GetField( FIELD_T::REFERENCE )->SetText( ref );
+                schSym->GetField( FIELD_T::REFERENCE )->SetVisible( false );
+                schSym->SetExcludedFromBOM( true );
+                schSym->SetExcludedFromBoard( true );
+                schSym->SetExcludedFromSim( true );
+            }
+
             for( const EASYEDAPRO::PIN_INFO& pinInfo : esymInfo.pins )
             {
                 wxString pinKey = parentId + pinInfo.pin.id;
