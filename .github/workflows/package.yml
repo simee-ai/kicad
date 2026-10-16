@@ -130,8 +130,10 @@ jobs:
             vcpkg-binaries-
       - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist --work C:\w $(if ($env:SIMEE_SHA) { "--simee-ref", $env:SIMEE_SHA })
         timeout-minutes: 330  # leaves time to save the ports built so far, so a rerun carries on
+      # Not after a cancel: its partial set would be the newest entry, which later runs restore and then rebuild most
+      # ports (#39). The step timeout above fails the step rather than cancelling the job, so a timed-out run saves.
       - name: Save vcpkg's builds of the ports
-        if: always() && needs.ref.outputs.sha != ''
+        if: ${{ !cancelled() && needs.ref.outputs.sha != '' }}
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/kicad-bundle/vcpkg-binaries

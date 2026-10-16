@@ -324,7 +324,8 @@ bundle keeps KiCad's C++ runtime and third-party DLLs), or importing a DLL no of
 bundle imports (Windows API sets aside), fails the build. Needs Windows with Visual Studio 2022 and that MSVC (14.44 for
 10.0.x): the package workflow's `windows-2022` job, free since this repo is public. vcpkg's builds of the
 ports are kept in `~/.cache/kicad-bundle/vcpkg-binaries` (an Actions cache, about 1 GB): the first build
-compiles every port (3 hours on the runner), later ones only KiCad (30 minutes).
+compiles every port (3 hours on the runner), later ones only KiCad (30 minutes). A failed or timed-out run
+saves the ports it built, a cancelled one saves nothing (its partial cache would be restored instead of a complete one).
 
 To try a change on macOS: `dev/build-macos-homebrew.sh <simee/<version> checkout> <build dir> [ninja
 target...]` builds `kicad-cli` and the eeschema kiface, or the targets given (`kicad-cli pcbnew_kiface` for
