@@ -141,6 +141,7 @@ private:
         std::unique_ptr<LIB_SYMBOL> symbol;     ///< Loaded symbol (null if not yet loaded)
         wxString                    symversion;  ///< symversion from the .sym file (if any)
         wxString                    netAttr;    ///< net= attribute (e.g. "GND:1") identifying power symbols
+        bool                        hasRefdes = true; ///< whether the .sym file has a refdes= attribute
     };
 
     // -----------------------------------------------------------------------
@@ -213,9 +214,11 @@ private:
     /// objects within a symbol context.
     /// If aSymversion is non-null, the symbol's symversion attribute (if present) is written to it.
     /// If aNetAttr is non-null, the symbol's net= attribute (if present) is written to it.
+    /// If aHasRefdes is non-null, it is set to whether the symbol has a refdes= attribute.
     std::unique_ptr<LIB_SYMBOL> loadSymbolFile( const wxString& aPath,
                                                  wxString* aSymversion = nullptr,
-                                                 wxString* aNetAttr = nullptr );
+                                                 wxString* aNetAttr = nullptr,
+                                                 bool*     aHasRefdes = nullptr );
 
     /// Parse objects from a .sym file or [] block into a LIB_SYMBOL.
     void parseSymbolObjects( wxTextFile& aFile, size_t& aLineIdx, LIB_SYMBOL& aSymbol,
@@ -320,6 +323,13 @@ private:
 
     /// Sequential counter for auto-generated #PWR references.
     int m_powerCounter;
+
+    /// Basenames of the loaded symbols that have no refdes= attribute (input-1.sym, output-1.sym).
+    /// gEDA's netlister leaves out an instance of one that has no refdes of its own either.
+    std::set<wxString> m_symbolsWithoutRefdes;
+
+    /// Sequential counter for the references of those instances (#GEDA0001, ...).
+    int m_virtualCounter;
 
     /// Net endpoint positions in raw gEDA coordinates for junction detection.
     std::map<std::pair<int,int>, int> m_netEndpoints;

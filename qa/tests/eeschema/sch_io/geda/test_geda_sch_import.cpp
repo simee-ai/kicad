@@ -609,6 +609,45 @@ BOOST_AUTO_TEST_CASE( AyabPowerSymbols )
 }
 
 
+BOOST_AUTO_TEST_CASE( AyabPortFlagsAreVirtual )
+{
+    SCH_SHEET* sheet = LoadGedaSchematic( "/io/geda/ayab/ayab_rs.sch" );
+
+    BOOST_REQUIRE( sheet );
+
+    // input-1.sym and output-1.sym have no refdes, nor do their instances: gEDA's netlister
+    // leaves them out and only joins their pin to the net their net= names. They must not
+    // become parts, or KiCad's netlist has one part "?" joined to each of those nets.
+    int flags = 0;
+
+    for( SCH_ITEM* item : sheet->GetScreen()->Items() )
+    {
+        if( item->Type() != SCH_SYMBOL_T )
+            continue;
+
+        SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+        wxString    ref = sym->GetRef( &m_schematic->CurrentSheet() );
+        wxString    name = sym->GetLibId().GetLibItemName();
+
+        BOOST_CHECK_MESSAGE( !ref.IsEmpty() && ref != wxT( "?" ),
+                             "Symbol " + name + " has no reference" );
+
+        if( name != wxT( "input-1" ) && name != wxT( "output-1" ) )
+            continue;
+
+        flags++;
+        BOOST_CHECK_MESSAGE( ref.StartsWith( wxT( "#" ) ),
+                             "Port flag ref should be virtual, got: " + ref );
+        BOOST_CHECK( !sym->GetField( FIELD_T::REFERENCE )->IsVisible() );
+        BOOST_CHECK( sym->GetExcludedFromBOM() );
+        BOOST_CHECK( sym->GetExcludedFromBoard() );
+    }
+
+    // 24 input-1.sym + 21 output-1.sym instances
+    BOOST_CHECK_EQUAL( flags, 45 );
+}
+
+
 BOOST_AUTO_TEST_CASE( AyabJunctionsPlaced )
 {
     SCH_SHEET* sheet = LoadGedaSchematic( "/io/geda/ayab/ayab_rs.sch" );
