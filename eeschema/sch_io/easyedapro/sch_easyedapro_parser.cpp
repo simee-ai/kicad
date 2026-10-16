@@ -1498,7 +1498,8 @@ void SCH_EASYEDAPRO_PARSER::ParseSchematic( SCHEMATIC* aSchematic, SCH_SHEET* aR
                     }
                 }
 
-                std::unique_ptr<SCH_LABEL> label = std::make_unique<SCH_LABEL>();
+                // EasyEDA Pro joins a net name on every page of the schematic, so it is a global label
+                std::unique_ptr<SCH_GLOBALLABEL> label = std::make_unique<SCH_GLOBALLABEL>();
 
                 label->SetHorizJustify( GR_TEXT_H_ALIGN_LEFT );
                 label->SetVertJustify( GR_TEXT_V_ALIGN_BOTTOM );
