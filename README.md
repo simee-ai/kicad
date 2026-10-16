@@ -253,6 +253,12 @@ review; a human then creates `simee/<version>` from it.
   only carry `net=`), is no part: it gets a hidden virtual reference (`#GEDA0001`, ...), as gEDA's netlister
   leaves it out. Before, every such flag became one part `?` joined to each net they name. Upstream master has
   the same bug (#30; smoke fixture `ayab-interface`, checked against `lepton-netlist`).
+- `sch import` of an Altium project (`.PrjPcb`) imports every SchDoc it lists, as the project manager's
+  import does, and the Altium importer joins across sheets what the project's net identifier scope joins
+  (`HierarchyMode`; Automatic resolves to Hierarchical with sheet entries, else Flat with ports, else
+  Global). Ports were always hierarchical labels, so a design whose sheet symbols have no entries fell
+  apart into per-sheet nets. KiCad 10.0.6 has the same gap upstream (#33; smoke fixture `edge-logic-analyzer`,
+  imported from its .PrjPcb and checked against its own PcbDoc's nets, `tests/altium_nets.py`).
 - `KICAD_STOCK_3D_PLUGINS_HOME` names the folder of KiCad's 3D model plugins, as `KICAD_STOCK_DATA_HOME`
   names its data: on Linux KiCad otherwise only looks in the compiled-in absolute
   `/usr/lib/<multiarch>/kicad/plugins/3d` (or under `APPDIR`, with a hard-coded x86_64 triplet), so the
