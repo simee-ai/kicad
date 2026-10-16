@@ -1630,11 +1630,17 @@ int EESCHEMA_JOBS_HANDLER::JobImport( JOB* aJob )
     if( outputPath.IsEmpty() )
         outputPath = DefaultImportOutputPath( job->m_inputFile, FILEEXT::KiCadSchematicFileExtension );
 
+    // Both in their long form: a Windows path with 8.3 short names in it (C:\Users\RUNNER~1\...,
+    // what %TEMP% often is) makes wxFileName::MakeRelativeTo() expand the short names on one side
+    // only, so relocateImportedSheets() put the sheets back beside the input, or somewhere else
+    // entirely, and named them by long ../../.. paths.  GetLongPath() changes nothing elsewhere.
     wxFileName inputFn( job->m_inputFile );
     inputFn.MakeAbsolute();
+    inputFn.Assign( inputFn.GetLongPath() );
 
     wxFileName outputFn( outputPath );
     outputFn.MakeAbsolute();
+    outputFn.Assign( outputFn.GetLongPath() );
 
     // Foreign importers resolve their symbol library against the *active* project, so an import
     // with no project loaded needs a transient active one at the output location (never written to
