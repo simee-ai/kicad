@@ -1,0 +1,503 @@
+{
+ "source": "ayab_rs.sch",
+ "format": "geda",
+ "origin": "https://github.com/AllYarnsAreBeautiful/ayab-hardware/tree/e16ffd2bc1b3110e265ee568f9de8026007d0b2a/ayab-interface/schematic",
+ "licence": "CC-BY-SA-4.0 (Windell H. Oskay / Evil Mad Science LLC, AYAB Interface; the repo's ayab-interface/LICENSE); copied unchanged with its gafrc and gschem-symbols/",
+ "licence_file": "LICENSE",
+ "checked": "nets are gEDA's own: ayab_rs.lepton.net is `lepton-netlist -g PCB` (Lepton EDA 1.9.18, Debian bookworm) of this ayab_rs.sch with its gafrc and gschem-symbols/, the standard symbols from Lepton's library, with the four resistor arrays' `source=Yageo` read as `vendor=Yageo` (Lepton takes source= for a sub-schematic and drops RN1-RN4's pins); tests/geda_nets.py reads it. The repo's ayab_rs.net (2018) differs only on RN1-RN4, whose symbol was added in 2021 (f94784c) with pins 1-4 numbered the other way. Components are the 54 refdes of Lepton's `-g geda` netlist, with the values KiCad's import gives them ('~' for none); the 45 input-1/output-1 port flags have no refdes and are no part (simee-kicad#30)",
+ "netlist": "ayab_rs.lepton.net",
+ "components": {
+  "5V": "~",
+  "9V": "~",
+  "C1": "1 uF",
+  "C2": "0.1 uF",
+  "C3": "22 uF 16V",
+  "C4": "1 uF",
+  "C5": "1 uF",
+  "C6": "1 uF",
+  "D1": "~",
+  "D2": "~",
+  "D3": "~",
+  "D5": "~",
+  "D6": "~",
+  "GND": "~",
+  "GND2": "~",
+  "J1": "~",
+  "J2A": "~",
+  "J2B": "~",
+  "J2C": "~",
+  "J3A": "~",
+  "J3B": "~",
+  "J3C": "~",
+  "J4B": "~",
+  "J4C": "~",
+  "J5A": "~",
+  "J5B": "~",
+  "J5C": "~",
+  "J6B": "~",
+  "J6C": "~",
+  "J7A": "~",
+  "J8": "~",
+  "J9": "~",
+  "L1": "AT-1224-TWT-5V-2-R",
+  "Q1": "~",
+  "R1": "5k",
+  "R2": "62",
+  "R3": "320",
+  "R4": "62",
+  "R5": "62",
+  "R6": "62",
+  "R7": "5k",
+  "R8": "5k",
+  "RN1": "1k",
+  "RN2": "1k",
+  "RN3": "1k",
+  "RN4": "1k",
+  "S1": "~",
+  "U1": "METROMINI",
+  "U1A": "~",
+  "U1B": "~",
+  "U2": "~",
+  "U3": "~",
+  "U4": "~",
+  "U5": "~"
+ },
+ "nets": [
+  [
+   "5V.1",
+   "C1.2",
+   "C2.1",
+   "C5.1",
+   "C6.2",
+   "D5.1",
+   "D6.1",
+   "J2B.1",
+   "J2C.3",
+   "J3B.1",
+   "J3C.5",
+   "J5A.1",
+   "J6B.1",
+   "J6C.3",
+   "J7A.1",
+   "J8.1",
+   "J9.1",
+   "R2.2",
+   "R4.1",
+   "R7.1",
+   "R8.1",
+   "RN1.5",
+   "RN1.6",
+   "RN1.7",
+   "RN1.8",
+   "RN2.5",
+   "RN2.6",
+   "RN2.7",
+   "RN2.8",
+   "RN3.5",
+   "RN3.6",
+   "RN3.7",
+   "RN3.8",
+   "RN4.5",
+   "RN4.6",
+   "RN4.7",
+   "RN4.8",
+   "U1.4",
+   "U1.8",
+   "U1A.4",
+   "U1A.8",
+   "U2.16",
+   "U3.1",
+   "U3.16"
+  ],
+  [
+   "9V.1",
+   "C3.1",
+   "C4.2",
+   "D1.1",
+   "J2A.10",
+   "J2A.9",
+   "J5B.10",
+   "J5B.9",
+   "J5C.10",
+   "J5C.9",
+   "R3.2",
+   "U4.10",
+   "U5.10"
+  ],
+  [
+   "C1.1",
+   "C2.2",
+   "C3.2",
+   "C4.1",
+   "C5.2",
+   "C6.1",
+   "D2.2",
+   "D3.2",
+   "GND.1",
+   "GND2.1",
+   "J1.2",
+   "J1.3",
+   "J2B.2",
+   "J2C.2",
+   "J3B.2",
+   "J3C.4",
+   "J5A.10",
+   "J5A.2",
+   "J5A.7",
+   "J5A.9",
+   "J6B.2",
+   "J6C.2",
+   "J7A.2",
+   "J8.4",
+   "J9.4",
+   "Q1.2",
+   "S1.1",
+   "U1.5",
+   "U1.6",
+   "U1A.5",
+   "U1A.6",
+   "U2.1",
+   "U2.2",
+   "U2.3",
+   "U2.8",
+   "U3.2",
+   "U3.3",
+   "U3.8",
+   "U4.9",
+   "U5.9"
+  ],
+  [
+   "D1.2",
+   "J1.1"
+  ],
+  [
+   "D2.1",
+   "R2.1"
+  ],
+  [
+   "D3.1",
+   "R3.1"
+  ],
+  [
+   "D5.2",
+   "R5.2"
+  ],
+  [
+   "D6.2",
+   "R6.2"
+  ],
+  [
+   "J2A.1",
+   "J5B.1",
+   "J5C.1",
+   "U4.11"
+  ],
+  [
+   "J2A.2",
+   "J5B.2",
+   "J5C.2",
+   "U4.12"
+  ],
+  [
+   "J2A.3",
+   "J5B.3",
+   "J5C.3",
+   "U4.13"
+  ],
+  [
+   "J2A.4",
+   "J5B.4",
+   "J5C.4",
+   "U4.14"
+  ],
+  [
+   "J2A.5",
+   "J5B.5",
+   "J5C.5",
+   "U4.15"
+  ],
+  [
+   "J2A.6",
+   "J5B.6",
+   "J5C.6",
+   "U4.16"
+  ],
+  [
+   "J2A.7",
+   "J5B.7",
+   "J5C.7",
+   "U4.17"
+  ],
+  [
+   "J2A.8",
+   "J5B.8",
+   "J5C.8",
+   "U4.18"
+  ],
+  [
+   "J2B.3",
+   "J2C.1",
+   "J7A.3",
+   "U1.10",
+   "U1A.10"
+  ],
+  [
+   "J3A.1",
+   "J4B.1",
+   "J4C.1",
+   "U5.11"
+  ],
+  [
+   "J3A.2",
+   "J4B.2",
+   "J4C.2",
+   "U5.12"
+  ],
+  [
+   "J3A.3",
+   "J4B.3",
+   "J4C.3",
+   "U5.13"
+  ],
+  [
+   "J3A.4",
+   "J4B.4",
+   "J4C.4",
+   "U5.14"
+  ],
+  [
+   "J3A.5",
+   "J4B.5",
+   "J4C.5",
+   "U5.15"
+  ],
+  [
+   "J3A.6",
+   "J4B.6",
+   "J4C.6",
+   "U5.16"
+  ],
+  [
+   "J3A.7",
+   "J4B.7",
+   "J4C.7",
+   "U5.17"
+  ],
+  [
+   "J3A.8",
+   "J4B.8",
+   "J4C.8",
+   "U5.18"
+  ],
+  [
+   "J3B.3",
+   "J3C.3",
+   "J5A.5",
+   "U1.18",
+   "U1B.4"
+  ],
+  [
+   "J3B.4",
+   "J3C.2",
+   "J5A.4",
+   "U1.17",
+   "U1B.3"
+  ],
+  [
+   "J3B.5",
+   "J3C.1",
+   "J5A.6",
+   "U1.19",
+   "U1B.5"
+  ],
+  [
+   "J5A.8",
+   "J6B.3",
+   "J6C.1",
+   "U1.9",
+   "U1A.9"
+  ],
+  [
+   "J8.2",
+   "J9.2",
+   "R7.2",
+   "U1.13",
+   "U1A.13",
+   "U2.15",
+   "U3.15"
+  ],
+  [
+   "J8.3",
+   "J9.3",
+   "R8.2",
+   "U1.14",
+   "U1A.14",
+   "U2.14",
+   "U3.14"
+  ],
+  [
+   "L1.1",
+   "R4.2"
+  ],
+  [
+   "L1.2",
+   "Q1.3"
+  ],
+  [
+   "Q1.1",
+   "R1.1"
+  ],
+  [
+   "R1.2",
+   "U1.24",
+   "U1B.10"
+  ],
+  [
+   "R5.1",
+   "U1.20",
+   "U1B.6"
+  ],
+  [
+   "R6.1",
+   "U1.21",
+   "U1B.7"
+  ],
+  [
+   "RN1.1",
+   "U2.4",
+   "U4.1"
+  ],
+  [
+   "RN1.2",
+   "U2.5",
+   "U4.2"
+  ],
+  [
+   "RN1.3",
+   "U2.6",
+   "U4.3"
+  ],
+  [
+   "RN1.4",
+   "U2.7",
+   "U4.4"
+  ],
+  [
+   "RN2.1",
+   "U2.9",
+   "U4.5"
+  ],
+  [
+   "RN2.2",
+   "U2.10",
+   "U4.6"
+  ],
+  [
+   "RN2.3",
+   "U2.11",
+   "U4.7"
+  ],
+  [
+   "RN2.4",
+   "U2.12",
+   "U4.8"
+  ],
+  [
+   "RN3.1",
+   "U3.4",
+   "U5.1"
+  ],
+  [
+   "RN3.2",
+   "U3.5",
+   "U5.2"
+  ],
+  [
+   "RN3.3",
+   "U3.6",
+   "U5.3"
+  ],
+  [
+   "RN3.4",
+   "U3.7",
+   "U5.4"
+  ],
+  [
+   "RN4.1",
+   "U3.9",
+   "U5.5"
+  ],
+  [
+   "RN4.2",
+   "U3.10",
+   "U5.6"
+  ],
+  [
+   "RN4.3",
+   "U3.11",
+   "U5.7"
+  ],
+  [
+   "RN4.4",
+   "U3.12",
+   "U5.8"
+  ],
+  [
+   "S1.3",
+   "U1.2",
+   "U1A.2"
+  ],
+  [
+   "U1.1",
+   "U1A.1"
+  ],
+  [
+   "U1.11",
+   "U1A.11"
+  ],
+  [
+   "U1.12",
+   "U1A.12"
+  ],
+  [
+   "U1.15",
+   "U1B.1"
+  ],
+  [
+   "U1.16",
+   "U1B.2"
+  ],
+  [
+   "U1.22",
+   "U1B.8"
+  ],
+  [
+   "U1.23",
+   "U1B.9"
+  ],
+  [
+   "U1.25",
+   "U1B.11"
+  ],
+  [
+   "U1.26",
+   "U1B.12"
+  ],
+  [
+   "U1.27",
+   "U1B.13"
+  ],
+  [
+   "U1.28",
+   "U1B.14"
+  ],
+  [
+   "U1.3",
+   "U1A.3"
+  ],
+  [
+   "U1.7",
+   "U1A.7"
+  ]
+ ]
+}

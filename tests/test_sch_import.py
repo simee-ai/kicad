@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from eagle_nets import eagle_nets, kicad_reference
+from geda_nets import geda_nets
 from kicad_bundle import sch_import
 from kicad_bundle.smoke import netlist_components
 
@@ -118,6 +119,29 @@ def test_eagle_nets_join_the_pads_of_one_pin_and_name_parts_as_kicad_does(tmp_pa
                          ids=[f.name for f in FIXTURES if f.format == "eagle"])
 def test_eagle_expectations_are_what_eagle_connects(fixture):
     assert eagle_nets(fixture.source) == (fixture.components, fixture.nets)
+
+
+def test_fixtures_cover_a_geda_schematic_with_its_own_symbols():
+    geda = [f for f in FIXTURES if f.format == "geda"]
+    assert geda and any((f.source.parent / "gafrc").is_file() for f in geda)
+
+
+def test_a_format_kicad_cli_has_no_hint_for_is_found_by_its_content():
+    # `sch import --format` names no gEDA importer, though auto finds it (simee-core#456)
+    assert sch_import.format_hint("eagle") == "eagle"
+    assert sch_import.format_hint("geda") == "auto"
+
+
+def test_geda_nets_read_a_lepton_pcb_netlist(tmp_path):
+    net = tmp_path / "x.net"
+    net.write_text("unnamed_net2\tR1-2 \nGND\tC1-1 R1-1 U1A-4 \\\n U1-4 \n5V\tU1A-8 J9-1 \n")
+    assert geda_nets(net) == [["C1.1", "R1.1", "U1.4", "U1A.4"], ["J9.1", "U1A.8"]]
+
+
+@pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "geda"],
+                         ids=[f.name for f in FIXTURES if f.format == "geda"])
+def test_geda_expectations_are_what_lepton_netlists(fixture):
+    assert fixture.nets == geda_nets(fixture.source.parent / fixture.meta["netlist"])
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
