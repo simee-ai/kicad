@@ -1,6 +1,7 @@
 import json
 import os
 import shlex
+import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pytest
 
 from altium_nets import altium_nets, pads, properties
 from eagle_nets import eagle_nets, kicad_reference
+from easyedapro_nets import easyedapro_board, easyedapro_nets
 from geda_nets import geda_nets
 from kicad_bundle import sch_import
 from kicad_bundle.smoke import netlist_components
@@ -43,6 +45,30 @@ def test_stray_files_are_the_hidden_ones(tmp_path):
     for name in (".kicad_sch", "imported.kicad_sch", "imported-eagle-import.kicad_sym", "sym-lib-table"):
         (tmp_path / name).touch()
     assert sch_import.stray_files(tmp_path) == [".kicad_sch"]
+
+
+def test_written_beside_the_source_are_new_files_outside_the_output(tmp_path):
+    # EasyEDA Pro's importer saved its symbol library next to the input, not the output (#29)
+    src, out = tmp_path, tmp_path / "kicad" / "sub"
+    out.mkdir(parents=True)
+    (src / "board.epro").touch()
+    before = sch_import.source_files(src, out)
+    (src / "board-easyedapro.kicad_sym").touch()
+    (out / "imported.kicad_sch").touch()
+    assert sch_import.written_beside(src, out, before) == ["board-easyedapro.kicad_sym"]
+    # with the source inside the output, everything new under the source counts
+    assert sch_import.written_beside(out, tmp_path, set()) == ["imported.kicad_sch"]
+
+
+def test_writes_beside_the_source_are_not_checked_on_windows_until_36(tmp_path, monkeypatch):
+    # The Windows bundle also writes a multi-sheet EasyEDA Pro import's sheets beside the source (#36)
+    (tmp_path / "board.epro").touch()
+    before = sch_import.source_files(tmp_path, tmp_path / "out")
+    (tmp_path / "1_POWER.kicad_sch").touch()
+    monkeypatch.setattr(sch_import.sys, "platform", "win32")
+    assert sch_import.written_beside(tmp_path, tmp_path / "out", before) == []
+    monkeypatch.setattr(sch_import.sys, "platform", "darwin")
+    assert sch_import.written_beside(tmp_path, tmp_path / "out", before) == ["1_POWER.kicad_sch"]
 
 
 def test_check_rejects_an_import_that_leaves_stray_files(monkeypatch):
@@ -177,6 +203,63 @@ ALTIUM_BOARDS = [f for f in FIXTURES if "altium_board" in f.meta]
 @pytest.mark.parametrize("fixture", ALTIUM_BOARDS, ids=[f.name for f in ALTIUM_BOARDS])
 def test_altium_expectations_are_what_its_board_connects(fixture):
     assert fixture.nets == altium_nets(fixture.source.parent / fixture.meta["altium_board"])
+
+
+def write_epro(path, boards, pcb_lines):
+    """A tiny EasyEDA Pro project: project.json naming `boards` (name -> PCB id), one PCB document."""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("project.json", json.dumps({"boards": {
+            name: {"schematic": f"s-{pcb}", "pcb": pcb} for name, pcb in boards.items()}}))
+        for pcb in boards.values():
+            zf.writestr(f"PCB/{pcb}.epcb", "\n".join(json.dumps(line) for line in pcb_lines(pcb)))
+
+
+def tiny_pcb(pcb):
+    first = pcb == "p1"
+    return [
+        ["DOCTYPE", "PCB", "1.7"],
+        ["ATTR", "e1e2", 0, "e1", 3, 0, 0, "Designator", "U1" if first else "Q9", 0, 1],
+        ["ATTR", "e1e3", 0, "e1", 3, None, None, "Footprint", "abc", 0, 0],
+        ["ATTR", "e4e5", 0, "e4", 3, 0, 0, "Designator", "C1", 0, 1],
+        ["PAD_NET", "e1", "A1", "GND", "e6"],
+        ["PAD_NET", "e4", "2", "GND", "e7"],
+        ["PAD_NET", "e4", "1", "VCC", "e8"],
+        ["PAD_NET", "e1", "B2", "", "e9"],
+        # a free pad (a mounting hole), and one on no net
+        ["PAD", "e12", 0, "GND", 12, "1", 50, 50, 0, ["ROUND", 118, 118], ["ELLIPSE", 196, 196], [], 0],
+        ["PAD", "e13", 0, "", 12, "1", 950, 450, 0, ["ROUND", 118, 118], ["ELLIPSE", 196, 196], [], 0],
+        # a rounded rectangle 1000 x 500 mil, as EasyEDA Pro draws board outlines
+        ["POLY", "e10", 0, "", 11, 10, [100, 0, "L", 900, 0, "ARC", 90, 1000, 100, "L", 1000, 400,
+                                        "ARC", 90, 900, 500, "L", 100, 500, 0, 400, "L", 0, 100, "ARC", 90, 100, 0], 0],
+        ["POLY", "e11", 0, "", 3, 10, [0, 0, "L", 5000, 5000], 0],
+    ]
+
+
+def test_easyedapro_board_reads_the_first_boards_pads_and_outline(tmp_path):
+    epro = tmp_path / "tiny.epro"
+    # boards in name order, as kicad-cli takes the first (#29): "A main" before "B other"
+    write_epro(epro, {"B other": "p2", "A main": "p1"}, tiny_pcb)
+    designators, size, nets = easyedapro_board(epro)
+    assert designators == {"U1", "C1"}
+    # silkscreen doesn't count; a pad on net "" is on none; a single-pad net is a net of the board
+    assert size == (25.4, 12.7)
+    # a free pad is a footprint with no reference in KiCad, and on the board only
+    assert nets == [[".1", "C1.2", "U1.A1"], ["C1.1"]]
+    assert easyedapro_nets(epro) == [["C1.2", "U1.A1"]]
+
+
+def test_fixtures_cover_an_easyedapro_project_holding_several_boards():
+    # kicad-cli crashed on such a file, asking a chooser nobody had registered (#29)
+    epros = [f for f in FIXTURES if f.format == "easyedapro"]
+    assert any(len(json.loads(zipfile.ZipFile(f.source).read("project.json"))["boards"]) > 1 for f in epros)
+
+
+@pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "easyedapro"],
+                         ids=[f.name for f in FIXTURES if f.format == "easyedapro"])
+def test_easyedapro_expectations_are_what_easyeda_pro_connects(fixture):
+    designators, _, _ = easyedapro_board(fixture.source)
+    assert fixture.nets == easyedapro_nets(fixture.source)
+    assert set(fixture.components) == designators
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)

@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from eagle_nets import eagle_board
+from easyedapro_nets import easyedapro_board
 from kicad_bundle import pcb_import
 
 BOARDS = pcb_import.boards()
@@ -56,6 +57,23 @@ def test_an_eagle_board_has_items_on_a_layer_kicad_doesnt_map():
                          ids=[b.name for b in BOARDS if b.format == "eagle"])
 def test_eagle_expectations_are_what_eagle_connects(board):
     assert eagle_board(board.source) == (board.size, board.nets)
+
+
+def test_a_format_pcb_import_has_no_hint_for_is_found_by_its_content():
+    # `pcb import --format` names no EasyEDA importer, though auto finds it (#29)
+    assert pcb_import.format_hint("eagle") == "eagle"
+    assert pcb_import.format_hint("easyedapro") == "auto"
+
+
+def test_boards_cover_easyedapro():
+    assert "easyedapro" in {b.format for b in BOARDS}
+
+
+@pytest.mark.parametrize("board", [b for b in BOARDS if b.format == "easyedapro"],
+                         ids=[b.name for b in BOARDS if b.format == "easyedapro"])
+def test_easyedapro_expectations_are_what_easyeda_pro_connects(board):
+    _, size, nets = easyedapro_board(board.source)
+    assert (board.size, board.nets) == (size, nets)
 
 
 def test_check_fails_when_the_nets_differ(monkeypatch):

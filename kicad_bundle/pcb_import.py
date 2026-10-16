@@ -11,6 +11,14 @@ from pathlib import Path
 from kicad_bundle import sch_import, smoke
 
 
+# The formats `pcb import --format` takes a hint for. Any other (EasyEDA Pro) is found by the file's content.
+FORMAT_HINTS = {"pads", "altium", "eagle", "cadstar", "fabmaster", "pcad", "solidworks"}
+
+
+def format_hint(format: str) -> str:
+    return sch_import.format_hint(format, FORMAT_HINTS)
+
+
 @dataclass(frozen=True)
 class Board:
     name: str
@@ -31,7 +39,7 @@ def imported(cli: list[str], board: Board, tmp: Path) -> list[list[str]]:
     src.parent.mkdir()
     out.parent.mkdir()
     shutil.copy2(board.source, src)
-    smoke.run(cli, ["pcb", "import", "--format", board.format, "-o", str(out), str(src)], out)
+    smoke.run(cli, ["pcb", "import", "--format", format_hint(board.format), "-o", str(out), str(src)], out)
     return smoke.copper_nets(smoke.export_gerbers(cli, out, tmp / "gerbers"))
 
 

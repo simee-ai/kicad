@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,8 +47,8 @@ class Fixture:
 FORMAT_HINTS = {"altium", "eagle", "cadstar", "easyeda", "easyedapro", "ltspice", "pads"}
 
 
-def format_hint(format: str) -> str:
-    return format if format in FORMAT_HINTS else "auto"
+def format_hint(format: str, hints: set[str] = FORMAT_HINTS) -> str:
+    return format if format in hints else "auto"
 
 
 # What `sch import` calls each format's importer (SCH_IO_MGR::ShowType).
@@ -135,18 +136,34 @@ def stray_files(folder: Path) -> list[str]:
     return sorted(p.name for p in folder.iterdir() if p.name.startswith("."))
 
 
+def source_files(src: Path, out: Path) -> set[Path]:
+    """The files under an import's source folder, but its output's when that is inside it."""
+    return {p for p in src.rglob("*")
+            if p.is_file() and not (out.is_relative_to(src) and p.is_relative_to(out))}
+
+
+def written_beside(src: Path, out: Path, before: set[Path]) -> list[str]:
+    """Files an import wrote into its source folder (outside its output), such as a symbol library. Not
+    checked on Windows until #36: its bundle also writes a multi-sheet EasyEDA Pro import's sheets there."""
+    if sys.platform == "win32":
+        return []
+    return sorted(str(p.relative_to(src)) for p in source_files(src, out) - before)
+
+
 def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[dict[str, str], list[list[str]], list[str]]:
     """Components and nets (two or more nodes) of `fixture` as KiCad imports it, its source and output
-    folders placed as `layout` says, and the stray files the import wrote next to its output."""
+    folders placed as `layout` says, and the stray files the import wrote: hidden ones next to its output,
+    any into its source's folder."""
     with tempfile.TemporaryDirectory() as tmp:
         src_dir, out = (Path(tmp) / "job" / d for d in LAYOUTS[layout])
         shutil.copytree(fixture.source.parent, src_dir, dirs_exist_ok=True)
         out.mkdir(parents=True, exist_ok=True)
         sch, net = out / "imported.kicad_sch", Path(tmp) / "imported.net"
         source = src_dir / fixture.source.name
+        before = source_files(src_dir, out)
         _run(cli, ["sch", "import", "--format", format_hint(fixture.format), "-o", str(sch), str(source)],
              Path(tmp))
-        stray = stray_files(out)
+        stray = stray_files(out) + [f"{name} (beside the source)" for name in written_beside(src_dir, out, before)]
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))
         text = net.read_text(encoding="utf-8")
     return netlist_components(text), [n for n in netlist_nets(text) if len(n) > 1], stray
@@ -154,12 +171,12 @@ def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[d
 
 def check(cli: list[str], fixture: Fixture) -> None:
     """Raise unless KiCad's import of `fixture`, in every layout, has exactly the expected components
-    and nets, and writes nothing but KiCad files next to its output."""
+    and nets, writes nothing but KiCad files next to its output and nothing beside its source."""
     problems = []
     for layout in LAYOUTS:
         components, nets, stray = imported(cli, fixture, layout)
         if stray:
-            problems.append(f"{layout}: stray files next to the output: {stray}")
+            problems.append(f"{layout}: stray files: {stray}")
         if components != fixture.components:
             problems.append(f"{layout}: components differ: got {components}, wanted {fixture.components}")
         missing = [n for n in fixture.nets if n not in nets]
