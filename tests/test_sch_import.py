@@ -170,12 +170,13 @@ def test_altium_board_records_name_each_pads_net_and_component():
     assert pads(data) == [("1", 0, 3), ("A5", 1, 0), ("2", 0xFFFF, 0)]
 
 
-ALTIUM_BOARDS = [f for f in FIXTURES if f.format == "altium" and "board" in f.meta]
+# The board Altium compiled from a fixture's project: its nets are the oracle for the schematic's
+ALTIUM_BOARDS = [f for f in FIXTURES if "altium_board" in f.meta]
 
 
 @pytest.mark.parametrize("fixture", ALTIUM_BOARDS, ids=[f.name for f in ALTIUM_BOARDS])
 def test_altium_expectations_are_what_its_board_connects(fixture):
-    assert fixture.nets == altium_nets(fixture.source.parent / fixture.meta["board"])
+    assert fixture.nets == altium_nets(fixture.source.parent / fixture.meta["altium_board"])
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)

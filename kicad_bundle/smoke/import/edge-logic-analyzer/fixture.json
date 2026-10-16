@@ -4,8 +4,7 @@
  "origin": "https://github.com/nivuciis/Multi-Signal-Analyzer-Hardware/tree/8428ddd2fe5697e7182994c0b313a1084fcc5d37/logic_analyzer_P1/logic_analyzer_P1",
  "licence": "CERN-OHL-P-2.0 (Vinicius R. M. de Carvalho, João M. N. Dias, Ícaro B. Q. de Araújo, Rodrigo J. S. Peixoto, Universidade Federal de Alagoas; the repo's LICENSE); the project's .PrjPcb, its 10 SchDocs and its PcbDoc, copied unchanged",
  "licence_file": "LICENSE",
- "checked": "an RP2350 logic analyser of a top sheet and 9 sheets placed by sheet symbols without sheet entries, so Altium's Automatic net identifier scope is Flat: ports join by name across sheets (simee-kicad#33). Nets are Altium's own, from the board it compiled from the project: tests/altium_nets.py reads Edge_logic_analyzer.PcbDoc's Nets6/Components6/Pads6 (90 nets of two or more pads). Components are what KiCad's import gives: the board's 110 parts, plus J1-J6 of the ASSEMBLIES sheet (cables and probes, not on the board) and the title blocks and logo ('*', '*?', 'GPH?', value info_project)",
- "board": "Edge_logic_analyzer.PcbDoc",
+ "checked": "an RP2350 logic analyser of a top sheet and 9 sheets placed by sheet symbols without sheet entries, so Altium's Automatic net identifier scope is Flat: ports join by name across sheets (simee-kicad#33). Nets are Altium's own: the 90 nets of two or more pads of altium_board, the PcbDoc Altium compiled from the whole project, read from its Nets6/Components6/Pads6 records by tests/altium_nets.py. Components are what KiCad's import gives: the board's 110 parts, plus J1-J6 of the ASSEMBLIES sheet (cables and probes, not on the board) and the title blocks and logo ('*', '*?', 'GPH?', value info_project)",
  "components": {
   "*?": "info_project",
   "C1": "1µF/16V",
@@ -686,5 +685,6 @@
    "U2.9",
    "U7.4"
   ]
- ]
+ ],
+ "altium_board": "Edge_logic_analyzer.PcbDoc"
 }
