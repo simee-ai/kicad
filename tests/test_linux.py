@@ -236,6 +236,34 @@ def test_wrapper_points_kicad_cli_at_the_bundle_even_through_a_symlink(tmp_path)
     assert out.stdout.strip() == f"{real}/lib|/data|/3d|"
 
 
+def _fake_bundle(root):
+    (root / "bin").mkdir(parents=True)
+    (root / "libexec").mkdir()
+    linux.write_wrapper(root / "bin/kicad-cli")
+    fake = root / "libexec/kicad-cli"
+    fake.write_text('#!/bin/sh\necho "$LD_LIBRARY_PATH|$*"\n')
+    fake.chmod(0o755)
+    return root.resolve()
+
+
+@pytest.mark.parametrize("cwd, launcher", [("bundle", "bin/kicad-cli"), ("bundle/bin", "kicad-cli"),
+                                           (".", "bundle/bin/kicad-cli")])
+def test_wrapper_needs_nothing_on_path(tmp_path, cwd, launcher):
+    real = _fake_bundle(tmp_path / "bundle")
+    out = subprocess.run(["env", "-i", "PATH=", "/bin/sh", launcher, "sch", "export"], cwd=tmp_path / cwd,
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == f"{real}/lib|sch export"
+
+
+def test_wrapper_by_its_absolute_path_needs_nothing_on_path(tmp_path):
+    real = _fake_bundle(tmp_path / "bundle")
+    out = subprocess.run(["env", "-i", "PATH=", "/bin/sh", "-c", f'"{real}/bin/kicad-cli" x'],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == f"{real}/lib|x"
+
+
 def test_smoke_runs_in_a_bare_container_of_the_oldest_supported_host(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     cmd = linux.smoke_command(Path("work/bundle"))  # docker mounts need absolute paths

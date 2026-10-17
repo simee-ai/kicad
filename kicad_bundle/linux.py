@@ -58,8 +58,12 @@ file\tpackage version\tsource version
 """
 
 WRAPPER = """#!/bin/sh
-# kicad-cli, using the shared libraries and data in this bundle.
-here=$(dirname "$(dirname "$(readlink -f "$0")")")
+# kicad-cli, using the shared libraries and data in this bundle. It finds the bundle with shell builtins, so it
+# runs with PATH empty too; readlink, when there is one, follows a launcher linked from elsewhere.
+self=$0
+if command -v readlink >/dev/null 2>&1; then self=$(readlink -f "$0") || self=$0; fi
+case $self in */*) dir=${self%/*} ;; *) dir=. ;; esac
+here=$(CDPATH= cd -P "$dir/.." && pwd -P)
 export LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export KICAD_STOCK_DATA_HOME="${KICAD_STOCK_DATA_HOME:-$here/share/kicad}"
 export KICAD_STOCK_3D_PLUGINS_HOME="${KICAD_STOCK_3D_PLUGINS_HOME:-$here/libexec/plugins/3d}"
