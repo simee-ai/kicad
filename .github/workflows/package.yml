@@ -28,12 +28,13 @@ on:
         required: false
         default: ""
 
+# Read only: kicad-sync runs this (publish off) on its repair agent's fix branch before anyone has reviewed it, so
+# only the job that publishes gets a token that can write (#41). The token goes only to the steps that use it.
 permissions:
-  contents: write
+  contents: read
 
 env:
   KICAD_VERSION: ${{ inputs.kicad_version }}
-  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   ref:  # one commit for every platform, even if the branch moves during the run
@@ -91,6 +92,8 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_16.2.app
           brew install swig ninja
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform macos --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}  # read only: GitHub's API allows 60 requests an hour without one
       - uses: actions/upload-artifact@v4
         with:
           name: macos
@@ -130,6 +133,8 @@ jobs:
             vcpkg-binaries-
       - run: uv run kicad-bundle --kicad-version "$env:KICAD_VERSION" --platform windows --out dist --work C:\w $(if ($env:SIMEE_SHA) { "--simee-ref", $env:SIMEE_SHA })
         timeout-minutes: 330  # leaves time to save the ports built so far, so a rerun carries on
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       # Not after a cancel: its partial set would be the newest entry, which later runs restore and then rebuild most
       # ports (#39). The step timeout above fails the step rather than cancelling the job, so a timed-out run saves.
       - name: Save vcpkg's builds of the ports
@@ -159,6 +164,8 @@ jobs:
           key: debian-sources-${{ inputs.kicad_version }}
           restore-keys: debian-sources-
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"} ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux
@@ -182,6 +189,8 @@ jobs:
           key: debian-sources-arm64-${{ inputs.kicad_version }}
           restore-keys: debian-sources-arm64-
       - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --arch arm64 --out dist --simee-ref "$SIMEE_SHA" ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64
@@ -194,6 +203,8 @@ jobs:
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
     if: inputs.publish
+    permissions:
+      contents: write  # the release and its tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -208,6 +219,8 @@ jobs:
           curl -fsSL -o "dist/kicad-$KICAD_VERSION-source.tar.gz"
           "https://github.com/KiCad/kicad-source-mirror/archive/refs/tags/$KICAD_VERSION.tar.gz"
       - name: Publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           gh release list --limit 500 --json tagName -q '.[].tagName' > tags.txt
           tag=$(uv run python -m kicad_bundle.publish --kicad-version "$KICAD_VERSION" --dist dist \
