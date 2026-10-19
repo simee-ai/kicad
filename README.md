@@ -26,7 +26,7 @@ branch's.
 | `SHA256SUMS` | checksums of everything above |
 
 simee-core pins one release in `cmake/SimeeKicad.cmake` (simee-db's worker image too). simee-agents's
-weekly kicad-sync job packages each new stable KiCad release (from its `simee/<version>` branch, below) and
+daily kicad-sync job packages each new stable KiCad release (from its `simee/<version>` branch, below) and
 opens the pin-bump PRs. It also rehearses each new major from its release candidates (below).
 
 Run `kicad-cli` with `KICAD_CONFIG_HOME`, `KICAD_DOCUMENTS_HOME` and `KICAD_CACHE_HOME` pointing at
