@@ -14,6 +14,50 @@ def test_snapshot_stamp_is_utc_to_the_second():
     assert linux_build.snapshot_stamp(when) == "20260922T125549Z"
 
 
+IMAGE_STATUS = """\
+Package: liblzma5
+Status: install ok installed
+Source: xz-utils
+Version: 5.8.1-1+deb13u1
+
+Package: xz-utils
+Status: install ok installed
+Version: 5.8.1-1+deb13u1
+
+Package: libgmp10
+Status: install ok installed
+Source: gmp (2:6.3.0+dfsg-3)
+Version: 2:6.3.0+dfsg-3+b1
+
+Package: zlib1g
+Status: install ok installed
+Source: zlib
+Version: 1:1.3.dfsg+really1.3.1-1+b1
+"""
+
+
+def test_pins_hold_every_source_the_image_has_at_the_versions_it_ships():
+    # 2026-10-19: Debian's archive of the image's day had xz-utils' security update (deb13u2) but the image
+    # still shipped deb13u1: liblzma-dev went for deb13u2 against the held liblzma5, and nothing installed.
+    # The -dev packages come from the same sources, so each source is pinned to the image's binaries' versions.
+    assert linux_build.pins(IMAGE_STATUS) == (
+        "Package: src:gmp\nPin: version 2:6.3.0+dfsg-3+b1\nPin-Priority: 1001\n\n"
+        "Package: src:xz-utils\nPin: version 5.8.1-1+deb13u1\nPin-Priority: 1001\n\n"
+        "Package: src:zlib\nPin: version 1:1.3.dfsg+really1.3.1-1+b1\nPin-Priority: 1001\n")
+
+
+def test_dockerfile_pins_the_images_sources_before_apt_reads_the_archive():
+    lines = linux_build.dockerfile(DIGEST, "20260922T125549Z").splitlines()
+    copy = lines.index(f"COPY {linux_build.PINS} /etc/apt/preferences.d/{linux_build.PINS}")
+    assert copy < next(i for i, l in enumerate(lines) if "apt-get update" in l)
+
+
+def test_runtime_dockerfile_pins_the_official_images_sources_too():
+    lines = linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g"]).splitlines()
+    copy = lines.index(f"COPY {linux_build.PINS} /etc/apt/preferences.d/{linux_build.PINS}")
+    assert copy < next(i for i, l in enumerate(lines) if "apt-get update" in l)
+
+
 def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     text = linux_build.dockerfile(DIGEST, "20260922T125549Z")
     lines = text.splitlines()

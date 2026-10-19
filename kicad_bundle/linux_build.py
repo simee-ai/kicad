@@ -2,8 +2,10 @@
 
 The official kicad/kicad image is plain Debian trixie with Debian's libraries (KiCad's kicad-docker
 Dockerfile.<x>-stable). So the branch is built on that very image, with Debian's archive as it was
-when the image was made (snapshot.debian.org) and every installed package held: the -dev packages
-are then those of the libraries the bundle ships, and the result links against exactly them. Only
+when the image was made (snapshot.debian.org), every installed package held and every source the image
+has pinned to the version it ships (that day's archive can hold a newer security update than the image
+installed): the -dev packages are then those of the libraries the bundle ships, and the result links
+against exactly them. Only
 KiCad's own files (kicad-cli, the kifaces, libki*) are replaced; the third-party closure,
 its notices and its sources stay as linux.assemble made them.
 
@@ -45,10 +47,22 @@ PLUGINS_DIR = "libexec/plugins/3d"
 NINJA_TARGETS = " ".join(("kicad-cli", *(f"{k}_kiface" for k in KIFACES), *(f"s3d_plugin_{p}" for p in PLUGINS_3D)))
 KICAD_LIBS = "libki*"
 SOURCES = "dpkg-sources.txt"
+PINS = "simee-image-versions.pref"  # apt preferences: the official image's sources at the versions it ships
 
 
 def snapshot_stamp(when: float) -> str:
     return datetime.fromtimestamp(when, timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def pins(status: str) -> str:
+    """apt preferences holding every Debian source in a dpkg status file at the versions of its installed binaries,
+    so a -dev package comes from the very version of the library the image ships, not a later update of it."""
+    held = sorted({(p.source, p.version) for p in debian.packages(status).values()})
+    return "\n".join(f"Package: src:{src}\nPin: version {ver}\nPin-Priority: 1001\n" for src, ver in held)
+
+
+def _write_pins(context: Path, rootfs: Path) -> None:
+    (context / PINS).write_text(pins((rootfs / debian.DPKG_STATUS).read_text()))
 
 
 def _snapshot(stamp: str, scheme: str = "https") -> str:
@@ -63,9 +77,10 @@ def _snapshot(stamp: str, scheme: str = "https") -> str:
 
 def dockerfile(image: str, stamp: str) -> str:
     """Build kicad-cli, the kifaces and the 3D plugins (with the libki* they need) from kicad-src.tar.gz into
-    /out, on image, with Debian's archive at stamp and the image's packages held."""
+    /out, on image, with Debian's archive at stamp, the image's packages held and its sources pinned (PINS)."""
     return f"""FROM {image}
 USER root
+COPY {PINS} /etc/apt/preferences.d/{PINS}
 {_snapshot(stamp)}
     apt-mark hold $(dpkg-query -W -f '${{Package}}\\n') > /dev/null && \\
     apt-get update && \\
@@ -137,6 +152,7 @@ def build(image: str, rootfs: Path, src: Path, work: Path, arch: Arch = ARCHES["
     context.mkdir(parents=True)
     stamp = snapshot_stamp((rootfs / debian.DPKG_STATUS).stat().st_mtime)
     (context / "Dockerfile").write_text(dockerfile(image, stamp))
+    _write_pins(context, rootfs)
     shutil.copy2(src, context / "kicad-src.tar.gz")
     tag = f"simee-kicad-linux-{arch.name}-build"
     _docker_build(context, tag, arch)
@@ -182,9 +198,11 @@ def _history(image: str, arch: Arch) -> list[str]:
 
 
 def runtime_dockerfile(base: str, stamp: str, packages: list[str]) -> str:
-    """base with packages installed from Debian's archive at stamp: those Debian has for the image's
-    architecture (the official image's amd64-only ones, such as Intel's VA drivers, are left out and named)."""
+    """base with packages installed from Debian's archive at stamp, at the official image's versions (PINS): those
+    Debian has for the image's architecture (the official image's amd64-only ones, such as Intel's VA drivers,
+    are left out and named)."""
     return f"""FROM {base}
+COPY {PINS} /etc/apt/preferences.d/{PINS}
 {_snapshot(stamp, "http")}
     apt-get update && \\
     apt-cache dumpavail | sed -n 's/^Package: //p' | sort -u > /tmp/available && \\
@@ -225,6 +243,7 @@ def native(image: str, rootfs: Path, src: Path, work: Path, arch: Arch, data: tu
     _fresh(context, native_ctx)
     context.mkdir(parents=True)
     (context / "Dockerfile").write_text(runtime_dockerfile(base, stamp, sorted(image_sources(rootfs))))
+    _write_pins(context, rootfs)
     print(f"  {runtime}: {base} with the official image's packages from Debian's archive at {stamp}")
     _docker_build(context, runtime, arch)
     built = build(runtime, rootfs, src, work, arch)
