@@ -226,15 +226,13 @@ drops a commit when the tag already has its change, or when an upstream commit i
 comes from that way. A conflict goes to its repair agent, which carries the rest on `carry/<version>` for
 review; a human then creates `simee/<version>` from it.
 
-`simee/10.0.6` holds:
+`simee/10.0.7` holds:
 - `kicad-cli sch import`, backported from KiCad master (upstream 473474c51a3a, in KiCad 11): imports
   Altium, Eagle, CADSTAR, EasyEDA (Std and Pro), LTspice and PADS schematics and saves them as
   `.kicad_sch`, which `sch export netlist` then reads. The output folder must exist.
 - an EasyEDA Std import fix: circle net flags (`part_netLabel_Bar`) now connect. Offered upstream as
   https://gitlab.com/kicad/code/kicad/-/merge_requests/2826 (issue kicad#25730, not merged yet; #14);
   keep carrying it until a release we track has it.
-- no stray `.kicad_sch` (the virtual root sheet) next to an imported schematic: backport of upstream
-  f106b2052cef (in KiCad 11), minus its API save-copy half, which 10.0.x doesn't have (#15).
 - a multi-sheet import keeps every sheet: with no project to list several top-level sheets (one per
   Eagle page), `sch import` puts them under a root sheet that the output file holds, so `sch export
   netlist` of the output sees the whole design. Upstream's `sch import` writes the other sheets with
