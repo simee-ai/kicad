@@ -14,5 +14,13 @@
    "R1.2",
    "R2.1"
   ]
- ]
+ ],
+ "projects": {
+  "sch": [
+   "board 'Main'"
+  ],
+  "pcb": [
+   "board 'Main'"
+  ]
+ }
 }

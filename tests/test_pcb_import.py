@@ -1,5 +1,7 @@
+import json
 import os
 import re
+import zipfile
 import shlex
 import xml.etree.ElementTree as ET
 
@@ -7,7 +9,7 @@ import pytest
 
 from eagle_nets import eagle_board
 from easyedapro_nets import easyedapro_board
-from kicad_bundle import pcb_import
+from kicad_bundle import pcb_import, sch_import
 
 BOARDS = pcb_import.boards()
 IDS = [b.name for b in BOARDS]
@@ -88,3 +90,44 @@ def test_check_fails_when_the_nets_differ(monkeypatch):
 @pytest.mark.parametrize("board", BOARDS, ids=IDS)
 def test_import_matches_source_tool(board):
     pcb_import.check(shlex.split(KICAD_CLI), board)
+
+
+def test_the_import_of_a_board_naming_a_project_passes_it(monkeypatch, tmp_path):
+    board = next(b for b in BOARDS if b.project)
+    calls = []
+
+    def run(cli, args, out):
+        calls.append(args)
+        raise StopIteration
+
+    monkeypatch.setattr(pcb_import.smoke, "run", run)
+    with pytest.raises(StopIteration):
+        pcb_import.imported(["kicad-cli"], board, tmp_path)
+    assert calls[0][:2] == ["pcb", "import"] and calls[0][-3:-1] == ["--project", board.project]
+
+
+def test_check_fails_when_a_text_of_the_board_is_missing(monkeypatch):
+    board = next(b for b in BOARDS if b.texts)
+
+    def imported(cli, b, tmp):
+        (tmp / "out").mkdir()
+        (tmp / "out" / "imported.kicad_pcb").write_text(f'(kicad_pcb (gr_text "{board.texts[0]}"))')
+        return board.nets
+
+    monkeypatch.setattr(pcb_import, "imported", imported)
+    monkeypatch.setattr(pcb_import.smoke, "check_drawings", lambda *a: None)
+    with pytest.raises(RuntimeError, match=re.escape(f"{board.name}: texts missing: {list(board.texts[1:])!r}")):
+        pcb_import.check(["kicad-cli"], board)
+
+
+@pytest.mark.parametrize("board", [b for b in BOARDS if b.texts], ids=[b.name for b in BOARDS if b.texts])
+def test_a_boards_texts_are_its_own_and_not_the_first_boards(board):
+    # what tells a board named by --project from the first, when both have the same nets (#45)
+    with zipfile.ZipFile(board.source) as zf:
+        project = json.loads(zf.read("project.json"))
+        def texts(name):
+            pcb = project["boards"][name]["pcb"]
+            return {json.loads(line)[6] for line in zf.read(f"PCB/{pcb}.epcb").decode().splitlines()
+                    if line.startswith('["STRING"')}
+        own, first = texts(sch_import.board_name(board.project)), texts(min(project["boards"]))
+    assert set(board.texts) <= own - first

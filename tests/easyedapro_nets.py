@@ -5,7 +5,7 @@ net of every pad as EasyEDA Pro synced it from the schematic (`PAD_NET` lines: p
 each part's `Designator` (`ATTR` lines), and free pads (`PAD` lines, such as a mounting hole on GND),
 which are on the board only. Nets come back as sorted "REF.PAD" lists, as KiCad names them. A project
 can hold several boards (a schematic + PCB pair each); kicad-cli imports the first by name
-(simee/10.0.6's ChooseFirstProject, #29), and so does this.
+(simee/10.0.6's ChooseFirstProject, #29), and so does this, unless a board is named (`--project`, #45).
 """
 
 import json
@@ -21,9 +21,10 @@ def _lines(text: str) -> list[list]:
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 
 
-def default_board(project: dict) -> tuple[str, str, str]:
-    """(board name, schematic id, PCB id) of the board kicad-cli imports from a project.json."""
-    name = min(project["boards"])
+def default_board(project: dict, name: str | None = None) -> tuple[str, str, str]:
+    """(board name, schematic id, PCB id) of the board kicad-cli imports from a project.json: board `name`,
+    else the first."""
+    name = name or min(project["boards"])
     board = project["boards"][name]
     return name, board["schematic"], board["pcb"]
 
@@ -50,12 +51,13 @@ def _sorted(nets: dict[str, set[str]]) -> list[list[str]]:
     return sorted(sorted(pads) for pads in nets.values())
 
 
-def _pcb(path: Path) -> tuple[dict[str, str], dict[str, set[str]], dict[str, set[str]], tuple[float, float]]:
-    """The default board's designators (part id -> designator), its parts' pads by net, its free pads by
+def _pcb(path: Path, board: str | None = None) -> tuple[dict[str, str], dict[str, set[str]], dict[str, set[str]],
+                                                     tuple[float, float]]:
+    """Board `board`'s (else the default one's) designators (part id -> designator), its parts' pads by net, its free pads by
     net (named as KiCad imports them: a footprint with no reference) and its outline size (mm, the extent
     of its vertices: right for the straight sides and corner arcs boards have)."""
     with zipfile.ZipFile(path) as zf:
-        _, _, pcb = default_board(json.loads(zf.read("project.json")))
+        _, _, pcb = default_board(json.loads(zf.read("project.json")), board)
         lines = _lines(zf.read(f"PCB/{pcb}.epcb").decode())
     designators = {line[3]: line[8] for line in lines if line[0] == "ATTR" and line[7] == "Designator"}
     part_pads, free_pads = defaultdict(set), defaultdict(set)
@@ -70,16 +72,16 @@ def _pcb(path: Path) -> tuple[dict[str, str], dict[str, set[str]], dict[str, set
     return designators, part_pads, free_pads, size
 
 
-def easyedapro_board(path: Path) -> tuple[set[str], tuple[float, float], list[list[str]]]:
-    """The default board's part designators, outline size (mm) and every net with a pad, free pads and
+def easyedapro_board(path: Path, board: str | None = None) -> tuple[set[str], tuple[float, float], list[list[str]]]:
+    """Board `board`'s (else the default one's) part designators, outline size (mm) and every net with a pad, free pads and
     single-pad nets too."""
-    designators, part_pads, free_pads, size = _pcb(path)
+    designators, part_pads, free_pads, size = _pcb(path, board)
     nets = defaultdict(set, {net: set(pads) for net, pads in part_pads.items()})
     for net, pads in free_pads.items():
         nets[net] |= pads
     return set(designators.values()), size, _sorted(nets)
 
 
-def easyedapro_nets(path: Path) -> list[list[str]]:
-    """The default board's nets as its schematic has them: its parts' pads, two or more."""
-    return [net for net in _sorted(_pcb(path)[1]) if len(net) > 1]
+def easyedapro_nets(path: Path, board: str | None = None) -> list[list[str]]:
+    """Board `board`'s (else the default one's) nets as its schematic has them: its parts' pads, two or more."""
+    return [net for net in _sorted(_pcb(path, board)[1]) if len(net) > 1]

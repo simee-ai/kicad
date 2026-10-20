@@ -1,7 +1,8 @@
 """Prove `kicad-cli sch import` (simee/<version> builds) converts real circuits: import each fixture,
 export the result's netlist and compare KiCad's components and nets with the source tool's. And that
 `--format auto` (what simee-core runs) picks each file's own importer, or none for a file that is no
-schematic."""
+schematic. A fixture of a file holding several projects (EasyEDA Pro) may name the one it imports (fixture.json
+"project", `--project`) and list what `--list-projects` gives for it ("projects": {"sch": [...], "pcb": [...]})."""
 
 import json
 import os
@@ -35,6 +36,11 @@ class Fixture:
     components: dict[str, str]
     nets: list[list[str]]
     meta: dict
+
+    @property
+    def project(self) -> str | None:
+        """The project imported from a source holding several, as kicad-cli names it; None for the first."""
+        return self.meta.get("project")
 
     @classmethod
     def load(cls, folder: Path) -> "Fixture":
@@ -85,6 +91,8 @@ def fixtures() -> list[Fixture]:
 def detections() -> list[Detection]:
     cases = []
     for f in fixtures():
+        if f.project:  # its source is another fixture's
+            continue
         cases.append(Detection(f.source, f.source.name, f.format))
         if f.format == "ltspice":
             cases.append(Detection(f.source, f.source.name, f.format, utf16=True))
@@ -122,6 +130,54 @@ def check_detection(cli: list[str]) -> None:
             problems.append(f"{case.label}: imported as {got or 'no importer'}, wanted {wanted or 'no importer'}")
     if problems:
         raise RuntimeError("sch import --format auto: " + "; ".join(problems))
+
+
+def project_args(project: str | None) -> list[str]:
+    return ["--project", project] if project else []
+
+
+def board_name(project: str | None) -> str | None:
+    """The name of a board kicad-cli names `board '<name>'`; None for any other project."""
+    if project and project.startswith("board '") and project.endswith("'"):
+        return project[len("board '"):-1]
+    return None
+
+
+def projects(cli: list[str], kind: str, source: Path) -> list[str]:
+    """The projects `<kind> import --list-projects` (kind: sch or pcb) names in `source`, each as
+    `board '<name>'`, `schematic '<name>'` or `PCB '<name>'`: those of a project file (EasyEDA Pro), even
+    one alone; none for any other source, which holds one."""
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = Path(tmp) / "src" / source.name
+        copy.parent.mkdir()
+        shutil.copy2(source, copy)
+        result = subprocess.run([*cli, kind, "import", "--list-projects", str(copy)], env=kicad_env(Path(tmp)),
+                                capture_output=True, encoding="utf-8")
+        written = sorted(p.name for p in copy.parent.iterdir() if p != copy)
+    if result.returncode != 0:
+        raise RuntimeError(f"kicad-cli {kind} import --list-projects failed ({result.returncode}): "
+                           f"{(result.stdout + result.stderr).strip()[-2000:]}")
+    if written:
+        raise RuntimeError(f"kicad-cli {kind} import --list-projects wrote {written}")
+    return [line.removeprefix("Project: ") for line in result.stdout.splitlines() if line.startswith("Project: ")]
+
+
+def check_projects(cli: list[str], fixture: Fixture) -> None:
+    """Raise unless `--list-projects` names the projects fixture.json lists for `sch import` of its source and
+    `pcb import` of its board's, or none for a fixture that lists none. A fixture naming a project has another
+    fixture's source, which that one lists."""
+    if fixture.project:
+        return
+    problems = []
+    sources = {"sch": fixture.source}
+    if board := fixture.meta.get("board"):
+        sources["pcb"] = fixture.source.parent / board["source"]
+    for kind, source in sources.items():
+        wanted = fixture.meta.get("projects", {}).get(kind, [])
+        if (got := projects(cli, kind, source)) != wanted:
+            problems.append(f"{kind} import lists {got}, wanted {wanted}")
+    if problems:
+        raise RuntimeError(f"{fixture.name}: " + "; ".join(problems))
 
 
 def _run(cli: list[str], args: list[str], home: Path) -> None:
@@ -171,8 +227,8 @@ def imported(cli: list[str], fixture: Fixture, layout: str = "apart") -> tuple[d
         sch, net = out / "imported.kicad_sch", Path(tmp) / "imported.net"
         source = src_dir / fixture.source.name
         before = source_files(src_dir, out)
-        _run(cli, ["sch", "import", "--format", format_hint(fixture.format), "-o", str(sch), str(source)],
-             Path(tmp))
+        _run(cli, ["sch", "import", "--format", format_hint(fixture.format), "-o", str(sch),
+                   *project_args(fixture.project), str(source)], Path(tmp))
         stray = (stray_files(out) + [f"{name} (beside the source)" for name in written_beside(src_dir, out, before)]
                  + [f"{named} (outside the output)" for named in sheets_outside(out)])
         _run(cli, ["sch", "export", "netlist", "-o", str(net), str(sch)], Path(tmp))

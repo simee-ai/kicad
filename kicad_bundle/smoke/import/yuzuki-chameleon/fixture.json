@@ -3023,5 +3023,19 @@
     "U5.C2"
    ]
   ]
+ },
+ "projects": {
+  "sch": [
+   "board '1.0 OpenSource'",
+   "board '合作量产版本100ASK'",
+   "schematic 'H616 内存重排布图'"
+  ],
+  "pcb": [
+   "board '1.0 OpenSource'",
+   "board '合作量产版本100ASK'",
+   "PCB '树莓派A版形状'",
+   "PCB '点位图'",
+   "PCB '散热器外形'"
+  ]
  }
 }

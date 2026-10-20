@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 import shlex
+import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -13,7 +14,7 @@ from eagle_nets import eagle_nets, kicad_reference
 from easyedapro_nets import easyedapro_board, easyedapro_nets
 from geda_nets import geda_nets
 from kicad_bundle import sch_import
-from kicad_bundle.smoke import netlist_components
+from kicad_bundle.smoke import kicad_env, netlist_components
 
 FIXTURES = sch_import.fixtures()
 IDS = [f.name for f in FIXTURES]
@@ -274,8 +275,8 @@ def test_fixtures_cover_an_easyedapro_project_holding_several_boards():
     assert any(len(json.loads(zipfile.ZipFile(f.source).read("project.json"))["boards"]) > 1 for f in epros)
 
 
-@pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "easyedapro"],
-                         ids=[f.name for f in FIXTURES if f.format == "easyedapro"])
+@pytest.mark.parametrize("fixture", [f for f in FIXTURES if f.format == "easyedapro" and not f.project],
+                         ids=[f.name for f in FIXTURES if f.format == "easyedapro" and not f.project])
 def test_easyedapro_expectations_are_what_easyeda_pro_connects(fixture):
     designators, _, _ = easyedapro_board(fixture.source)
     assert fixture.nets == easyedapro_nets(fixture.source)
@@ -391,3 +392,116 @@ def test_check_detection_names_every_misdetected_file(monkeypatch):
 @pytest.mark.parametrize("case", DETECTIONS, ids=DETECTION_IDS)
 def test_auto_import_picks_the_files_own_importer(case):
     assert sch_import.detected(shlex.split(KICAD_CLI), case) == sch_import.FORMAT_NAMES.get(case.format)
+
+
+# Projects of a file holding several, picked by `--project` and listed by `--list-projects` (#45)
+NAMED = [f for f in FIXTURES if f.project]
+
+
+def test_fixtures_cover_a_project_named_that_isnt_the_first():
+    assert any(f.format == "easyedapro" and f.project != f"board '{min(epro_boards(f.source))}'" for f in NAMED)
+
+
+def epro_boards(source):
+    return json.loads(zipfile.ZipFile(source).read("project.json"))["boards"]
+
+
+@pytest.mark.parametrize("fixture", NAMED, ids=[f.name for f in NAMED])
+def test_a_named_project_is_a_board_of_its_source(fixture):
+    assert sch_import.board_name(fixture.project) in epro_boards(fixture.source)
+
+
+@pytest.mark.parametrize("fixture", NAMED, ids=[f.name for f in NAMED])
+def test_named_easyedapro_expectations_are_what_easyeda_pro_connects_on_that_board(fixture):
+    board = sch_import.board_name(fixture.project)
+    designators, size, nets = easyedapro_board(fixture.source, board)
+    assert fixture.nets == easyedapro_nets(fixture.source, board)
+    assert set(fixture.components) == designators
+    assert (tuple(fixture.meta["board"]["size_mm"]), fixture.meta["board"]["nets"]) == (size, nets)
+
+
+def test_board_name_is_the_name_of_a_board_only():
+    assert sch_import.board_name("board 'A, b'") == "A, b"
+    assert sch_import.board_name("schematic 'A'") is None
+    assert sch_import.board_name(None) is None
+
+
+def test_the_import_of_a_fixture_naming_a_project_passes_it(monkeypatch):
+    calls = []
+
+    def run(cli, args, home):
+        calls.append(args)
+        raise StopIteration
+
+    monkeypatch.setattr(sch_import, "_run", run)
+    with pytest.raises(StopIteration):
+        sch_import.imported(["kicad-cli"], NAMED[0])
+    assert calls[0][:2] == ["sch", "import"] and calls[0][-3:-1] == ["--project", NAMED[0].project]
+
+
+def test_projects_are_the_project_lines_kicad_cli_lists(tmp_path):
+    cli = fake_cli(tmp_path, "Importing '/x.epro' using EasyEDA (JLCEDA) Pro format...\n"
+                             "The source holds 2 projects:\nProject: board 'A, b'\nProject: PCB '散热器'")
+    assert sch_import.projects(cli, "sch", NAMED[0].source) == ["board 'A, b'", "PCB '散热器'"]
+
+
+def test_projects_of_a_source_that_is_no_project_file_are_none(tmp_path):
+    cli = fake_cli(tmp_path, "Importing '/x.brd' using EAGLE format...\nThe source holds one project")
+    assert sch_import.projects(cli, "pcb", NAMED[0].source) == []
+
+
+def test_projects_refuses_a_failed_listing(tmp_path):
+    with pytest.raises(RuntimeError, match="list-projects"):
+        sch_import.projects(fake_cli(tmp_path, "Segmentation fault", code=139), "sch", NAMED[0].source)
+
+
+LISTED = [f for f in FIXTURES if "projects" in f.meta]
+SEVERAL = next(f for f in LISTED if len(f.meta["projects"]["sch"]) > 1)
+
+
+def test_fixtures_list_the_projects_of_a_file_holding_several():
+    # sch import lists the boards and lone schematics, pcb import the boards and lone PCBs
+    assert any(f.meta["projects"]["sch"] != f.meta["projects"]["pcb"] for f in LISTED)
+
+
+@pytest.mark.parametrize("fixture", LISTED, ids=[f.name for f in LISTED])
+def test_listed_projects_are_the_sources_own(fixture):
+    project = json.loads(zipfile.ZipFile(fixture.source).read("project.json"))
+    boards = [f"board '{name}'" for name in sorted(project["boards"])]
+    paired = {b[k] for b in project["boards"].values() for k in ("schematic", "pcb")}
+    # lone PCBs and schematics in id order, as KiCad's EasyEDA Pro importer offers them
+    pcbs = [f"PCB '{v if isinstance(v, str) else v['title']}'" for k, v in sorted(project["pcbs"].items())
+            if k not in paired]
+    schematics = [f"schematic '{v['name']}'" for k, v in sorted(project["schematics"].items()) if k not in paired]
+    assert fixture.meta["projects"] == {"sch": boards + schematics, "pcb": boards + pcbs}
+
+
+@pytest.mark.skipif(not KICAD_CLI, reason="set KICAD_CLI to a kicad-cli built from a simee/<version> branch")
+@pytest.mark.parametrize("fixture", FIXTURES, ids=IDS)
+def test_list_projects_names_each_project_of_the_source(fixture):
+    sch_import.check_projects(shlex.split(KICAD_CLI), fixture)
+
+
+@pytest.mark.skipif(not KICAD_CLI, reason="set KICAD_CLI to a kicad-cli built from a simee/<version> branch")
+@pytest.mark.parametrize("kind", ["sch", "pcb"])
+def test_a_project_no_project_of_the_source_is_fails_naming_them(kind, tmp_path):
+    fixture = SEVERAL
+    result = subprocess.run([*shlex.split(KICAD_CLI), kind, "import", "--project", "board 'nope'",
+                             "-o", str(tmp_path / f"out.kicad_{kind}"), str(fixture.source)],
+                            env=kicad_env(tmp_path), capture_output=True, encoding="utf-8")
+    assert result.returncode == 1
+    assert ", ".join(fixture.meta["projects"][kind]) in result.stderr
+    assert not list(tmp_path.glob("out.*"))
+
+
+@pytest.mark.skipif(not KICAD_CLI, reason="set KICAD_CLI to a kicad-cli built from a simee/<version> branch")
+@pytest.mark.parametrize("kind", ["sch", "pcb"])
+def test_a_project_is_named_by_its_name_alone_when_no_other_has_it(kind, tmp_path):
+    fixture = SEVERAL
+    board = fixture.meta["projects"][kind][1]
+    result = subprocess.run([*shlex.split(KICAD_CLI), kind, "import", "--project",
+                             sch_import.board_name(board), "-o", str(tmp_path / f"out.kicad_{kind}"),
+                             str(fixture.source)],
+                            env=kicad_env(tmp_path), capture_output=True, encoding="utf-8")
+    assert result.returncode == 0, result.stderr
+    assert f"; importing {board} (left out: " in result.stdout
