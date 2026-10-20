@@ -111,7 +111,8 @@ def detected(cli: list[str], case: Detection) -> str | None:
         data = case.source.read_bytes()
         (src / case.name).write_bytes(data.decode().encode("utf-16-le") if case.utf16 else data)
         result = subprocess.run([*cli, "sch", "import", "--format", "auto", "-o", str(out / "imported.kicad_sch"),
-                                 str(src / case.name)], env=kicad_env(Path(tmp)), capture_output=True, text=True)
+                                 str(src / case.name)], env=kicad_env(Path(tmp)), capture_output=True,
+                                encoding="utf-8", errors="replace")
     text = result.stdout + result.stderr
     if "No schematic importer recognizes" in text:
         return None
@@ -152,7 +153,7 @@ def projects(cli: list[str], kind: str, source: Path) -> list[str]:
         copy.parent.mkdir()
         shutil.copy2(source, copy)
         result = subprocess.run([*cli, kind, "import", "--list-projects", str(copy)], env=kicad_env(Path(tmp)),
-                                capture_output=True, encoding="utf-8")
+                                capture_output=True, encoding="utf-8", errors="replace")
         written = sorted(p.name for p in copy.parent.iterdir() if p != copy)
     if result.returncode != 0:
         raise RuntimeError(f"kicad-cli {kind} import --list-projects failed ({result.returncode}): "
@@ -181,7 +182,8 @@ def check_projects(cli: list[str], fixture: Fixture) -> None:
 
 
 def _run(cli: list[str], args: list[str], home: Path) -> None:
-    result = subprocess.run([*cli, *args], env=kicad_env(home), capture_output=True, text=True)
+    result = subprocess.run([*cli, *args], env=kicad_env(home), capture_output=True, encoding="utf-8",
+                            errors="replace")
     if result.returncode != 0:
         raise RuntimeError(f"kicad-cli {' '.join(args[:2])} failed ({result.returncode}): "
                            f"{(result.stdout + result.stderr).strip()[-2000:]}")

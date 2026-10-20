@@ -155,7 +155,9 @@ def export_gerbers(cli: list[str], board: Path, folder: Path) -> dict[str, str]:
 
 def run(cli: list[str], args: list[str], out: Path) -> Path:
     """Run `cli args`, which must write out (a file or folder) without logging errors; returns out."""
-    result = subprocess.run([*cli, *args], env=kicad_env(out.parent), capture_output=True, text=True)
+    # kicad-cli writes UTF-8 whatever the locale (simee/10.0.7, #45); Windows' is cp1252
+    result = subprocess.run([*cli, *args], env=kicad_env(out.parent), capture_output=True, encoding="utf-8",
+                            errors="replace")
     if result.returncode != 0 or not out.exists():
         raise RuntimeError(f"kicad-cli {' '.join(args[:2])} failed ({result.returncode}): "
                            f"{(result.stdout + result.stderr).strip()[-2000:]}")
