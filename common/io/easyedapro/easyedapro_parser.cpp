@@ -179,7 +179,9 @@ void EASYEDAPRO::from_json( const nlohmann::json& j, EASYEDAPRO::SYM_HEAD& d )
 
 void EASYEDAPRO::from_json( const nlohmann::json& j, EASYEDAPRO::PRJ_SHEET& d )
 {
-    d.name = j.value( "name", "" );
+    // As UTF-8: assigning the std::string converts with the C library's locale, which in the C
+    // locale (kicad-cli in a container) makes a Chinese name ""
+    d.name = j.value( "name", wxString() );
     d.uuid = j.value( "uuid", "" );
     d.id = j.value( "id", 0 );
 }
@@ -187,7 +189,7 @@ void EASYEDAPRO::from_json( const nlohmann::json& j, EASYEDAPRO::PRJ_SHEET& d )
 
 void EASYEDAPRO::from_json( const nlohmann::json& j, EASYEDAPRO::PRJ_SCHEMATIC& d )
 {
-    d.name = j.value( "name", "" );
+    d.name = j.value( "name", wxString() ); // as UTF-8, as PRJ_SHEET's
     d.sheets = j.value( "sheets", std::vector<PRJ_SHEET>{} );
 }
 
