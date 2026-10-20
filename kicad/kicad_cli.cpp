@@ -376,6 +376,18 @@ static bool looksLikeNegativeVectorValue( const std::string& aValue )
  *
  * Example: "--rotate -45,0,45" becomes "--rotate='-45,0,45'"
  */
+#ifndef __WINDOWS__
+/**
+ * The command line as the process got it, as bytes: UTF-8, the files' and the caller's. wx
+ * converts it to wxStrings with the C library's locale, so in the C locale (kicad-cli in a
+ * container) a UTF-8 argument such as a Chinese project name came back from them as Latin-1
+ * mojibake. Windows gives wx the command line as UTF-16, which converts back exactly.
+ */
+static int    s_argc = 0;
+static char** s_argv = nullptr;
+#endif
+
+
 static std::vector<std::string> preprocessArgs( int argc, char** argv )
 {
     std::vector<std::string> result;
@@ -410,6 +422,18 @@ static std::vector<std::string> preprocessArgs( int argc, char** argv )
 bool PGM_KICAD::OnPgmInit()
 {
     PGM_BASE::BuildArgvUtf8();
+
+#ifndef __WINDOWS__
+    if( s_argv && s_argc == m_argcUtf8 )
+    {
+        for( int n = 0; n < m_argcUtf8; n++ )
+        {
+            free( m_argvUtf8[n] );
+            m_argvUtf8[n] = wxStrdup( s_argv[n] );
+        }
+    }
+#endif
+
     App().SetAppDisplayName( wxT( "kicad-cli" ) );
 
 #if defined( DEBUG )
@@ -735,7 +759,22 @@ struct APP_KICAD_CLI : public wxAppConsole
 #endif
 };
 
+#ifdef __WINDOWS__
 IMPLEMENT_APP_CONSOLE( APP_KICAD_CLI )
+#else
+wxIMPLEMENT_APP_NO_MAIN( APP_KICAD_CLI );
+
+// wxIMPLEMENT_WXWIN_MAIN_CONSOLE's main, keeping the command line's bytes
+int main( int argc, char** argv )
+{
+    wxDISABLE_DEBUG_SUPPORT();
+
+    s_argc = argc;
+    s_argv = argv;
+
+    return wxEntry( argc, argv );
+}
+#endif
 
 
 // The C++ project manager supports one open PROJECT, so Prj() calls within
