@@ -30,6 +30,8 @@
 #define ARG_FORMAT "--format"
 #define ARG_REPORT_FORMAT "--report-format"
 #define ARG_REPORT_FILE "--report-file"
+#define ARG_PROJECT "--project"
+#define ARG_LIST_PROJECTS "--list-projects"
 
 
 CLI::SCH_IMPORT_COMMAND::SCH_IMPORT_COMMAND() : COMMAND( "import" )
@@ -55,6 +57,18 @@ CLI::SCH_IMPORT_COMMAND::SCH_IMPORT_COMMAND() : COMMAND( "import" )
             .default_value( std::string( "" ) )
             .help( UTF8STDSTR( _( "File path for import report (default: stdout)" ) ) )
             .metavar( "FILE" );
+
+    m_argParser.add_argument( ARG_PROJECT )
+            .default_value( std::string( "" ) )
+            .help( UTF8STDSTR( _( "The project to import from a file holding several (EasyEDA Pro): "
+                                  "board '<name>', schematic '<name>' or PCB '<name>', or the name "
+                                  "alone when no other project has it (default: the first)" ) ) )
+            .metavar( "PROJECT" );
+
+    m_argParser.add_argument( ARG_LIST_PROJECTS )
+            .help( UTF8STDSTR( _( "List the projects of a file holding several, one 'Project: ' "
+                                  "line each, and import nothing" ) ) )
+            .flag();
 }
 
 
@@ -98,6 +112,9 @@ int CLI::SCH_IMPORT_COMMAND::doPerform( KIWAY& aKiway )
     }
 
     importJob->m_reportFile = From_UTF8( m_argParser.get<std::string>( ARG_REPORT_FILE ).c_str() );
+
+    importJob->m_project = From_UTF8( m_argParser.get<std::string>( ARG_PROJECT ).c_str() );
+    importJob->m_listProjects = m_argParser.get<bool>( ARG_LIST_PROJECTS );
 
     int exitCode = aKiway.ProcessJob( KIWAY::FACE_SCH, importJob.get() );
 

@@ -32,6 +32,7 @@
 #include <json_common.h>
 #include <core/json_serializers.h>
 
+#include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/stream.h>
 #include <wx/zipstrm.h>
@@ -150,6 +151,27 @@ EASYEDAPRO::ProjectToSelectorDialog( const nlohmann::json& aProject, bool aPcbOn
     }
 
     return result;
+}
+
+
+std::vector<IMPORT_PROJECT_DESC> EASYEDAPRO::ProjectsOfFile( const wxString& aFileName,
+                                                             bool aPcbOnly, bool aSchOnly )
+{
+    wxString ext = wxFileName( aFileName ).GetExt();
+
+    if( ext != wxS( "epro" ) && ext != wxS( "zip" ) )
+        return {};
+
+    nlohmann::json project = ReadProjectOrDeviceFile( aFileName );
+
+    // A library (device.json) holds no project
+    if( !project.contains( "schematics" ) || !project.contains( "boards" )
+        || !project.contains( "pcbs" ) )
+    {
+        return {};
+    }
+
+    return ProjectToSelectorDialog( project, aPcbOnly, aSchOnly );
 }
 
 

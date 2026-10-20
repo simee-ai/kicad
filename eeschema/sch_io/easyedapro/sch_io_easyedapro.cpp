@@ -71,6 +71,12 @@ SCH_IO_EASYEDAPRO::~SCH_IO_EASYEDAPRO()
 }
 
 
+std::vector<IMPORT_PROJECT_DESC> SCH_IO_EASYEDAPRO::GetProjects( const wxString& aFileName ) const
+{
+    return EASYEDAPRO::ProjectsOfFile( aFileName, false, true );
+}
+
+
 bool SCH_IO_EASYEDAPRO::CanReadSchematicFile( const wxString& aFileName ) const
 {
     if( aFileName.Lower().EndsWith( wxS( ".epro" ) ) )

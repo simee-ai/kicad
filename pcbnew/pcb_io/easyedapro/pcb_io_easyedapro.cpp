@@ -68,6 +68,12 @@ PCB_IO_EASYEDAPRO::~PCB_IO_EASYEDAPRO()
 }
 
 
+std::vector<IMPORT_PROJECT_DESC> PCB_IO_EASYEDAPRO::GetProjects( const wxString& aFileName ) const
+{
+    return EASYEDAPRO::ProjectsOfFile( aFileName, true, false );
+}
+
+
 bool PCB_IO_EASYEDAPRO::CanReadBoard( const wxString& aFileName ) const
 {
     if( aFileName.Lower().EndsWith( wxS( ".epro" ) ) )

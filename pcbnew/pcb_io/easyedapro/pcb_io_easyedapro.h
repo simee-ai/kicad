@@ -54,6 +54,9 @@ public:
 
     bool CanReadBoard( const wxString& aFileName ) const override;
 
+    /// The boards and lone PCBs of the project file, the choices LoadBoard() has
+    std::vector<IMPORT_PROJECT_DESC> GetProjects( const wxString& aFileName ) const override;
+
     BOARD* LoadBoard( const wxString& aFileName, BOARD* aAppendToMe,
                       const std::map<std::string, UTF8>* aProperties = nullptr, PROJECT* aProject = nullptr ) override;
 
