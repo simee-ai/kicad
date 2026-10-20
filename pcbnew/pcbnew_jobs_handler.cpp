@@ -2863,6 +2863,7 @@ int PCBNEW_JOBS_HANDLER::JobImport( JOB* aJob )
 
     BOARD* board = nullptr;
     wxString formatName = PCB_IO_MGR::ShowType( fileType );
+    CLI_PROJECT_CHOICE projectChoice( job->m_project, m_reporter );
     std::vector<wxString> warnings;
 
     try
@@ -2881,11 +2882,28 @@ int PCBNEW_JOBS_HANDLER::JobImport( JOB* aJob )
                                               job->m_inputFile, formatName ),
                             RPT_SEVERITY_INFO );
 
-        // A source holding several projects (EasyEDA Pro) is imported without asking which
-        if( PROJECT_CHOOSER_PLUGIN* chooser = dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() ) )
-            chooser->RegisterCallback( ChooseFirstProject( m_reporter ) );
+        PROJECT_CHOOSER_PLUGIN* chooser = dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() );
+
+        if( job->m_listProjects )
+        {
+            ReportProjects( m_reporter, chooser ? chooser->GetProjects( job->m_inputFile )
+                                                : std::vector<IMPORT_PROJECT_DESC>() );
+            return CLI::EXIT_CODES::SUCCESS;
+        }
+
+        // A source holding several projects (EasyEDA Pro) imports the one named, else the first
+        if( chooser )
+            chooser->RegisterCallback( projectChoice.Handler() );
 
         board = pi->LoadBoard( job->m_inputFile, nullptr, nullptr, nullptr );
+
+        if( projectChoice.Failed() )
+        {
+            delete board;
+            return CLI::EXIT_CODES::ERR_ARGS;
+        }
+
+        projectChoice.ReportUnasked();
 
         if( !board )
         {

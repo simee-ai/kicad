@@ -60,6 +60,10 @@ public:
     FORMAT        m_format = FORMAT::AUTO;
     REPORT_FORMAT m_reportFormat = REPORT_FORMAT::NONE;
     wxString      m_reportFile;
+    /// The project to import from a source holding several (`board '<name>'`, ...); the first if empty
+    wxString      m_project;
+    /// Only list the projects of a source holding several, importing nothing
+    bool          m_listProjects = false;
 };
 
 #endif

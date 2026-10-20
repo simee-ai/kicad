@@ -41,6 +41,8 @@ JOB_SCH_IMPORT::JOB_SCH_IMPORT() :
     m_params.emplace_back( new JOB_PARAM<FORMAT>( "format", &m_format, m_format ) );
     m_params.emplace_back( new JOB_PARAM<IMPORT_REPORT_FORMAT>( "report_format", &m_reportFormat, m_reportFormat ) );
     m_params.emplace_back( new JOB_PARAM<wxString>( "report_file", &m_reportFile, m_reportFile ) );
+    m_params.emplace_back( new JOB_PARAM<wxString>( "project", &m_project, m_project ) );
+    m_params.emplace_back( new JOB_PARAM<bool>( "list_projects", &m_listProjects, m_listProjects ) );
 }
 
 

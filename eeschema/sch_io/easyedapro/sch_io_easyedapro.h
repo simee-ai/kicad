@@ -53,6 +53,9 @@ public:
 
     bool CanReadSchematicFile( const wxString& aFileName ) const override;
 
+    /// The boards and lone schematics of the project file, the choices LoadSchematicFile() has
+    std::vector<IMPORT_PROJECT_DESC> GetProjects( const wxString& aFileName ) const override;
+
     int GetModifyHash() const override;
 
     SCH_SHEET* LoadSchematicFile( const wxString& aFileName, SCHEMATIC* aSchematic,

@@ -48,6 +48,14 @@ std::vector<IMPORT_PROJECT_DESC> ProjectToSelectorDialog( const nlohmann::json& 
                                                           bool                  aPcbOnly = false,
                                                           bool                  aSchOnly = false );
 
+/**
+ * The projects an EasyEDA Pro project file (.epro, or the older .zip) holds, as the importers offer
+ * them to choose from (ProjectToSelectorDialog), all of them even when there is one; none for any
+ * other file.
+ */
+std::vector<IMPORT_PROJECT_DESC> ProjectsOfFile( const wxString& aFileName, bool aPcbOnly,
+                                                 bool aSchOnly );
+
 nlohmann::json FindJsonFile( const wxString& aZipFileName, const std::set<wxString>& aFileNames );
 
 nlohmann::json ReadProjectOrDeviceFile( const wxString& aZipFileName );
