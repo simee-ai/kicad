@@ -204,10 +204,14 @@ REPORTER& CLI_REPORTER::Report( const wxString& aMsg, SEVERITY aSeverity )
     if( aSeverity == RPT_SEVERITY_ERROR )
         target = stderr;
 
-    if( aMsg.EndsWith( wxS( "\n" ) ) )
-        wxFprintf( target, aMsg );
-    else
-        wxFprintf( target, aMsg + wxS( "\n" ) );
+    // As UTF-8, not converted with the C library's locale: in the C locale (kicad-cli in a
+    // container) a character it can't encode, such as a Chinese project name, came out as "?", and
+    // on Windows the message stopped at the first one, newline and all. And as the message, not as
+    // a format: a "%" in a name or path was read as a conversion.
+    fputs( aMsg.utf8_str(), target );
+
+    if( !aMsg.EndsWith( wxS( "\n" ) ) )
+        fputs( "\n", target );
 
     // Needed  after wxPrintf (or printf) to be sure the message is immediately printed
     // (i.e. not stored in some i/o buffer)
