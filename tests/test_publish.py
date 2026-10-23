@@ -59,7 +59,7 @@ def test_release_notes_of_a_simee_build_say_what_changed_and_where_the_source_is
     sha = "4e18395976" + "0" * 30
     text = release_notes("10.0.6", "https://run/1", [], simee_sha=sha)
     assert "unmodified" not in text
-    assert f"https://github.com/simee-ai/simee-kicad/commit/{sha}" in text
+    assert f"https://github.com/simee-ai/kicad/commit/{sha}" in text
     assert "kicad-cli sch import" in text
     assert "kicad-10.0.6-source.tar.gz" in text
     assert "https://gitlab.com/kicad/code/kicad/-/tags/10.0.6" not in text

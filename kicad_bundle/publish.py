@@ -47,7 +47,7 @@ def release_notes(version: str, run_url: str, assets: list[str], simee_sha: str 
     """simee_sha: the simee-kicad commit KiCad's own files were built from (none: official binaries)."""
     listed = "\n".join(f"- `{a}`" for a in sorted(assets))
     if simee_sha:
-        commit = f"https://github.com/simee-ai/simee-kicad/commit/{simee_sha}"
+        commit = f"https://github.com/simee-ai/kicad/commit/{simee_sha}"
         origin = (f"KiCad {version} with simee's changes (`kicad-cli sch import` among them), its own files built\n"
                   f"from simee-kicad {commit}, on the official release's libraries")
         source = f"`kicad-{version}-source.tar.gz` is attached: the source of {commit}"

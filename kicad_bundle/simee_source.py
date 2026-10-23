@@ -6,7 +6,7 @@ from pathlib import Path
 
 from kicad_bundle.fetch import fetch_url, write_atomically
 
-REPO = "https://github.com/simee-ai/simee-kicad"
+REPO = "https://github.com/simee-ai/kicad"
 
 
 def resolve_ref(ref: str) -> str:

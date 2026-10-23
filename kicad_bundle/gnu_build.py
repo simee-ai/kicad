@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = "https://github.com/simee-ai/simee-kicad"
+REPO = "https://github.com/simee-ai/kicad"
 BUGURL = f"{REPO}/issues"  # for the toolchains simee builds
 MACOS_MIN = "11.0"  # the first macOS on Apple silicon
 MACOS_ENV = {"MACOSX_DEPLOYMENT_TARGET": MACOS_MIN}

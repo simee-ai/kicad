@@ -185,7 +185,7 @@ release holds the exact Debian source of each (with the sources it was built usi
 
 def notice(host: str, runtime: dict[Path, debian.Package]) -> str:
     rows = "\n".join(f"{c.name} {c.version}\t{c.licence}\n\t{c.url}\tsha256 {c.sha256}" for c in SOURCES)
-    text = NOTICE.format(gcc=GCC.version, host=host, repo="https://github.com/simee-ai/simee-kicad", rows=rows,
+    text = NOTICE.format(gcc=GCC.version, host=host, repo="https://github.com/simee-ai/kicad", rows=rows,
                          source=components.SOURCE_ARCHIVE)
     if runtime:
         lines = sorted(f"{f.name}\t{p.name} {p.version}\t{p.source} {p.source_version}" for f, p in runtime.items())
