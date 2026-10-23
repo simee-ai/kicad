@@ -106,7 +106,8 @@ def test_assemble_of_a_simee_build_names_the_commit_its_kicad_files_come_from(tm
     _image(rootfs)
     linux.assemble(rootfs, root, "10.0.6", simee_sha="4e18395976" + "0" * 30)
     first, second = (root / "THIRD-PARTY.txt").read_text().splitlines()[1:3]
-    assert "simee-kicad commit 4e18395976" in first + second
+    assert "simee-ai/kicad commit 4e18395976" in first + second
+    assert "simee-kicad" not in (root / "THIRD-PARTY.txt").read_text()  # the private repo's name
     assert max(len(first), len(second)) <= 100
 
 

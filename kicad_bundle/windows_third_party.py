@@ -47,7 +47,7 @@ this kicad-cli needs, always use their own.
 
 SIMEE = """
 KiCad's own files (bin/kicad-cli.exe, bin/_*.dll and bin/ki*.dll) are KiCad {version}
-with simee's changes, built from simee-kicad commit {sha}
+with simee's changes, built from simee-ai/kicad commit {sha}
 with the MSVC version and vcpkg ports of the official build."""
 
 

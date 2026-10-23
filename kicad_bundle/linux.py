@@ -115,7 +115,7 @@ def sources_name(root: Path) -> str:
 
 SIMEE_NOTICE = """
 KiCad's own files (libexec/, lib/{kicad_libs}) are KiCad {version} with simee's changes, built on that image
-with its Debian libraries from simee-kicad commit {sha}."""
+with its Debian libraries from simee-ai/kicad commit {sha}."""
 NATIVE_ORIGIN = """built on the Debian image the official {image} Docker image (amd64 only)
 is built from, for {arch}, with the official image's Debian packages at the same versions"""
 

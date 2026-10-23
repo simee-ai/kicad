@@ -119,7 +119,8 @@ def test_write_notices_names_the_simee_commit_kicads_files_were_built_from(kicad
     third = _collect(kicad)
     windows_third_party.write_notices(third, kicad["root"], "10.0.6", "s.tar", simee_sha="4e18395976" + "0" * 30)
     text = (kicad["root"] / "THIRD-PARTY.txt").read_text()
-    assert "with simee's changes" in text and "4e18395976" + "0" * 30 in text
+    assert "with simee's changes" in text and "simee-ai/kicad commit 4e18395976" + "0" * 30 in text
+    assert "simee-kicad" not in text  # the private repo's name
     windows_third_party.write_notices(third, kicad["root"], "10.0.6", "s.tar")
     assert "simee" not in (kicad["root"] / "THIRD-PARTY.txt").read_text()
 

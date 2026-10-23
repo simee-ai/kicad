@@ -37,7 +37,7 @@ REPACKAGED_KICAD = ("repackaged from the official KiCad {version} DMG.",
 Contents/Frameworks/libki*) is GPL-3.0-or-later. Its source is kicad-{version}-source.tar.gz, attached to the same GitHub release.""")
 REBUILT_KICAD = ("the official KiCad {version} DMG with KiCad's own files rebuilt from simee's modified KiCad.",
          """KiCad's own files (KiCad.app/Contents/MacOS/kicad-cli, Contents/PlugIns/*.kiface, Contents/PlugIns/3d and
-Contents/Frameworks/libki*) are built from a modified KiCad {version}: simee-kicad commit {sha}
+Contents/Frameworks/libki*) are built from a modified KiCad {version}: simee-ai/kicad commit {sha}
 (https://github.com/simee-ai/kicad), which adds changes on top of KiCad's {version} tag (see its
 history). KiCad is GPL-3.0-or-later; the modified source is kicad-{version}-source.tar.gz, attached to
 the same GitHub release. They are built against exactly the libraries listed below.""")

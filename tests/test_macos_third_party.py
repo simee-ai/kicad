@@ -140,5 +140,6 @@ def test_notices_of_a_bundle_built_from_a_simee_branch_say_kicad_is_modified(tmp
                                     simee_sha="4e183959768bae7846a66b52135087adf24b82d4")
     text = (root / "THIRD-PARTY.txt").read_text()
     assert "unmodified" not in text.split("\n\n")[0]
-    assert "simee-kicad commit 4e183959768bae7846a66b52135087adf24b82d4" in text
+    assert "simee-ai/kicad commit 4e183959768bae7846a66b52135087adf24b82d4" in text
+    assert "simee-kicad" not in text  # the private repo's name
     assert "modified" in text

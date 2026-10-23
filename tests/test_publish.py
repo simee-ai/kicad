@@ -38,6 +38,12 @@ def test_release_notes_say_where_the_arm64_linux_bundle_comes_from():
     assert "amd64 only" in text
 
 
+def test_release_notes_name_the_public_fork_not_the_private_repo():
+    text = " ".join(release_notes("10.0.6", "https://run/1", [], simee_sha="4e18395976" + "0" * 30).split())
+    assert "from simee-ai/kicad https://github.com/simee-ai/kicad/commit/4e18395976" in text
+    assert "simee-kicad" not in text
+
+
 def test_release_notes_say_which_commands_the_bundle_runs():
     # sch (eeschema, cvpcb for ERC), and since simee-kicad#8 fp and pcb (pcbnew)
     text = " ".join(release_notes("10.0.6", "https://run/1", []).split())
