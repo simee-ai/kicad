@@ -48,11 +48,10 @@ NINJA_TARGETS = " ".join(("kicad-cli", *(f"{k}_kiface" for k in KIFACES), *(f"s3
 KICAD_LIBS = "libki*"
 SOURCES = "dpkg-sources.txt"
 PINS = "simee-image-versions.pref"  # apt preferences: the official image's sources at the versions it ships
-# snapshot.debian.org throttles bursts with 503s for minutes at a time (simee-kicad#51). apt retries those
-# (Acquire::Retries, about 10 s apart: package run 41895460083), not for that long, and tries a 503 without its
-# TooManyRequests hint once; apt-get update only warns about an index it could not fetch (apt-get install then finds
-# no packages), so an update missing one fails (APT::Update::Error-Mode "any") and each apt-get is run again after
-# 1, 2, 3 and 4 min (_retried).
+# apt can grow past 15 GB while retrying snapshot.debian.org's failed downloads (#53).
+# Disable internal retries and restart apt-get instead: _retried waits 1, 2, 3 and 4 min
+# between attempts, retaining downloaded .debs. A missing index must fail the update
+# (APT::Update::Error-Mode "any"), rather than letting install run with incomplete lists.
 APT_CONF = "/etc/apt/apt.conf.d/80simee-retries"
 
 
@@ -83,7 +82,7 @@ def _snapshot(stamp: str, scheme: str = "https") -> str:
     printf '%s\\n' '{snap}/debian/{stamp}/ trixie main' \\
                    '{snap}/debian/{stamp}/ trixie-updates main' \\
                    '{snap}/debian-security/{stamp}/ trixie-security main' > /etc/apt/sources.list && \\
-    printf '%s\\n' 'Acquire::Retries "5";' 'APT::Update::Error-Mode "any";' > {APT_CONF} && \\"""
+    printf '%s\\n' 'Acquire::Retries "0";' 'APT::Update::Error-Mode "any";' > {APT_CONF} && \\"""
 
 
 def dockerfile(image: str, stamp: str) -> str:
