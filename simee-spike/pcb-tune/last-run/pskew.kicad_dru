@@ -1,2 +1,0 @@
-(version 1)
-(rule "USB skew" (condition "A.inDiffPair('USB')") (constraint skew (max 0.05mm)))
