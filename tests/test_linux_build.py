@@ -58,6 +58,28 @@ def test_runtime_dockerfile_pins_the_official_images_sources_too():
     assert copy < next(i for i, l in enumerate(lines) if "apt-get update" in l)
 
 
+@pytest.mark.parametrize("text", [
+    linux_build.dockerfile(DIGEST, "20260922T125549Z"),
+    linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g"]),
+], ids=["build", "runtime"])
+def test_apt_retries_snapshot_debian_orgs_throttling_and_fails_on_an_index_it_could_not_fetch(text):
+    # snapshot.debian.org answers bursts with 503s (simee-kicad#51), which apt tries once: an update missing an
+    # index fails (it only warns by default), and each apt-get is run again after a wait.
+    lines = text.splitlines()
+    conf = next(i for i, l in enumerate(lines) if "/etc/apt/apt.conf.d/" in l)
+    assert conf < next(i for i, l in enumerate(lines) if "apt-get update" in l)
+    assert "'Acquire::Retries \"5\";'" in lines[conf]
+    assert "'APT::Update::Error-Mode \"any\";'" in lines[conf]
+    apt = [l.strip() for l in lines if "apt-get " in l]
+    assert [l.split(";")[1].split()[1:3] for l in apt] == [["apt-get", "update"], ["apt-get", "install"]]
+    assert all(l.startswith("{ n=0; until apt-get ") and "sleep $((n*60)); done; }" in l for l in apt)
+
+
+def test_a_retried_apt_get_gives_up_after_its_fifth_try():
+    assert linux_build._retried("apt-get update") == (
+        "{ n=0; until apt-get update; do n=$((n+1)); [ $n -lt 5 ] || exit 1; sleep $((n*60)); done; }")
+
+
 def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     text = linux_build.dockerfile(DIGEST, "20260922T125549Z")
     lines = text.splitlines()
