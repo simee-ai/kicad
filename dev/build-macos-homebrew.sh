@@ -8,13 +8,15 @@
 #
 # Needs: brew install wxwidgets glm nng unixodbc ninja swig boost protobuf opencascade libngspice \
 #        libgit2 cairo pixman harfbuzz fontconfig freetype zstd curl python@3.13 icu4c@78
-# Uses Xcode's clang directly: the /usr/bin/c++ shim puts /usr/local/include ahead of every
-# -isystem dir, so on a Mac with an old x86_64 Homebrew there, its protobuf/boost headers win.
+# Uses the real clang directly (Xcode's toolchain, else the Command Line Tools' usr/bin): the /usr/bin/c++
+# shim puts /usr/local/include ahead of every -isystem dir, so on a Mac with an old x86_64 Homebrew there,
+# its protobuf/boost headers win.
 set -eu
 src=$1 build=$2
 shift 2
 [ $# -gt 0 ] || set -- kicad-cli eeschema_kiface
 tc=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin
+[ -x "$tc/clang" ] || tc=$(xcode-select -p)/usr/bin
 brew=$(brew --prefix)
 py=$brew/opt/python@3.13/Frameworks/Python.framework
 cmake -S "$src" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
