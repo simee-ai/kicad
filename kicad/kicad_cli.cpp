@@ -77,6 +77,7 @@
 #include "cli/command_sch_export_netlist.h"
 #include "cli/command_sch_export_plot.h"
 #include "cli/command_pcb_upgrade.h"
+#include "cli/command_pcb_tune.h"
 #include "cli/command_pcb_import.h"
 #include "cli/command_sch_import.h"
 #include "cli/command_fp.h"
@@ -131,6 +132,7 @@ static CLI::PCB_COMMAND                  pcbCmd{};
 static CLI::PCB_DRC_COMMAND              pcbDrcCmd{};
 static CLI::PCB_RENDER_COMMAND           pcbRenderCmd{};
 static CLI::PCB_UPGRADE_COMMAND          pcbUpgradeCmd{};
+static CLI::PCB_TUNE_COMMAND             pcbTuneCmd{};
 static CLI::PCB_IMPORT_COMMAND           pcbImportCmd{};
 static CLI::SCH_IMPORT_COMMAND           schImportCmd{};
 static CLI::PCB_EXPORT_DRILL_COMMAND     exportPcbDrillCmd{};
@@ -244,6 +246,9 @@ static std::vector<COMMAND_ENTRY> commandStack = {
                     &exportPcbU3DCmd,
                     &exportPcb3DPDFCmd
                 }
+            },
+            {
+                &pcbTuneCmd
             },
             {
                 &pcbUpgradeCmd

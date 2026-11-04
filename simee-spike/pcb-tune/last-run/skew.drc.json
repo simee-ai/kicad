@@ -1,0 +1,188 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-04T14:56:07",
+    "ignored_checks": [
+        {
+            "description": "Footprint has no courtyard defined",
+            "key": "missing_courtyard"
+        },
+        {
+            "description": "Track endpoint not centered on via",
+            "key": "track_not_centered_on_via"
+        },
+        {
+            "description": "Tuning profile track geometries",
+            "key": "tuning_profile_track_geometries"
+        },
+        {
+            "description": "Footprint doesn't match symbol's footprint filters",
+            "key": "footprint_filters_mismatch"
+        },
+        {
+            "description": "Footprint component type doesn't match footprint pads",
+            "key": "footprint_type_mismatch"
+        }
+    ],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.7",
+    "schematic_parity": [],
+    "source": "skew.kicad_pcb",
+    "unconnected_items": [],
+    "violations": [
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP6",
+                    "pos": {
+                        "x": 45.0,
+                        "y": 8.8
+                    },
+                    "uuid": "031feaf3-39cc-4415-8c1c-faecbfa46b81"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP8",
+                    "pos": {
+                        "x": 45.0,
+                        "y": 32.0
+                    },
+                    "uuid": "40c1434e-425e-4994-b214-fdf31372a549"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP9",
+                    "pos": {
+                        "x": 5.0,
+                        "y": 32.6
+                    },
+                    "uuid": "42f5d32b-0f34-4aa2-bd52-b261ab606288"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP5",
+                    "pos": {
+                        "x": 5.0,
+                        "y": 8.8
+                    },
+                    "uuid": "5e6b26a1-8570-4c22-8ed7-aa49118f61d5"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP7",
+                    "pos": {
+                        "x": 5.0,
+                        "y": 32.0
+                    },
+                    "uuid": "8494ed75-56b3-4e60-b3b0-7cbcefe7b625"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP3",
+                    "pos": {
+                        "x": 5.0,
+                        "y": 20.0
+                    },
+                    "uuid": "a64fb299-972d-4a4a-8010-07d3ca9c5333"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP4",
+                    "pos": {
+                        "x": 45.0,
+                        "y": 25.0
+                    },
+                    "uuid": "bd53edcd-1078-4de0-9752-a401e070fa26"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP10",
+                    "pos": {
+                        "x": 45.0,
+                        "y": 33.6
+                    },
+                    "uuid": "cd39ce5d-0e1b-4ec2-8d84-a7525a342706"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP2",
+                    "pos": {
+                        "x": 45.0,
+                        "y": 10.0
+                    },
+                    "uuid": "ce676b96-9b30-4597-9e11-aa7d159ec590"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'simee'",
+            "items": [
+                {
+                    "description": "Footprint TP1",
+                    "pos": {
+                        "x": 5.0,
+                        "y": 10.0
+                    },
+                    "uuid": "e07e3dc5-5c07-48db-a69b-dda9806e7bd6"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        }
+    ]
+}

@@ -1,0 +1,2 @@
+(version 1)
+(rule "SIG_A" (condition "A.NetName == 'SIG_A'") (constraint length (min 42.9mm) (max 43.1mm)))

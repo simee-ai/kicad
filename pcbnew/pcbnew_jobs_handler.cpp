@@ -58,6 +58,14 @@
 #include <jobs/job_pcb_drc.h>
 #include <jobs/job_pcb_import.h>
 #include <jobs/job_pcb_upgrade.h>
+#include <jobs/job_pcb_tune.h>
+#include <board_commit.h>
+#include <length_delay_calculation/length_delay_calculation.h>
+#include <pcb_generator.h>
+#include <pcb_track.h>
+#include <tool/edit_points.h>
+#include <tools/generator_tool.h>
+#include <generators/pcb_tuning_pattern.h> // after the four above: it needs them
 #include <eda_units.h>
 #include <footprint_library_adapter.h>
 #include <lset.h>
@@ -156,6 +164,11 @@ PCBNEW_JOBS_HANDLER::PCBNEW_JOBS_HANDLER( KIWAY* aKiway ) :
                   return dlg.ShowModal() == wxID_OK;
               } );
     Register( "upgrade", std::bind( &PCBNEW_JOBS_HANDLER::JobUpgrade, this, std::placeholders::_1 ),
+              []( JOB* job, wxWindow* aParent ) -> bool
+              {
+                  return true;
+              } );
+    Register( "pcb_tune", std::bind( &PCBNEW_JOBS_HANDLER::JobTune, this, std::placeholders::_1 ),
               []( JOB* job, wxWindow* aParent ) -> bool
               {
                   return true;
@@ -2706,6 +2719,264 @@ int PCBNEW_JOBS_HANDLER::JobUpgrade( JOB* aJob )
 
     return CLI::EXIT_CODES::SUCCESS;
 }
+
+/// A net's length as DRC's length rules measure it: track, via and pad-to-die lengths.
+static int64_t netLengthAsDrc( BOARD* aBoard, int aNetCode )
+{
+    LENGTH_DELAY_CALCULATION*                  calc = aBoard->GetLengthCalculation();
+    std::vector<LENGTH_DELAY_CALCULATION_ITEM> items;
+
+    auto add =
+            [&]( const BOARD_CONNECTED_ITEM* aItem )
+            {
+                if( aItem->GetNetCode() != aNetCode )
+                    return;
+
+                LENGTH_DELAY_CALCULATION_ITEM item = calc->GetLengthCalculationItem( aItem );
+
+                if( item.Type() != LENGTH_DELAY_CALCULATION_ITEM::TYPE::UNKNOWN )
+                    items.emplace_back( item );
+            };
+
+    for( PCB_TRACK* track : aBoard->Tracks() )
+        add( track );
+
+    for( FOOTPRINT* footprint : aBoard->Footprints() )
+    {
+        for( PAD* pad : footprint->Pads() )
+            add( pad );
+    }
+
+    constexpr PATH_OPTIMISATIONS opts = {
+        .OptimiseVias = true, .MergeTracks = true, .OptimiseTracesInPads = true, .InferViaInPad = false
+    };
+
+    LENGTH_DELAY_STATS details = calc->CalculateLengthDetails( items, opts, nullptr, nullptr,
+                                                               LENGTH_DELAY_LAYER_OPT::NO_LAYER_DETAIL,
+                                                               LENGTH_DELAY_DOMAIN_OPT::NO_DELAY_DETAIL );
+
+    return details.TrackLength + details.ViaLength + details.PadToDieLength;
+}
+
+
+int PCBNEW_JOBS_HANDLER::JobTune( JOB* aJob )
+{
+    JOB_PCB_TUNE* job = dynamic_cast<JOB_PCB_TUNE*>( aJob );
+
+    if( job == nullptr )
+        return CLI::EXIT_CODES::ERR_UNKNOWN;
+
+    BOARD* brd = getBoard( job->m_filename );
+
+    if( !brd )
+        return CLI::EXIT_CODES::ERR_INVALID_INPUT_FILE;
+
+    brd->BuildConnectivity();
+
+    std::vector<NETINFO_ITEM*> nets;
+
+    for( const wxString& name : job->m_nets )
+    {
+        NETINFO_ITEM* net = brd->FindNet( name );
+
+        if( !net )
+        {
+            m_reporter->Report( wxString::Format( _( "No net '%s' on the board\n" ), name ), RPT_SEVERITY_ERROR );
+            return CLI::EXIT_CODES::ERR_ARGS;
+        }
+
+        nets.push_back( net );
+    }
+
+    // The target: the length asked for, else the longest net of a group, else the board's rules
+    std::optional<int64_t> target;
+
+    if( job->m_length )
+        target = pcbIUScale.mmToIU( *job->m_length );
+    else if( nets.size() > 1 )
+    {
+        int64_t longest = 0;
+
+        for( NETINFO_ITEM* net : nets )
+            longest = std::max( longest, netLengthAsDrc( brd, net->GetNetCode() ) );
+
+        target = longest;
+    }
+
+    TOOL_MANAGER* toolManager = getToolManager( brd );
+
+    if( !toolManager->FindTool( "pcbnew.Generators" ) )
+        toolManager->RegisterTool( new GENERATOR_TOOL );
+
+    GENERATOR_TOOL* generatorTool = toolManager->GetTool<GENERATOR_TOOL>();
+
+    // Builds the push-and-shove router's world from this board
+    generatorTool->Reset( TOOL_BASE::MODEL_RELOAD );
+
+    LENGTH_TUNING_MODE mode = job->m_mode == JOB_PCB_TUNE::MODE::DIFF_PAIR ? LENGTH_TUNING_MODE::DIFF_PAIR
+                              : job->m_mode == JOB_PCB_TUNE::MODE::SKEW    ? LENGTH_TUNING_MODE::DIFF_PAIR_SKEW
+                                                                           : LENGTH_TUNING_MODE::SINGLE;
+
+    bool allTuned = true;
+
+    for( NETINFO_ITEM* net : nets )
+    {
+        int64_t before = netLengthAsDrc( brd, net->GetNetCode() );
+
+        // A net tuned before keeps its pattern: retune it, as pcbnew does when its target changes
+        PCB_TUNING_PATTERN* pattern = nullptr;
+
+        for( PCB_GENERATOR* generator : brd->Generators() )
+        {
+            PCB_TUNING_PATTERN* existing = dynamic_cast<PCB_TUNING_PATTERN*>( generator );
+
+            if( existing && existing->GetTuningMode() == mode && existing->GetNetCode() == net->GetNetCode() )
+            {
+                pattern = existing;
+            }
+        }
+
+        // Meanders only lengthen: a net with no pattern already that long is left alone
+        if( !pattern && mode != LENGTH_TUNING_MODE::DIFF_PAIR_SKEW && target && before >= *target )
+        {
+            m_reporter->Report( wxString::Format( wxS( "%s: %.4f mm, already at or over %.4f mm\n" ),
+                                                  net->GetNetname(), pcbIUScale.IUTomm( before ),
+                                                  pcbIUScale.IUTomm( *target ) ),
+                                RPT_SEVERITY_INFO );
+            continue;
+        }
+
+        if( !pattern )
+        {
+            // The pattern goes on the net's longest straight segment, as if clicked at both its ends
+            PCB_TRACK* longest = nullptr;
+
+            for( PCB_TRACK* track : brd->Tracks() )
+            {
+                if( track->Type() != PCB_TRACE_T || track->GetNetCode() != net->GetNetCode() )
+                    continue;
+
+                if( dynamic_cast<PCB_TUNING_PATTERN*>( track->GetParentGroup() ) )
+                    continue;
+
+                if( !longest || track->GetLength() > longest->GetLength() )
+                    longest = track;
+            }
+
+            if( !longest )
+            {
+                m_reporter->Report( wxString::Format( _( "%s has no straight track to tune\n" ),
+                                                      net->GetNetname() ),
+                                    RPT_SEVERITY_ERROR );
+                allTuned = false;
+                continue;
+            }
+
+            pattern = PCB_TUNING_PATTERN::CreateNew( generatorTool, nullptr, longest, mode );
+
+            // A pair is tuned only where its two nets run side by side: the span of the segment
+            // beside the coupled net's longest segment
+            SEG span( longest->GetStart(), longest->GetEnd() );
+
+            if( mode == LENGTH_TUNING_MODE::DIFF_PAIR )
+            {
+                NETINFO_ITEM* coupledNet = brd->DpCoupledNet( net );
+                PCB_TRACK*    coupled = nullptr;
+
+                for( PCB_TRACK* track : brd->Tracks() )
+                {
+                    if( coupledNet && track->Type() == PCB_TRACE_T && track->GetNet() == coupledNet
+                        && ( !coupled || track->GetLength() > coupled->GetLength() ) )
+                    {
+                        coupled = track;
+                    }
+                }
+
+                if( !coupled )
+                {
+                    m_reporter->Report( wxString::Format( _( "%s has no routed pair to tune with\n" ),
+                                                          net->GetNetname() ),
+                                        RPT_SEVERITY_ERROR );
+                    allTuned = false;
+                    continue;
+                }
+
+                // Where along the segment the coupled one starts and ends
+                VECTOR2I a = span.NearestPoint( coupled->GetStart() );
+                VECTOR2I b = span.NearestPoint( coupled->GetEnd() );
+
+                if( ( a - span.A ).EuclideanNorm() > ( b - span.A ).EuclideanNorm() )
+                    std::swap( a, b );
+
+                span = SEG( a, b );
+            }
+
+            // A skew pattern takes a third of the span, so the pair can be tuned as one beside it
+            if( mode == LENGTH_TUNING_MODE::DIFF_PAIR_SKEW )
+                span.B = span.A + ( span.B - span.A ) / 3;
+
+            // Keep the meanders off the pads or bends at the span's ends, as clicks inside it would
+            VECTOR2I dir = span.B - span.A;
+            int      inset = std::min<int>( pcbIUScale.mmToIU( 1.0 ), dir.EuclideanNorm() / 4 );
+            VECTOR2I step = dir.Resize( inset );
+
+            pattern->SetPosition( span.A + step );
+            pattern->SetEnd( span.B - step );
+        }
+
+        if( mode == LENGTH_TUNING_MODE::DIFF_PAIR_SKEW )
+        {
+            if( job->m_skew )
+            {
+                pattern->SetTargetSkew( pcbIUScale.mmToIU( *job->m_skew ) );
+                pattern->SetOverrideCustomRules( true );
+            }
+        }
+        else if( target )
+        {
+            pattern->GetSettings().SetTargetLength( *target );
+            pattern->SetOverrideCustomRules( true );
+        }
+
+        BOARD_COMMIT commit( generatorTool );
+
+        pattern->EditStart( generatorTool, brd, &commit );
+        bool updated = pattern->Update( generatorTool, brd, &commit );
+        pattern->EditFinish( generatorTool, brd, &commit );
+
+        commit.Push( wxS( "Tune" ), SKIP_UNDO | SKIP_SET_DIRTY );
+
+        std::string status;
+        pattern->GetProperties().get_to( "last_status", status );
+
+        int64_t after = netLengthAsDrc( brd, net->GetNetCode() );
+
+        m_reporter->Report( wxString::Format( wxS( "%s: %.4f mm -> %.4f mm (pattern %s, %s)\n" ),
+                                              net->GetNetname(), pcbIUScale.IUTomm( before ),
+                                              pcbIUScale.IUTomm( after ), updated ? "placed" : "failed",
+                                              status ),
+                            RPT_SEVERITY_INFO );
+
+        allTuned &= updated && status == "tuned";
+    }
+
+    wxString outPath = job->m_output.IsEmpty() ? job->m_filename : job->m_output;
+
+    try
+    {
+        IO_RELEASER<PCB_IO> pi( PCB_IO_MGR::FindPlugin( PCB_IO_MGR::KICAD_SEXP ) );
+        pi->SaveBoard( outPath, brd );
+    }
+    catch( const IO_ERROR& ioe )
+    {
+        m_reporter->Report( wxString::Format( _( "Error saving board file '%s'.\n%s" ), outPath, ioe.What() ),
+                            RPT_SEVERITY_ERROR );
+        return CLI::EXIT_CODES::ERR_UNKNOWN;
+    }
+
+    return allTuned ? CLI::EXIT_CODES::SUCCESS : CLI::EXIT_CODES::ERR_UNKNOWN;
+}
+
 
 // Most job handlers need to align the running job with the board before resolving any
 // output paths with variables in them like ${REVISION}.

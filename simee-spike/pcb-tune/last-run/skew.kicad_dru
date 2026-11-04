@@ -1,0 +1,2 @@
+(version 1)
+(rule "A-B skew" (condition "A.NetName == 'SIG_A' || A.NetName == 'SIG_B'") (constraint skew (max 0.2mm)))
