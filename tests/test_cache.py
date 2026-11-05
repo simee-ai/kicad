@@ -70,22 +70,30 @@ def test_reusing_a_bottle_record_marks_all_of_it_used(tmp_path):
 
 def test_reusing_a_cached_debian_source_marks_it_used(tmp_path, monkeypatch):
     monkeypatch.setattr(debian, "SOURCE_FILES", {})
-    data = b"dsc"
-    sha1 = hashlib.sha1(data).hexdigest()
+    orig = b"orig"
+    dsc = ("Source: cairo\nVersion: 1.18.4-1\nChecksums-Sha1:\n"
+           f" {hashlib.sha1(orig).hexdigest()} {len(orig)} cairo_1.18.4.orig.tar.xz\n").encode()
+    files = {hashlib.sha1(data).hexdigest(): (name, data)
+             for name, data in {"cairo_1.18.4-1.dsc": dsc, "cairo_1.18.4.orig.tar.xz": orig}.items()}
+
     def fetch(url):
         if url.endswith("srcfiles?fileinfo=0"):
-            return json.dumps({"result": [{"hash": sha1}]}).encode()
+            return json.dumps({"result": [{"hash": sha1} for sha1 in files]}).encode()
+        sha1 = url.rsplit("/", 2)[1]
         if url == f"https://snapshot.debian.org/mr/file/{sha1}/info":
-            return json.dumps({"hash": sha1, "result": [{"name": "cairo_1.18.4-1.dsc"}]}).encode()
+            return json.dumps({"hash": sha1, "result": [{"name": files[sha1][0]}]}).encode()
         raise AssertionError(f"a cached source should not need another download: {url}")
 
     sources = tmp_path / cache.DEBIAN_SOURCES
-    old = _file(sources / sha1[:2] / sha1 / "cairo_1.18.4-1.dsc", age_days=cache.SOURCES_MAX_AGE_DAYS + 1)
-    old.write_bytes(data)
-    os.utime(old, (0, 0))
+    olds = []
+    for sha1, (name, data) in files.items():
+        old = _file(sources / sha1[:2] / sha1 / name, age_days=cache.SOURCES_MAX_AGE_DAYS + 1)
+        old.write_bytes(data)
+        os.utime(old, (0, 0))
+        olds.append(old)
     debian.sources_archive({("cairo", "1.18.4-1")}, tmp_path / "s.tar", sources, fetch=fetch)
     cache.prune(tmp_path, built="10.0.6")
-    assert old.exists()
+    assert all(old.exists() for old in olds)
 
 
 def test_kicad_bundle_prunes_the_cache_after_a_build(tmp_path, monkeypatch):

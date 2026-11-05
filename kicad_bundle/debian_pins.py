@@ -6,11 +6,11 @@ python -m kicad_bundle.debian_pins sources.tar kicad_bundle/debian-sources.json 
 import argparse
 import hashlib
 import json
-import re
 import tarfile
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
+from kicad_bundle.debian import descriptor, descriptor_files
 from kicad_bundle.fetch import write_atomically
 
 
@@ -33,21 +33,15 @@ def generate(archive: Path, dest: Path, sha256: str, url: str) -> None:
             if path.suffix == ".dsc":
                 if path.parent in descriptors:
                     raise ValueError(f"multiple descriptors: {path.parent}")
-                descriptors[path.parent] = (path.name, tar.extractfile(member).read().decode("utf-8"))
+                descriptors[path.parent] = tar.extractfile(member).read().decode("utf-8")
     packages = {}
     if not groups or groups.keys() != descriptors.keys():
         raise ValueError("source archive has missing descriptors")
     for folder, files in groups.items():
-        name, text = descriptors[folder]
-        source = re.search(r"^Source: (.+)$", text, re.M)[1]
-        version = re.search(r"^Version: (.+)$", text, re.M)[1]
-        block = re.search(r"^Checksums-Sha1:\n((?:[ \t].+\n)+)", text, re.M)
-        expected = {line.split()[2]: line.split()[0] for line in block[1].splitlines()} if block else {}
-        if not expected or not set(expected.values()) <= set(files.values()):
+        source, version, required = descriptor(descriptors[folder])
+        files = descriptor_files(files, required)
+        if files is None or not source or not version:
             raise ValueError(f"source descriptor checksum mismatch: {folder}")
-        # Snapshot can give identical bytes an older filename (glib's Unicode data).
-        # Use the descriptor's required names; retain additional files such as .git.tar.xz.
-        files = {**{n: h for n, h in files.items() if h not in expected.values()}, **expected}
         versions = packages.setdefault(source, {})
         if version in versions:
             raise ValueError(f"duplicate source version: {source} {version}")

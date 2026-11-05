@@ -82,21 +82,51 @@ def source_files(reply: dict) -> list[tuple[str, str]]:
     return sorted((reply["fileinfo"][r["hash"]][0]["name"], r["hash"]) for r in reply["result"])
 
 
-def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
-    pinned = SOURCE_FILES.get(source, {}).get(version)
-    if pinned is None:
-        reply = json.loads(fetch(srcfiles_url(source, version)))
-        # The expanded query can time out while these smaller queries work (#53).
-        reply["fileinfo"] = {
-            r["hash"]: json.loads(fetch(f"{SNAPSHOT}/mr/file/{r['hash']}/info"))["result"]
-            for r in reply["result"]
-        }
-        files = source_files(reply)
-    else:
-        files = sorted(pinned.items())
+def descriptor(text: str) -> tuple[str, str, dict[str, str]]:
+    """Source, Version and the files a source package's .dsc requires (name -> sha1)."""
+    source, version = (re.search(rf"^{field}: (.+)$", text, re.M) for field in ("Source", "Version"))
+    block = re.search(r"^Checksums-Sha1:\n((?:[ \t].+\n)+)", text, re.M)
+    required = {line.split()[2]: line.split()[0] for line in block[1].splitlines()} if block else {}
+    return source and source[1], version and version[1], required
+
+
+def descriptor_files(files: dict[str, str], required: dict[str, str]) -> dict[str, str] | None:
+    """files (name -> sha1) under the names their .dsc requires, or None if any required file is missing.
+    Snapshot can give identical bytes an older name (glib's Unicode data, #54); files the .dsc doesn't
+    list, such as .git.tar.xz, are kept."""
+    if not required or not set(required.values()) <= set(files.values()):
+        return None
+    return {**{n: h for n, h in files.items() if h not in required.values()}, **required}
+
+
+def _download(name: str, sha1: str, cache: Path, fetch: Fetch) -> Path:
+    return cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1")
+
+
+def _api_source_files(source: str, version: str, cache: Path, fetch: Fetch) -> dict[str, str]:
+    reply = json.loads(fetch(srcfiles_url(source, version)))
+    # The expanded query can time out while these smaller queries work (#53).
+    reply["fileinfo"] = {
+        r["hash"]: json.loads(fetch(f"{SNAPSHOT}/mr/file/{r['hash']}/info"))["result"]
+        for r in reply["result"]
+    }
+    files = dict(source_files(reply))
     if not files:
         raise RuntimeError(f"{source} {version}: Snapshot returned no source files")
-    return [cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1") for name, sha1 in files]
+    dscs = [name for name in files if name.endswith(".dsc")]
+    if len(dscs) != 1:
+        raise RuntimeError(f"{source} {version}: Snapshot listed {len(dscs)} source descriptors, not one")
+    dsc_source, dsc_version, required = descriptor(_download(dscs[0], files[dscs[0]], cache, fetch).read_text("utf-8"))
+    named = descriptor_files(files, required)
+    if (dsc_source, dsc_version) != (source, version) or named is None:
+        raise RuntimeError(f"{source} {version}: Snapshot's files don't match the source descriptor {dscs[0]}")
+    return named
+
+
+def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
+    pinned = SOURCE_FILES.get(source, {}).get(version)
+    files = _api_source_files(source, version, cache, fetch) if pinned is None else pinned
+    return [_download(name, sha1, cache, fetch) for name, sha1 in sorted(files.items())]
 
 
 def sources_archive(sources: Iterable[tuple[str, str]], dest: Path, cache: Path,

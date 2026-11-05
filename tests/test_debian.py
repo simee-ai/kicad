@@ -89,11 +89,25 @@ def test_source_files_names_each_file_by_its_hash():
     assert debian.source_files(reply) == [("cairo_1.18.4-1.dsc", "bb"), ("cairo_1.18.4.orig.tar.xz", "aa")]
 
 
-def _fake_snapshot(files: dict[str, bytes]):
-    """Snapshot's expanded query times out; the hashes and individual file records still work (#53)."""
+def _dsc(source: str, version: str, files: dict[str, bytes]) -> bytes:
+    """A signed source descriptor requiring files (name -> bytes)."""
+    lines = "".join(f" {hashlib.sha1(data).hexdigest()} {len(data)} {name}\n" for name, data in files.items())
+    return ("-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n"
+            f"Format: 3.0 (quilt)\nSource: {source}\nVersion: {version}\nChecksums-Sha1:\n{lines}\n"
+            "-----BEGIN PGP SIGNATURE-----\n").encode()
+
+
+CAIRO = {"cairo_1.18.4.orig.tar.xz": b"orig", "cairo_1.18.4-1.debian.tar.xz": b"debian"}
+CAIRO_DSC = _dsc("cairo", "1.18.4-1", CAIRO)
+
+
+def _fake_snapshot(files: dict[str, bytes], aliases: dict[str, list[str]] | None = None):
+    """Snapshot's expanded query times out; the hashes and individual file records still work (#53).
+    aliases: names Snapshot lists before a file's own name for the same bytes (#54)."""
     by_hash = {hashlib.sha1(data).hexdigest(): (name, data) for name, data in files.items()}
     reply = {"result": [{"hash": h} for h in by_hash],
-             "fileinfo": {h: [{"name": name, "archive_name": "debian"}] for h, (name, _) in by_hash.items()}}
+             "fileinfo": {h: [{"name": n, "archive_name": "debian"} for n in [*(aliases or {}).get(name, []), name]]
+                          for h, (name, _) in by_hash.items()}}
     calls = []
 
     def fetch(url: str) -> bytes:
@@ -111,18 +125,64 @@ def _fake_snapshot(files: dict[str, bytes]):
 
 
 def test_sources_archive_holds_each_source_package_once_and_caches_files(tmp_path):
-    fetch, calls = _fake_snapshot({"cairo_1.18.4-1.dsc": b"dsc", "cairo_1.18.4.orig.tar.xz": b"orig"})
+    fetch, calls = _fake_snapshot({"cairo_1.18.4-1.dsc": CAIRO_DSC, **CAIRO})
     srcs = {("cairo", "1.18.4-1")}
     out = tmp_path / "out" / "bundle-sources.tar"
     debian.sources_archive(srcs, out, tmp_path / "cache", fetch=fetch)
     with tarfile.open(out) as tar:
         assert sorted(tar.getnames()) == ["bundle-sources", "bundle-sources/cairo_1.18.4-1",
+                                          "bundle-sources/cairo_1.18.4-1/cairo_1.18.4-1.debian.tar.xz",
                                           "bundle-sources/cairo_1.18.4-1/cairo_1.18.4-1.dsc",
                                           "bundle-sources/cairo_1.18.4-1/cairo_1.18.4.orig.tar.xz"]
-        assert tar.extractfile("bundle-sources/cairo_1.18.4-1/cairo_1.18.4-1.dsc").read() == b"dsc"
+        assert tar.extractfile("bundle-sources/cairo_1.18.4-1/cairo_1.18.4-1.dsc").read() == CAIRO_DSC
     downloads = len(calls)
     debian.sources_archive(srcs, tmp_path / "again.tar", tmp_path / "cache", fetch=fetch)
-    assert len(calls) == downloads + 3  # refresh the listing and both file records; reuse the archives
+    assert len(calls) == downloads + 4  # refresh the listing and the three file records; reuse the archives
+
+
+def _unpackable(tar: tarfile.TarFile, folder: str) -> dict[str, bytes]:
+    """The folder's files, after checking each file its .dsc requires is there under that name with its sha1,
+    as `dpkg-source -x` needs."""
+    files = {m.name.rsplit("/", 1)[1]: tar.extractfile(m).read()
+             for m in tar if m.isfile() and m.name.startswith(folder + "/")}
+    [dsc] = [data for name, data in files.items() if name.endswith(".dsc")]
+    _, _, required = debian.descriptor(dsc.decode())
+    assert {n: hashlib.sha1(files[n]).hexdigest() for n in required if n in files} == required
+    return files
+
+
+def test_api_sources_take_the_names_their_descriptor_requires(tmp_path):
+    """Snapshot can list identical bytes under an older version's name first (glib's Unicode data, #54)."""
+    unicode_data = "glib2.0_2.84.4.orig-unicode-data.tar.xz"
+    required = {"glib2.0_2.84.4.orig.tar.xz": b"glib", unicode_data: b"unicode data",
+                "glib2.0_2.84.4-3~deb13u5.debian.tar.xz": b"debian"}
+    dsc = _dsc("glib2.0", "2.84.4-3~deb13u5", required)
+    extra = {"glib2.0_2.84.4.git.tar.xz": b"extra upstream metadata"}  # listed by Snapshot, not by the .dsc
+    fetch, _ = _fake_snapshot({"glib2.0_2.84.4-3~deb13u5.dsc": dsc, **required, **extra},
+                              aliases={unicode_data: ["glib2.0_2.84.0.orig-unicode-data.tar.xz"]})
+    out = tmp_path / "s.tar"
+    debian.sources_archive({("glib2.0", "2.84.4-3~deb13u5")}, out, tmp_path / "cache", fetch=fetch)
+    with tarfile.open(out) as tar:
+        files = _unpackable(tar, "s/glib2.0_2.84.4-3~deb13u5")
+    assert files == {"glib2.0_2.84.4-3~deb13u5.dsc": dsc, **required, **extra}
+
+
+@pytest.mark.parametrize("fault", ["missing", "no-descriptor", "two-descriptors", "other-version"])
+def test_api_sources_refuse_a_listing_their_descriptor_does_not_match(tmp_path, fault):
+    files = {"cairo_1.18.4-1.dsc": CAIRO_DSC, **CAIRO}
+    if fault == "missing":
+        del files["cairo_1.18.4.orig.tar.xz"]
+    elif fault == "no-descriptor":
+        del files["cairo_1.18.4-1.dsc"]
+    elif fault == "two-descriptors":
+        files["cairo_1.18.4-2.dsc"] = _dsc("cairo", "1.18.4-2", CAIRO)
+    else:
+        files["cairo_1.18.4-1.dsc"] = _dsc("cairo", "1.18.4-2", CAIRO)
+    fetch, _ = _fake_snapshot(files)
+    out = tmp_path / "s.tar"
+    with pytest.raises(RuntimeError, match="cairo 1.18.4-1:.*descriptor"):
+        debian.sources_archive({("cairo", "1.18.4-1")}, out, tmp_path / "cache", fetch=fetch)
+    assert not out.exists()
 
 
 def test_sources_archive_rejects_a_corrupt_download(tmp_path):
