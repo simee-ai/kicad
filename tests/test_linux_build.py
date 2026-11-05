@@ -11,6 +11,20 @@ from kicad_bundle.elf import ARCHES
 DIGEST = "kicad/kicad@sha256:" + "ab" * 32
 
 
+@pytest.mark.parametrize("scheme", ["http", "https"])
+def test_only_binary_archives_can_use_the_live_debian_mirror(scheme):
+    text = (linux_build.runtime_dockerfile("debian:trixie", "20261018T140053Z", ["zlib1g"])
+            if scheme == "http" else linux_build.dockerfile(DIGEST, "20261018T140053Z"))
+    # Live package lists would change the dependency versions. Restrict that mirror to debs.
+    assert "deb.debian.org" not in text[:text.index("apt-get update")]
+    assert f"{scheme}://deb.debian.org/debian/\\tpriority:1 type:deb" in text
+    assert f"{scheme}://deb.debian.org/debian-security/\\tpriority:1 type:deb" in text
+    assert f"{scheme}://snapshot.debian.org/archive/debian/20261018T140053Z/\\tpriority:2" in text
+    assert "mirror+file:/etc/apt/simee-debian.mirrors trixie main" in text
+    assert "mirror+file:/etc/apt/simee-debian.mirrors trixie-updates main" in text
+    assert "mirror+file:/etc/apt/simee-debian-security.mirrors trixie-security main" in text
+
+
 def test_snapshot_stamp_is_utc_to_the_second():
     when = datetime(2026, 9, 22, 12, 55, 49, 700000, tzinfo=timezone.utc).timestamp()
     assert linux_build.snapshot_stamp(when) == "20260922T125549Z"
@@ -104,9 +118,8 @@ def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     lines = text.splitlines()
     assert lines[0] == f"FROM {DIGEST}"
     # Debian as it was when the image was made, security updates included...
-    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
-                  "debian-security/20260922T125549Z/ trixie-security main"):
-        assert f"https://snapshot.debian.org/archive/{suite}'" in text
+    for archive in ("debian", "debian-security"):
+        assert f"https://snapshot.debian.org/archive/{archive}/20260922T125549Z/" in text
     # ...and no installed package may change, so the -dev packages match the image's libraries exactly.
     hold = next(i for i, l in enumerate(lines) if "apt-mark hold" in l)
     install = next(i for i, l in enumerate(lines) if "apt-get install" in l)
@@ -227,10 +240,9 @@ def test_runtime_dockerfile_installs_the_official_images_packages_from_debians_a
     text = linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g", "libgit2-1.9"])
     lines = text.splitlines()
     assert lines[0] == "FROM debian:trixie-20260918"
-    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
-                  "debian-security/20260922T125549Z/ trixie-security main"):
+    for archive in ("debian", "debian-security"):
         # http: the Debian image has no CA certificates yet (apt checks the archive's signatures)
-        assert f"http://snapshot.debian.org/archive/{suite}'" in text
+        assert f"http://snapshot.debian.org/archive/{archive}/20260922T125549Z/" in text
     # each package Debian has for the architecture (the official image has some amd64-only ones)
     assert "printf '%s\\n' libgit2-1.9 zlib1g | sort > /tmp/wanted" in text
     assert "apt-cache dumpavail" in text

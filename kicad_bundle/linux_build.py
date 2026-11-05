@@ -76,13 +76,24 @@ def _write_pins(context: Path, rootfs: Path) -> None:
 
 def _snapshot(stamp: str, scheme: str = "https") -> str:
     """A RUN step's start: apt's sources are Debian's archive as it was at stamp (scheme http where the image
-    has no CA certificates yet: apt checks the archive's signatures either way)."""
-    snap = f"deb [check-valid-until=no] {scheme}://snapshot.debian.org/archive"
+    has no CA certificates yet: apt checks the archive's signatures either way). Package indexes come only
+    from the snapshot; identical .debs still on Debian's live mirror are fetched there first (#53)."""
+    snap = f"{scheme}://snapshot.debian.org/archive"
+    source = "deb [check-valid-until=no] mirror+file:/etc/apt/simee-"
     return f"""RUN rm -f /etc/apt/sources.list.d/* && \\
-    printf '%s\\n' '{snap}/debian/{stamp}/ trixie main' \\
-                   '{snap}/debian/{stamp}/ trixie-updates main' \\
-                   '{snap}/debian-security/{stamp}/ trixie-security main' > /etc/apt/sources.list && \\
+    printf '%b\\n' '{snap}/debian/{stamp}/\\tpriority:2' > /etc/apt/simee-debian.mirrors && \\
+    printf '%b\\n' '{snap}/debian-security/{stamp}/\\tpriority:2' > /etc/apt/simee-debian-security.mirrors && \\
+    printf '%s\\n' '{source}debian.mirrors trixie main' \\
+                   '{source}debian.mirrors trixie-updates main' \\
+                   '{source}debian-security.mirrors trixie-security main' > /etc/apt/sources.list && \\
     printf '%s\\n' 'Acquire::Retries "0";' 'APT::Update::Error-Mode "any";' > {APT_CONF} && \\"""
+
+
+def _archive_mirrors(scheme: str = "https") -> str:
+    """After update only: apt does not apply type:deb filtering to its first InRelease request.
+    Keep live mirrors unavailable until the dated indexes have been fetched and authenticated."""
+    return f"""printf '%b\\n' '{scheme}://deb.debian.org/debian/\\tpriority:1 type:deb' >> /etc/apt/simee-debian.mirrors && \\
+    printf '%b\\n' '{scheme}://deb.debian.org/debian-security/\\tpriority:1 type:deb' >> /etc/apt/simee-debian-security.mirrors"""
 
 
 def dockerfile(image: str, stamp: str) -> str:
@@ -94,6 +105,7 @@ COPY {PINS} /etc/apt/preferences.d/{PINS}
 {_snapshot(stamp)}
     apt-mark hold $(dpkg-query -W -f '${{Package}}\\n') > /dev/null && \\
     {_retried('apt-get update')} && \\
+    {_archive_mirrors()} && \\
     {_retried(f'apt-get install -y --no-install-recommends {BUILD_DEPS}')}
 COPY kicad-src.tar.gz /src/
 RUN mkdir -p /src/kicad/build && tar -xzf /src/kicad-src.tar.gz -C /src/kicad --strip-components=1
@@ -215,6 +227,7 @@ def runtime_dockerfile(base: str, stamp: str, packages: list[str]) -> str:
 COPY {PINS} /etc/apt/preferences.d/{PINS}
 {_snapshot(stamp, "http")}
     {_retried('apt-get update')} && \\
+    {_archive_mirrors("http")} && \\
     apt-cache dumpavail | sed -n 's/^Package: //p' | sort -u > /tmp/available && \\
     printf '%s\\n' {" ".join(sorted(packages))} | sort > /tmp/wanted && \\
     comm -23 /tmp/wanted /tmp/available | sed 's/^/not for this architecture: /' && \\
