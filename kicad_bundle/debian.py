@@ -73,7 +73,7 @@ def provenance(rootfs: Path, files: Iterable[Path]) -> tuple[dict[Path, Package]
 
 def srcfiles_url(source: str, version: str) -> str:
     quoted = "/".join(urllib.parse.quote(p, safe="") for p in (source, version))
-    return f"{SNAPSHOT}/mr/package/{quoted}/srcfiles?fileinfo=1"
+    return f"{SNAPSHOT}/mr/package/{quoted}/srcfiles?fileinfo=0"
 
 
 def source_files(reply: dict) -> list[tuple[str, str]]:
@@ -83,6 +83,12 @@ def source_files(reply: dict) -> list[tuple[str, str]]:
 
 def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
     reply = json.loads(fetch(srcfiles_url(source, version)))
+    # The expanded srcfiles?fileinfo=1 query can time out while these smaller queries work (#53).
+    # Keep the exact same hashes and filenames, resolved through Snapshot's per-file API.
+    reply["fileinfo"] = {
+        r["hash"]: json.loads(fetch(f"{SNAPSHOT}/mr/file/{r['hash']}/info"))["result"]
+        for r in reply["result"]
+    }
     return [cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1") for name, sha1 in source_files(reply)]
 
 
