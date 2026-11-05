@@ -163,7 +163,20 @@ jobs:
           path: ~/.cache/kicad-bundle
           key: debian-sources-${{ inputs.kicad_version }}
           restore-keys: debian-sources-
-      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"} ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
+      - name: Build Linux bundle with runner diagnostics
+        run: |
+          (
+            while true; do
+              date -u
+              free -m
+              df -h /
+              ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -12
+              sleep 60
+            done
+          ) &
+          health_pid=$!
+          trap 'kill "$health_pid" 2>/dev/null || true' EXIT
+          uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --out dist ${SIMEE_SHA:+--simee-ref "$SIMEE_SHA"} ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/upload-artifact@v4
@@ -188,7 +201,20 @@ jobs:
           path: ~/.cache/kicad-bundle
           key: debian-sources-arm64-${{ inputs.kicad_version }}
           restore-keys: debian-sources-arm64-
-      - run: uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --arch arm64 --out dist --simee-ref "$SIMEE_SHA" ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
+      - name: Build Linux bundle with runner diagnostics
+        run: |
+          (
+            while true; do
+              date -u
+              free -m
+              df -h /
+              ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -12
+              sleep 60
+            done
+          ) &
+          health_pid=$!
+          trap 'kill "$health_pid" 2>/dev/null || true' EXIT
+          uv run kicad-bundle --kicad-version "$KICAD_VERSION" --platform linux --arch arm64 --out dist --simee-ref "$SIMEE_SHA" ${BASE_IMAGE:+--base-image "$BASE_IMAGE"}
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - uses: actions/upload-artifact@v4

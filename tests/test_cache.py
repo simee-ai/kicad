@@ -68,13 +68,16 @@ def test_reusing_a_bottle_record_marks_all_of_it_used(tmp_path):
     assert all(f.stat().st_mtime > time.time() - DAY for f in info.iterdir())
 
 
-def test_reusing_a_cached_debian_source_marks_it_used(tmp_path):
+def test_reusing_a_cached_debian_source_marks_it_used(tmp_path, monkeypatch):
+    monkeypatch.setattr(debian, "SOURCE_FILES", {})
     data = b"dsc"
     sha1 = hashlib.sha1(data).hexdigest()
-    reply = {"result": [{"hash": sha1}], "fileinfo": {sha1: [{"name": "cairo_1.18.4-1.dsc"}]}}
-
     def fetch(url):
-        return json.dumps(reply).encode() if url.endswith("fileinfo=1") else data
+        if url.endswith("srcfiles?fileinfo=0"):
+            return json.dumps({"result": [{"hash": sha1}]}).encode()
+        if url == f"https://snapshot.debian.org/mr/file/{sha1}/info":
+            return json.dumps({"hash": sha1, "result": [{"name": "cairo_1.18.4-1.dsc"}]}).encode()
+        raise AssertionError(f"a cached source should not need another download: {url}")
 
     sources = tmp_path / cache.DEBIAN_SOURCES
     old = _file(sources / sha1[:2] / sha1 / "cairo_1.18.4-1.dsc", age_days=cache.SOURCES_MAX_AGE_DAYS + 1)

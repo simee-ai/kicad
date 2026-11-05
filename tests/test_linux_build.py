@@ -1,3 +1,5 @@
+import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -7,6 +9,20 @@ from kicad_bundle import linux_build
 from kicad_bundle.elf import ARCHES
 
 DIGEST = "kicad/kicad@sha256:" + "ab" * 32
+
+
+@pytest.mark.parametrize("scheme", ["http", "https"])
+def test_only_binary_archives_can_use_the_live_debian_mirror(scheme):
+    text = (linux_build.runtime_dockerfile("debian:trixie", "20261018T140053Z", ["zlib1g"])
+            if scheme == "http" else linux_build.dockerfile(DIGEST, "20261018T140053Z"))
+    # Live package lists would change the dependency versions. Restrict that mirror to debs.
+    assert "deb.debian.org" not in text[:text.index("apt-get update")]
+    assert f"{scheme}://deb.debian.org/debian/\\tpriority:1 type:deb" in text
+    assert f"{scheme}://deb.debian.org/debian-security/\\tpriority:1 type:deb" in text
+    assert f"{scheme}://snapshot.debian.org/archive/debian/20261018T140053Z/\\tpriority:2" in text
+    assert "mirror+file:/etc/apt/simee-debian.mirrors trixie main" in text
+    assert "mirror+file:/etc/apt/simee-debian.mirrors trixie-updates main" in text
+    assert "mirror+file:/etc/apt/simee-debian-security.mirrors trixie-security main" in text
 
 
 def test_snapshot_stamp_is_utc_to_the_second():
@@ -62,22 +78,39 @@ def test_runtime_dockerfile_pins_the_official_images_sources_too():
     linux_build.dockerfile(DIGEST, "20260922T125549Z"),
     linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g"]),
 ], ids=["build", "runtime"])
-def test_apt_retries_snapshot_debian_orgs_throttling_and_fails_on_an_index_it_could_not_fetch(text):
-    # snapshot.debian.org answers bursts with 503s (simee-kicad#51), which apt tries once: an update missing an
-    # index fails (it only warns by default), and each apt-get is run again after a wait.
+def test_apt_restarts_after_snapshot_failures_instead_of_retrying_inside_apt(text):
+    # apt can consume all runner memory while retrying downloads (#53). Disable its internal
+    # retries: each failed apt-get exits and the outer loop restarts it after a wait (#51).
+    # Missing indexes must still fail, rather than letting apt-get update only warn.
     lines = text.splitlines()
     conf = next(i for i, l in enumerate(lines) if "/etc/apt/apt.conf.d/" in l)
     assert conf < next(i for i, l in enumerate(lines) if "apt-get update" in l)
-    assert "'Acquire::Retries \"5\";'" in lines[conf]
+    assert "'Acquire::Retries \"0\";'" in lines[conf]
     assert "'APT::Update::Error-Mode \"any\";'" in lines[conf]
     apt = [l.strip() for l in lines if "apt-get " in l]
     assert [l.split(";")[1].split()[1:3] for l in apt] == [["apt-get", "update"], ["apt-get", "install"]]
     assert all(l.startswith("{ n=0; until apt-get ") and "sleep $((n*60)); done; }" in l for l in apt)
 
 
-def test_a_retried_apt_get_gives_up_after_its_fifth_try():
-    assert linux_build._retried("apt-get update") == (
-        "{ n=0; until apt-get update; do n=$((n+1)); [ $n -lt 5 ] || exit 1; sleep $((n*60)); done; }")
+@pytest.mark.skipif(shutil.which("sh") is None, reason="the Dockerfile retry loop uses a POSIX shell")
+@pytest.mark.parametrize("succeed_at, expected_status, expected_waits", [
+    (3, 0, "wait 60\nwait 120\n"),
+    (6, 1, "wait 60\nwait 120\nwait 180\nwait 240\n"),
+])
+def test_apt_is_restarted_with_backoff_and_gives_up_after_five_attempts(
+        tmp_path, succeed_at, expected_status, expected_waits):
+    # Exercise the generated shell loop. sleep is replaced only to avoid waiting ten minutes.
+    counter = tmp_path / "attempts"
+    waits = tmp_path / "waits"
+    shell = f"""n_attempts=0
+sleep() {{ echo "wait $1" >> '{waits}'; }}
+apt_get() {{ n_attempts=$((n_attempts+1)); echo attempt >> '{counter}'; [ "$n_attempts" -eq {succeed_at} ]; }}
+{linux_build._retried('apt_get')}
+"""
+    result = subprocess.run(["sh", "-c", shell], timeout=5, capture_output=True, text=True)
+    assert result.returncode == expected_status, result.stderr
+    assert counter.read_text().splitlines() == ["attempt"] * min(succeed_at, 5)
+    assert waits.read_text() == expected_waits
 
 
 def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
@@ -85,9 +118,8 @@ def test_dockerfile_builds_on_the_official_image_with_its_packages_held():
     lines = text.splitlines()
     assert lines[0] == f"FROM {DIGEST}"
     # Debian as it was when the image was made, security updates included...
-    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
-                  "debian-security/20260922T125549Z/ trixie-security main"):
-        assert f"https://snapshot.debian.org/archive/{suite}'" in text
+    for archive in ("debian", "debian-security"):
+        assert f"https://snapshot.debian.org/archive/{archive}/20260922T125549Z/" in text
     # ...and no installed package may change, so the -dev packages match the image's libraries exactly.
     hold = next(i for i, l in enumerate(lines) if "apt-mark hold" in l)
     install = next(i for i, l in enumerate(lines) if "apt-get install" in l)
@@ -208,10 +240,9 @@ def test_runtime_dockerfile_installs_the_official_images_packages_from_debians_a
     text = linux_build.runtime_dockerfile("debian:trixie-20260918", "20260922T125549Z", ["zlib1g", "libgit2-1.9"])
     lines = text.splitlines()
     assert lines[0] == "FROM debian:trixie-20260918"
-    for suite in ("debian/20260922T125549Z/ trixie main", "debian/20260922T125549Z/ trixie-updates main",
-                  "debian-security/20260922T125549Z/ trixie-security main"):
+    for archive in ("debian", "debian-security"):
         # http: the Debian image has no CA certificates yet (apt checks the archive's signatures)
-        assert f"http://snapshot.debian.org/archive/{suite}'" in text
+        assert f"http://snapshot.debian.org/archive/{archive}/20260922T125549Z/" in text
     # each package Debian has for the architecture (the official image has some amd64-only ones)
     assert "printf '%s\\n' libgit2-1.9 zlib1g | sort > /tmp/wanted" in text
     assert "apt-cache dumpavail" in text

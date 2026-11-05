@@ -1,0 +1,1004 @@
+{
+  "packages": {
+    "abseil": {
+      "20240722.0-4": {
+        "abseil_20240722.0-4.debian.tar.xz": "c0af73949d4962ee721d3020c840969c62f933d6",
+        "abseil_20240722.0-4.dsc": "78efce6fc591b87bebf02b9639cda388644fabc8",
+        "abseil_20240722.0.orig.tar.gz": "747e1be77740554ac6c97518b48d6adbae1c314f"
+      }
+    },
+    "alsa-lib": {
+      "1.2.14-1+deb13u1": {
+        "alsa-lib_1.2.14-1+deb13u1.debian.tar.xz": "18ce56b9ec4f53c230036112821c757c459f7a22",
+        "alsa-lib_1.2.14-1+deb13u1.dsc": "e9b72a36312ff975223cc38ef5f2a5aadbff742e",
+        "alsa-lib_1.2.14.orig.tar.bz2": "b99bf6fdf98ab88fc35d9cda370ea60663a19f5e",
+        "alsa-lib_1.2.14.orig.tar.bz2.asc": "9d3ebfe23fe3fe48f9fa536a5d9408555344e430"
+      }
+    },
+    "aom": {
+      "3.12.1-1+deb13u1": {
+        "aom_3.12.1-1+deb13u1.debian.tar.xz": "cb8939889a100b53076fdc0ad6b266e4e2e3685e",
+        "aom_3.12.1-1+deb13u1.dsc": "be85096889d48eb97462524f18f9c046c25729af",
+        "aom_3.12.1.orig.tar.gz": "5d7456b7667f65fa125dd61de72d95beaa939bb3"
+      }
+    },
+    "at-spi2-core": {
+      "2.56.2-1+deb13u2": {
+        "at-spi2-core_2.56.2-1+deb13u2.debian.tar.xz": "761c05518c3181aa801fb007f925c7ad5159bfce",
+        "at-spi2-core_2.56.2-1+deb13u2.dsc": "c76cb73737c40d9d3bf7c9ea36f6eedf2ba07608",
+        "at-spi2-core_2.56.2.orig.tar.xz": "521757c0cdb4031717ac2e3b595a7f43c025608f"
+      }
+    },
+    "brotli": {
+      "1.1.0-2": {
+        "brotli_1.1.0-2.debian.tar.xz": "4cad3b75c791652657abb6ea166f1f8817afbb1a",
+        "brotli_1.1.0-2.dsc": "945cc97a14ad1f3355fe0dda327c0b0db0cb3047",
+        "brotli_1.1.0.orig.tar.gz": "c1a06bd9cb912a8b5f07b2bd504af78ec6d0335c"
+      }
+    },
+    "bzip2": {
+      "1.0.8-6": {
+        "bzip2_1.0.8-6.debian.tar.bz2": "339a767cb2f05ec32402bae7269d98fd14413428",
+        "bzip2_1.0.8-6.dsc": "d6f4c6bc376a703658ee6a6811c4e876944c3f13",
+        "bzip2_1.0.8.orig.tar.gz": "bf7badf7e248e0ecf465d33c2f5aeec774209227"
+      }
+    },
+    "cairo": {
+      "1.18.4-1": {
+        "cairo_1.18.4-1.debian.tar.xz": "4c133b661d1ed28935eb23e56feb4361805d495a",
+        "cairo_1.18.4-1.dsc": "84f7eb24d06357aeee5f69fd0a9d8c7b8b5c0060",
+        "cairo_1.18.4.orig.tar.xz": "0331eaa0ec3b0dfe859b6d966e572dfaac7d1d90"
+      }
+    },
+    "curl": {
+      "8.14.1-2+deb13u7": {
+        "curl_8.14.1-2+deb13u7.debian.tar.xz": "9fa1a72b0d02518e702f769134015c878717c56c",
+        "curl_8.14.1-2+deb13u7.dsc": "a52b26b71ab211b478dbcd7c1399578b52d912d4",
+        "curl_8.14.1.orig.tar.gz": "d84a4b8baf1baaca33e31e809f5e770deb727c2f",
+        "curl_8.14.1.orig.tar.gz.asc": "c892a3257a40081f754b33e6a10eca2453860307"
+      }
+    },
+    "cyrus-sasl2": {
+      "2.1.28+dfsg1-9": {
+        "cyrus-sasl2_2.1.28+dfsg1-9.debian.tar.xz": "86f90d7e834a9c0084ab3f10746c284f9e741d35",
+        "cyrus-sasl2_2.1.28+dfsg1-9.dsc": "2f08868e2d7e0632213ee739e5bef3576e451607",
+        "cyrus-sasl2_2.1.28+dfsg1.orig.tar.xz": "297ba17d605b880a9a9beb8b08abc0cf90945c40"
+      }
+    },
+    "dav1d": {
+      "1.5.1-1": {
+        "dav1d_1.5.1-1.debian.tar.xz": "64a29a181437ed96f672ba0a62acb65ee393a69e",
+        "dav1d_1.5.1-1.dsc": "9c7f53325c5a7db7fffa35d1997dbf6cecbb7915",
+        "dav1d_1.5.1.orig.tar.xz": "eaefdc760c0eb26f7b6546eeb9e45aa9cf0dbc55",
+        "dav1d_1.5.1.orig.tar.xz.asc": "e719ba319edcb372aca86a714f62b09655ab8873"
+      }
+    },
+    "dbus": {
+      "1.16.2-2": {
+        "dbus_1.16.2-2.debian.tar.xz": "d439f84abaeb7656484d60cc6700aac2fdab83d8",
+        "dbus_1.16.2-2.dsc": "ec2c14df4f3e59cab6ce7bba049ba3b2fbf9c53b",
+        "dbus_1.16.2.orig.tar.xz": "f44e9a36af548909e46aec8b29b965aeabc3bfbd",
+        "dbus_1.16.2.orig.tar.xz.asc": "f61d50bd8831e1941f9254a252685fe87b6c8651"
+      }
+    },
+    "e2fsprogs": {
+      "1.47.2-3": {
+        "e2fsprogs_1.47.2-3.debian.tar.xz": "34d330605a1b0863f8b67d1cc4abcdbf626cf735",
+        "e2fsprogs_1.47.2-3.dsc": "28a1166f329eebcacd6efea5d08b84543e01ec43",
+        "e2fsprogs_1.47.2.orig.tar.gz": "2197a81512f3d463f450a57832798006ca920b8e",
+        "e2fsprogs_1.47.2.orig.tar.gz.asc": "735a4878a0e81c275808fe373a7ec67c8b7b5d99"
+      }
+    },
+    "enchant-2": {
+      "2.8.2+dfsg1-3": {
+        "enchant-2_2.8.2+dfsg1-3.debian.tar.xz": "2c62f6a2c5b21c0819c9f3c49141829169a1a2b3",
+        "enchant-2_2.8.2+dfsg1-3.dsc": "623a88cb9102303ed7bc57ed60a6cc6c6cf07d6a",
+        "enchant-2_2.8.2+dfsg1.orig.tar.xz": "9cec7e7366ab856df93a16ee75715e74dbbaed8b"
+      }
+    },
+    "expat": {
+      "2.9.0-1~deb13u1": {
+        "expat_2.9.0-1~deb13u1.debian.tar.xz": "b7fc0d435cc0ca3f0ab63ccd687848e4f6ebcf77",
+        "expat_2.9.0-1~deb13u1.dsc": "941b0a4b27d13c82ba355981912b42236503bfd0",
+        "expat_2.9.0.orig.tar.gz": "757c277106dfab05e1ad895d31ed63c82b438c04"
+      }
+    },
+    "flite": {
+      "2.2-7": {
+        "flite_2.2-7.debian.tar.xz": "d5e09764ec4924deee70d3519c90350258aef544",
+        "flite_2.2-7.dsc": "0941d9220dd5cb7825b62e14c7535550692689ad",
+        "flite_2.2.orig.tar.gz": "687cace51875b15d2f10dba0732dfc0634571bb8"
+      }
+    },
+    "fontconfig": {
+      "2.15.0-2.3": {
+        "fontconfig_2.15.0-2.3.debian.tar.xz": "4f1ffd89cebe8528d946bb66fe0584a66f7a6484",
+        "fontconfig_2.15.0-2.3.dsc": "e741d1353a2f56a0c4d344074588a9a7f3f23bc9",
+        "fontconfig_2.15.0.orig.tar.xz": "b6137ee5d542c0fe5c96a7724884f2e8e212d275"
+      }
+    },
+    "freeimage": {
+      "3.18.0+ds2-11": {
+        "freeimage_3.18.0+ds2-11.debian.tar.xz": "71fee853e76603a905536fac8671181692de2aba",
+        "freeimage_3.18.0+ds2-11.dsc": "7a914303c6e7bcda3c95e919659aac9035e95496",
+        "freeimage_3.18.0+ds2.orig.tar.xz": "5c5f67837bd03cb2be596eb66d6edae735a4370d"
+      }
+    },
+    "freetype": {
+      "2.13.3+dfsg-1+deb13u1": {
+        "freetype_2.13.3+dfsg-1+deb13u1.debian.tar.xz": "3bc5cd94b3515251b5d3d0874b132e509799ae09",
+        "freetype_2.13.3+dfsg-1+deb13u1.dsc": "be349bca142e7e763247ee753b301d872306840b",
+        "freetype_2.13.3+dfsg.orig-ft2demos.tar.xz": "13772801af6b9341a20300ed89f36157f2506376",
+        "freetype_2.13.3+dfsg.orig-ft2demos.tar.xz.asc": "23ef17897819135ac8f6f99f57702ae7cd24c9a4",
+        "freetype_2.13.3+dfsg.orig-ft2docs.tar.xz": "7e1c8bc2bba9425864c861438fce76db76fe33c2",
+        "freetype_2.13.3+dfsg.orig-ft2docs.tar.xz.asc": "75a45eb7bd6ee570366654ecb14327f7e948e6ce",
+        "freetype_2.13.3+dfsg.orig.tar.xz": "66e7e402e4f262f2dbb7577734717c98cfbeb59c"
+      }
+    },
+    "fribidi": {
+      "1.0.16-1": {
+        "fribidi_1.0.16-1.debian.tar.xz": "7aa16b1a67f50fe5cf4b9b129112dfd2d159a5eb",
+        "fribidi_1.0.16-1.dsc": "305070fe3d4b06ddfcfbf86a58d1101fe0083695",
+        "fribidi_1.0.16.orig.tar.xz": "5ba608506055bd0df5f856cef155f0550f9ff47e"
+      }
+    },
+    "gcc-14": {
+      "14.2.0-19": {
+        "gcc-14_14.2.0-19.debian.tar.xz": "47c1fc8b2b6a5643058a6d903ba5734cae7c03b7",
+        "gcc-14_14.2.0-19.dsc": "065b6e84c53e405389c312739057e1a42e41b44c",
+        "gcc-14_14.2.0.orig.tar.gz": "40f4fae7a993865facd67321c28b95ef19aa7ab1"
+      }
+    },
+    "gdk-pixbuf": {
+      "2.42.12+dfsg-4+deb13u1": {
+        "gdk-pixbuf_2.42.12+dfsg-4+deb13u1.debian.tar.xz": "213ca7e2a298b36621775fbe783809a11f5bc558",
+        "gdk-pixbuf_2.42.12+dfsg-4+deb13u1.dsc": "c89714b2c4689b51838be5aa20244570a544cae8",
+        "gdk-pixbuf_2.42.12+dfsg.orig.tar.xz": "aba2ae5adf39345bf8a808db1bea62fb25fd3915"
+      }
+    },
+    "glib2.0": {
+      "2.84.4-3~deb13u5": {
+        "glib2.0_2.84.4-3~deb13u5.debian.tar.xz": "6d92bf8dffbeee2369394a9f40a67f8fb71b478c",
+        "glib2.0_2.84.4-3~deb13u5.dsc": "02513a8ebbd960c5029e900fafccfe8ea93c8c4f",
+        "glib2.0_2.84.4-3~deb13u5.git.tar.xz": "9b353f9d539cfed5d37a00add9f33829a35063fb",
+        "glib2.0_2.84.4.orig-unicode-data.tar.xz": "ade0b6ba8926c1cc81e28c86ae2652f47ceff885",
+        "glib2.0_2.84.4.orig.tar.xz": "7d021a627322082de873c483b540443c524712e1"
+      }
+    },
+    "gmp": {
+      "2:6.3.0+dfsg-3": {
+        "gmp_6.3.0+dfsg-3.debian.tar.xz": "917f804f224e3b64179f8672905a6517cdc38e4d",
+        "gmp_6.3.0+dfsg-3.dsc": "89d865c92f775ca7c7affc74388c204365268ac2",
+        "gmp_6.3.0+dfsg.orig.tar.xz": "72323f8cf07aa5d338aff92ef42eea622569ed2c"
+      }
+    },
+    "gnutls28": {
+      "3.8.9-3+deb13u4": {
+        "gnutls28_3.8.9-3+deb13u4.debian.tar.xz": "64963c11663d6384123657509dbaa0556e6122c7",
+        "gnutls28_3.8.9-3+deb13u4.dsc": "d951d114b353d17ccd1a10cd7eb950d63582e11c",
+        "gnutls28_3.8.9.orig.tar.xz": "4bacfbfcba06b67e91bbd3535c275b04ef89a61f",
+        "gnutls28_3.8.9.orig.tar.xz.asc": "2d96a7aa8a204014dc40b14030b9120edad27174"
+      }
+    },
+    "gpgme1.0": {
+      "1.24.2-3": {
+        "gpgme1.0_1.24.2-3.debian.tar.xz": "a41da81981db277ccc0a9b21960517feb9edc019",
+        "gpgme1.0_1.24.2-3.dsc": "837e2ac78308ba18c1ff41335e838761bc3eb099",
+        "gpgme1.0_1.24.2.orig.tar.bz2": "dc1a730bbf4c63286655dcdd4e84f1cc3588d4c0",
+        "gpgme1.0_1.24.2.orig.tar.bz2.asc": "c0411043557ebb07149afffea3dd3729e6a1e692"
+      }
+    },
+    "graphite2": {
+      "1.3.14-2+deb13u1": {
+        "graphite2_1.3.14-2+deb13u1.debian.tar.xz": "b0401ab5bb60788210ac1e7bda6e59b2e8e9118b",
+        "graphite2_1.3.14-2+deb13u1.dsc": "98806021ff22bc581dee034dada304237916e468",
+        "graphite2_1.3.14.orig.tar.gz": "768d478d300253a855a7a15ba1e59b56d06ad01c"
+      }
+    },
+    "gst-plugins-base1.0": {
+      "1.26.2-1+deb13u2": {
+        "gst-plugins-base1.0_1.26.2-1+deb13u2.debian.tar.xz": "997f4b21b3dfdf46dd4d5bd0a082773906a3e3b7",
+        "gst-plugins-base1.0_1.26.2-1+deb13u2.dsc": "ea2b4be7f77345b91ae5bed6ad301bdc6b017711",
+        "gst-plugins-base1.0_1.26.2.orig.tar.xz": "3bd046dded7e216000c6a0ad050e0ac5db1d8eba",
+        "gst-plugins-base1.0_1.26.2.orig.tar.xz.asc": "536619eb9d9bcc385833580298dbcb5b3bd8f727"
+      }
+    },
+    "gstreamer1.0": {
+      "1.26.2-2": {
+        "gstreamer1.0_1.26.2-2.debian.tar.xz": "2d8e720654973f4b91cf3c5e179a1fc21a0a7ff4",
+        "gstreamer1.0_1.26.2-2.dsc": "9d75d272bc0a24bff442f34eeda6c7b32cbde597",
+        "gstreamer1.0_1.26.2.orig.tar.xz": "f5f12247b11c9835c343bfd3f63e12bc70f34fcb",
+        "gstreamer1.0_1.26.2.orig.tar.xz.asc": "34e00f51d479f97d8f4b48566b93c73921062ace"
+      }
+    },
+    "gtk+3.0": {
+      "3.24.49-3": {
+        "gtk+3.0_3.24.49-3.debian.tar.xz": "f499d0389ef95234de76704c23cb71fdd1f61082",
+        "gtk+3.0_3.24.49-3.dsc": "8f38f9e9a08d9514a54627618ad286293d46a3c0",
+        "gtk+3.0_3.24.49.orig.tar.xz": "ff93d9633771376f74aa6f3d1a6ec96bc26f7565"
+      }
+    },
+    "harfbuzz": {
+      "10.2.0-1+deb13u1": {
+        "harfbuzz_10.2.0-1+deb13u1.debian.tar.xz": "3bb554ca3d3d65efd760fc9449defb566a015393",
+        "harfbuzz_10.2.0-1+deb13u1.dsc": "896b502302c98120d4e3714aa8754068de620b73",
+        "harfbuzz_10.2.0.orig.tar.xz": "343fd7c83aa490802f0fddb55ccf48983b33efe5"
+      }
+    },
+    "hidapi": {
+      "0.14.0-1": {
+        "hidapi_0.14.0-1.debian.tar.xz": "11887872d2bdb23a268d2ae4412acb8889e22d05",
+        "hidapi_0.14.0-1.dsc": "cf99411d16a205762d3cd5d98551fbeb0458a72d",
+        "hidapi_0.14.0.orig.tar.gz": "e14d489b29ade5dcb11dfd875f56e1bc0332379f"
+      }
+    },
+    "highway": {
+      "1.2.0-2": {
+        "highway_1.2.0-2.debian.tar.xz": "0a54a40fd1425538c0b88038737f4deec255634a",
+        "highway_1.2.0-2.dsc": "383a4797b77f22a2d71c462db867c08cce25de2b",
+        "highway_1.2.0.orig.tar.gz": "6bce191fa2b68f6c28bb331ed85317c45b989974"
+      }
+    },
+    "http-parser": {
+      "2.9.4-6": {
+        "http-parser_2.9.4-6.debian.tar.xz": "55eb2baf191df5824435e41e488b736c71272fa3",
+        "http-parser_2.9.4-6.dsc": "bcc669fab369005567fe701e5f8e5bb967e1d5e7",
+        "http-parser_2.9.4.orig.tar.gz": "8df5277feefe79f3d4472b8f2c5ca9224b2221dd"
+      }
+    },
+    "hyphen": {
+      "2.8.8-7": {
+        "hyphen_2.8.8-7.debian.tar.xz": "9ea347029e415a07b40853544a6970fa67765446",
+        "hyphen_2.8.8-7.dsc": "ef4c02398b550448ea0c21d462a2c3f4225eed4a",
+        "hyphen_2.8.8.orig.tar.gz": "0556c392beb59433e577e3517575801212201df6"
+      }
+    },
+    "icu": {
+      "76.1-4": {
+        "icu_76.1-4.debian.tar.xz": "15a8ad0d7dedf68feab8e643c5581a95b92f9b59",
+        "icu_76.1-4.dsc": "b34171ef258f7d6f36bb2a4afd7a63ad521db1ec",
+        "icu_76.1.orig.tar.gz": "f7764341d196112573605881dbbf10e586d84841",
+        "icu_76.1.orig.tar.gz.asc": "0c799334c1dbc3b03db35a6ad0d1582e7d45a6e7"
+      }
+    },
+    "imath": {
+      "3.1.12-1": {
+        "imath_3.1.12-1.debian.tar.xz": "14e364b6bca6f1f0b34168386ebab643e2ea53b8",
+        "imath_3.1.12-1.dsc": "bbaf51ee0afed9cfd5e9144fd99311664458d627",
+        "imath_3.1.12.orig.tar.gz": "27c8f61cd2881a47a2a89dc5c8190adcce1c5449",
+        "imath_3.1.12.orig.tar.gz.asc": "80df18fce2522997b352e9bf3986ac107133cf4e"
+      }
+    },
+    "jbigkit": {
+      "2.1-6.1": {
+        "jbigkit_2.1-6.1.debian.tar.xz": "ba344ca00fadcd6dd6761fe5fed6c8b306f2c9fb",
+        "jbigkit_2.1-6.1.dsc": "d86cafe128a2701289e864878dab6e75a30cc3a1",
+        "jbigkit_2.1.orig.tar.gz": "4864646df004e8331d19f2fa103ed731fdb6c099"
+      }
+    },
+    "jpeg-xl": {
+      "0.11.2-0.1~deb13u3": {
+        "jpeg-xl_0.11.2-0.1~deb13u3.debian.tar.xz": "7aa8a8c6180f97683f6faad81cf5e5c4bf8b039b",
+        "jpeg-xl_0.11.2-0.1~deb13u3.dsc": "20947e16840d206c68eab5f1e59fdb536bd7ff5e",
+        "jpeg-xl_0.11.2.orig.tar.gz": "2acaf75909eea67cc7d861a9a918733d5f630db8"
+      }
+    },
+    "jxrlib": {
+      "1.2~git20170615.f752187-5.3": {
+        "jxrlib_1.2~git20170615.f752187-5.3.debian.tar.xz": "cf7e770757d093201191e181f4054be7f740f93e",
+        "jxrlib_1.2~git20170615.f752187-5.3.dsc": "c4f496c465055f67ba36197aa59d31dae380f08f",
+        "jxrlib_1.2~git20170615.f752187.orig.tar.xz": "0a935a76ffbb20752a384b50dddda6c20ddedab8"
+      }
+    },
+    "keyutils": {
+      "1.6.3-6": {
+        "keyutils_1.6.3-6.debian.tar.xz": "707251ca69ad0449a57eef177fe3e9c5010640be",
+        "keyutils_1.6.3-6.dsc": "454956ba1efae8fc78ae0e38e2aaa6c1e1f91fe6",
+        "keyutils_1.6.3.orig.tar.gz": "7e5112d68eef5677e474d062282a0e1d1f19904c"
+      }
+    },
+    "krb5": {
+      "1.21.3-5+deb13u1": {
+        "krb5_1.21.3-5+deb13u1.debian.tar.xz": "da5ad2ca88f2b585813f8f4bc1fa3fe8163aa1c3",
+        "krb5_1.21.3-5+deb13u1.dsc": "4b809a2645d73d6af8b6e7d8997fec286665916f",
+        "krb5_1.21.3.orig.tar.gz": "3e383bbe88cbed56bdad4ba655c40abf0e961cf7",
+        "krb5_1.21.3.orig.tar.gz.asc": "bba46878ffc67fcd96821cd7b8f451b5b1b2f475"
+      }
+    },
+    "lcms2": {
+      "2.16-2+deb13u2": {
+        "lcms2_2.16-2+deb13u2.debian.tar.xz": "30a95832bc979a402dd3630b258230294b86f5ef",
+        "lcms2_2.16-2+deb13u2.dsc": "d6be5c43e3553fe95b792017b5ec3147efb79e95",
+        "lcms2_2.16.orig.tar.gz": "751d32ba11809e3591c118be9aae8ac2dbd41cb7"
+      }
+    },
+    "lerc": {
+      "4.0.0+ds-5": {
+        "lerc_4.0.0+ds-5.debian.tar.xz": "2a4d7d4be401166643d6d45ea3e7a4d5c86910c9",
+        "lerc_4.0.0+ds-5.dsc": "70535685cd6bc36754c2dd7d32bbd21a4cd3bdd3",
+        "lerc_4.0.0+ds.orig.tar.xz": "03f7ed1ab6873ef6855462f845bd260863a9be81"
+      }
+    },
+    "libassuan": {
+      "3.0.2-2": {
+        "libassuan_3.0.2-2.debian.tar.xz": "40835b78be1a8871636de566921a3cb8b93dc624",
+        "libassuan_3.0.2-2.dsc": "685230cf7412b3c8ad96400ac59d81ba996378a4",
+        "libassuan_3.0.2.orig.tar.bz2": "57fb6f59b1a07e5125115454f5ad4cb0665e0eef",
+        "libassuan_3.0.2.orig.tar.bz2.asc": "b786d469ab037a8b04bab50db439bfc3b76b6f5f"
+      }
+    },
+    "libavif": {
+      "1.2.1-1.2": {
+        "libavif_1.2.1-1.2.debian.tar.xz": "faca17a500cb430ab5be40e1fa7e6799d2490746",
+        "libavif_1.2.1-1.2.dsc": "4dd8dac4dcc4fbf5e11b6f729ed37d886dd52fdf",
+        "libavif_1.2.1.orig-libargparse.tar.gz": "f1cc436311e4e496b1978fad4722e6c979c5c63a",
+        "libavif_1.2.1.orig.tar.gz": "4bd894395d1efe15bea84d45a9636cfa89dab194"
+      }
+    },
+    "libcap2": {
+      "1:2.75-10+deb13u1": {
+        "libcap2_2.75-10+deb13u1.debian.tar.xz": "6295bbcaf6a5ffad653da306d98370d1e8966ecb",
+        "libcap2_2.75-10+deb13u1.dsc": "c8c3bd695ab0cac34ea0ac0c395fa0777dec1105",
+        "libcap2_2.75.orig.tar.xz": "1551cef1dd86c56a41c6e5793a79d7a7a9c648fb",
+        "libcap2_2.75.orig.tar.xz.asc": "fe47ee3715175c88a5261a6f6275ea6eddf426dd"
+      }
+    },
+    "libcloudproviders": {
+      "0.3.6-2": {
+        "libcloudproviders_0.3.6-2.debian.tar.xz": "43a573e4ffb6ea87bca51f37f9b84fa749297353",
+        "libcloudproviders_0.3.6-2.dsc": "1f75c1d303e7b8636fc37a73142c12fc13afa76e",
+        "libcloudproviders_0.3.6.orig.tar.xz": "4ecc6e5b295bda2e5b8619220ee82dcb54970f60"
+      }
+    },
+    "libdatrie": {
+      "0.2.13-3": {
+        "libdatrie_0.2.13-3.debian.tar.xz": "3668413a4f65405a71408f0fe7cb67a9a7a4e59b",
+        "libdatrie_0.2.13-3.dsc": "ebcb9855fc8e8268e282a984af40a02e0ae67254",
+        "libdatrie_0.2.13.orig.tar.xz": "ff3d30605fdc9a226e7acde8de3752125b3a8791"
+      }
+    },
+    "libdeflate": {
+      "1.23-2": {
+        "libdeflate_1.23-2.debian.tar.xz": "2da064f61e035315cb638fd19e44d4e3a923ccf2",
+        "libdeflate_1.23-2.dsc": "bb72403bf0f563c03983867b9c34ab9ac38c142a",
+        "libdeflate_1.23.orig.tar.gz": "13dfd968e1d3dd8600d688330d195feae7e2afa8"
+      }
+    },
+    "libdrm": {
+      "2.4.124-2": {
+        "libdrm_2.4.124-2.debian.tar.xz": "b0aad0a7499c794532c840490a1f2a8fcb063e9a",
+        "libdrm_2.4.124-2.dsc": "bc8867d380531c53f0420a0522963103f2e71b66",
+        "libdrm_2.4.124.orig.tar.xz": "4c231ef4e652e66bd53bf5dd70c8c41238d3e94d",
+        "libdrm_2.4.124.orig.tar.xz.asc": "ab647d9848531ebd993d6ac46567feebfd1096d6"
+      }
+    },
+    "libepoxy": {
+      "1.5.10-2": {
+        "libepoxy_1.5.10-2.debian.tar.xz": "8e20ad5b3f0e4b1eb809e6d43564d0e44a086e09",
+        "libepoxy_1.5.10-2.dsc": "a0c145d2854057592196939556f88e91ebf81ab4",
+        "libepoxy_1.5.10.orig.tar.gz": "f86e817b293eb30ca1e26d159de3a5903ee92f54"
+      }
+    },
+    "libevdev": {
+      "1.13.4+dfsg-1": {
+        "libevdev_1.13.4+dfsg-1.debian.tar.xz": "4b625fca28ae298f6edcf45d1791ec552e5d9643",
+        "libevdev_1.13.4+dfsg-1.dsc": "f0f9fca5b1efdab2c7d1dc5d567015194343aedc",
+        "libevdev_1.13.4+dfsg.orig.tar.xz": "eabd110edf8fdc126f3f1b022e39bb4ad5af0787"
+      }
+    },
+    "libffi": {
+      "3.4.8-2": {
+        "libffi_3.4.8-2.debian.tar.xz": "54456977d926d71d84081ef0aa9c8953179de8a9",
+        "libffi_3.4.8-2.dsc": "d5dfb5128d4b50eb0f00e306d46cea06ab299bdc",
+        "libffi_3.4.8.orig.tar.gz": "5aaeb77d856a2178b1b6d453f5389da67ab77e93"
+      }
+    },
+    "libgav1": {
+      "0.19.0-3": {
+        "libgav1_0.19.0-3.debian.tar.xz": "bda41a60a449f1cca07a8cd34fb78368aae72aca",
+        "libgav1_0.19.0-3.dsc": "5e15ae93dadbe0f35d89091f6a899f6f0ec8b0bf",
+        "libgav1_0.19.0.orig.tar.xz": "bbe7175b4e660331f2f4f7061b023c5430f98bdd"
+      }
+    },
+    "libgcrypt20": {
+      "1.11.0-7+deb13u1": {
+        "libgcrypt20_1.11.0-7+deb13u1.debian.tar.xz": "66f90a6fdb4f496e76038f57c20254c59e56af22",
+        "libgcrypt20_1.11.0-7+deb13u1.dsc": "f76b859771f52513980cec88c41b9d61d20d89e6",
+        "libgcrypt20_1.11.0.orig.tar.bz2": "dd2c68e0685bb99249efeeb06046fae15b5214ba",
+        "libgcrypt20_1.11.0.orig.tar.bz2.asc": "8f67baf118e060414f24eeaad8028a5ab396ad98"
+      }
+    },
+    "libgit2": {
+      "1.9.0+ds-2+deb13u1": {
+        "libgit2_1.9.0+ds-2+deb13u1.debian.tar.xz": "6ec7322a050e5b9c1241a71c70c33aa1b07f53fd",
+        "libgit2_1.9.0+ds-2+deb13u1.dsc": "38be9d61235f17fbf0e4f7ae0227c13cabfddd61",
+        "libgit2_1.9.0+ds.orig.tar.xz": "a17aa70d26da695678a2c110b343e4c5056d8fb1"
+      }
+    },
+    "libglu": {
+      "9.0.2-1.1": {
+        "libglu_9.0.2-1.1.diff.gz": "c3f847b1eabd78bbb1c99b5895312db391ef82b9",
+        "libglu_9.0.2-1.1.dsc": "327c9d3feb9ad51a06443484b18960b8be692eb0",
+        "libglu_9.0.2.orig.tar.gz": "86758c10bc1c4434f10f43eccc3d8f82b004332b"
+      }
+    },
+    "libglvnd": {
+      "1.7.0-1": {
+        "libglvnd_1.7.0-1.debian.tar.xz": "947a947726a3c6f508f71a48f3cdcd788ecc832d",
+        "libglvnd_1.7.0-1.dsc": "4529d8746eea06ecfce6e085089f9f15365a5189",
+        "libglvnd_1.7.0.orig.tar.gz": "a8bf5d4304048d851f395a748389ced524892da5"
+      }
+    },
+    "libgpg-error": {
+      "1.51-4": {
+        "libgpg-error_1.51-4.debian.tar.xz": "4547258ebbd59c4393dca942f59b778f01ad9b7a",
+        "libgpg-error_1.51-4.dsc": "444abd7c6d0adc9281c03c340b8feafc83b264cf",
+        "libgpg-error_1.51.orig.tar.bz2": "0a9386ff70a5d1f771771bf0b8db2b956e292f13",
+        "libgpg-error_1.51.orig.tar.bz2.asc": "23a04fdf203aacaae6e283f3bd4c8961a80f4c6e"
+      }
+    },
+    "libgudev": {
+      "238-6": {
+        "libgudev_238-6.debian.tar.xz": "52a22b79f218d4e1a7e1b04dcd9e494375e42621",
+        "libgudev_238-6.dsc": "d1643026e8d20ff43ca6807984909b0fdba4cb4a",
+        "libgudev_238.orig.tar.xz": "38f948d27bd42537f155ad087c99d9856a1ad25e"
+      }
+    },
+    "libice": {
+      "2:1.1.1-1": {
+        "libice_1.1.1-1.diff.gz": "e1d94be2b30d986b9f937acb265b53e4f400e71e",
+        "libice_1.1.1-1.dsc": "43e2f00e3591fcb907383076aef2c5fb7b3c2253",
+        "libice_1.1.1.orig.tar.gz": "bb1f58c50e9f98fdd064354f686ef78ab14c2305"
+      }
+    },
+    "libidn2": {
+      "2.3.8-2": {
+        "libidn2_2.3.8-2.debian.tar.xz": "a5dd8bd655c42ed46dddfd5a4a056435aa4251b2",
+        "libidn2_2.3.8-2.dsc": "f209cb443ca61fa0a9f55e603f20c98628f25a4e",
+        "libidn2_2.3.8.orig.tar.gz": "87921bc183615550cba1ea88ac3235e045cfffc5",
+        "libidn2_2.3.8.orig.tar.gz.asc": "919cb9f0c0e46190ae81a72c4154e22b4aa5847b"
+      }
+    },
+    "libjpeg-turbo": {
+      "1:2.1.5-4": {
+        "libjpeg-turbo_2.1.5-4.debian.tar.xz": "dec74bbb0ec4373046d6fa98608c1825d47856ab",
+        "libjpeg-turbo_2.1.5-4.dsc": "85247e8730ab05b21811e836f631b5bd7830c834",
+        "libjpeg-turbo_2.1.5.orig.tar.gz": "3731459f8774035efac9bd0a3b890832484a2681"
+      }
+    },
+    "libmanette": {
+      "0.2.12-1": {
+        "libmanette_0.2.12-1.debian.tar.xz": "7eefa1048d635d27bfcc259e9773f9996587511a",
+        "libmanette_0.2.12-1.dsc": "94f41731cc182d2f5cec4229db95f9a921c0c527",
+        "libmanette_0.2.12.orig.tar.xz": "0a4debddc16041e136a1836351d5ada0ed7fe15e"
+      }
+    },
+    "libnotify": {
+      "0.8.6-1": {
+        "libnotify_0.8.6-1.debian.tar.xz": "53d6e0e2a80ca041b8203f10b21bea66fce2b185",
+        "libnotify_0.8.6-1.dsc": "e8f2490335505da0cbb0d6be9d82ea2267b60e38",
+        "libnotify_0.8.6.orig.tar.xz": "9fd399c7e7d26ce7433a80ed84b5bb0a38b5edd4"
+      }
+    },
+    "libpng1.6": {
+      "1.6.48-1+deb13u6": {
+        "libpng1.6_1.6.48-1+deb13u6.debian.tar.xz": "2d82bfd126f10845ec1a24d1849f8afc984c661b",
+        "libpng1.6_1.6.48-1+deb13u6.dsc": "c6efb4301f70fad5ed6d39e01790467a10661ad3",
+        "libpng1.6_1.6.48.orig.tar.gz": "4a0d9412d92e7052f187ba3287875b0220466306"
+      }
+    },
+    "libpsl": {
+      "0.21.2-1.1": {
+        "libpsl_0.21.2-1.1.debian.tar.xz": "4dc62f44cb904d29a0c26cfb770605a3f6ebbb02",
+        "libpsl_0.21.2-1.1.dsc": "afe3a20cff43619cfc7f1c13ad317a79e94a7e5c",
+        "libpsl_0.21.2.orig.tar.xz": "eff866df9906dd254f1a54cc0e51f051cc42e61d"
+      }
+    },
+    "libraw": {
+      "0.21.4-2+deb13u1": {
+        "libraw_0.21.4-2+deb13u1.debian.tar.xz": "2aa6cee2f1c98dc4c7b297a46326b9171423516e",
+        "libraw_0.21.4-2+deb13u1.dsc": "1c9ef790f1218f1fc7e8936d5d22c643fe854276",
+        "libraw_0.21.4.orig.tar.gz": "aa603d4d4a2e7817db415580ca585d9ce3e08de6"
+      }
+    },
+    "libseccomp": {
+      "2.6.0-2": {
+        "libseccomp_2.6.0-2.debian.tar.xz": "2e7b2ad26b39ade9ee22652047d2c2c40a04991b",
+        "libseccomp_2.6.0-2.dsc": "6cfdde70eba246af6ae8fc25814318164e80f72f",
+        "libseccomp_2.6.0.orig.tar.gz": "2eb0222d379756bd5f0a52c0488a20e3311bbf00",
+        "libseccomp_2.6.0.orig.tar.gz.asc": "a3a445eac376025b8b55998ac7c9ceb92db9a0d3"
+      }
+    },
+    "libsecret": {
+      "0.21.7-1": {
+        "libsecret_0.21.7-1.debian.tar.xz": "16531261ece2e2b72c2f09dae108ea0b61cbf3bb",
+        "libsecret_0.21.7-1.dsc": "cc99ecd1fe498cc3d83879a779627ba7c3ede6c3",
+        "libsecret_0.21.7.orig.tar.xz": "a608a3d4b69f0732be546fad9c769b10da9ee812"
+      }
+    },
+    "libselinux": {
+      "3.8.1-1": {
+        "libselinux_3.8.1-1.debian.tar.xz": "5999a5d34d86dbf2379f1a41abe8cb9706721d8d",
+        "libselinux_3.8.1-1.dsc": "6af7920fefad36d817bb5f4e39507de9a08668dd",
+        "libselinux_3.8.1.orig.tar.gz": "e039453ee0b5ebb980ddf082a2b1024171913834",
+        "libselinux_3.8.1.orig.tar.gz.asc": "f43f4b604b59642e23e41713fb7ba465094f5fd3"
+      }
+    },
+    "libsm": {
+      "2:1.2.6-1": {
+        "libsm_1.2.6-1.diff.gz": "0648ab633a7806564f65530deb148693cd62f9dd",
+        "libsm_1.2.6-1.dsc": "49dfbd9ed4e5c74c2f92fa1994458bc66c5ff679",
+        "libsm_1.2.6.orig.tar.gz": "74edcd2c874c15bad5b114892eacefdcd334a044",
+        "libsm_1.2.6.orig.tar.gz.asc": "802fc2ebc89198a23b9fb256f83f0f2bf42a034c"
+      }
+    },
+    "libsoup3": {
+      "3.6.5-3": {
+        "libsoup3_3.6.5-3.debian.tar.xz": "2140d09072fddcc16e53a399a823e3c9ab8adb3a",
+        "libsoup3_3.6.5-3.dsc": "ad87d3e938677ab265a438e6410bd5e672c7396b",
+        "libsoup3_3.6.5.orig.tar.xz": "10a86d6f121c8caa3a90bd24bb7a2cc4933755f2"
+      }
+    },
+    "libspnav": {
+      "1.2-1": {
+        "libspnav_1.2-1.debian.tar.xz": "2e120458a9776b8ae167a863a09c9f3fb294d5d2",
+        "libspnav_1.2-1.dsc": "b12020353b7e83f3e00e424ff6b25182f2bc6a87",
+        "libspnav_1.2.orig.tar.gz": "43f27488b8487104870d09239199feeb2b024ebe"
+      }
+    },
+    "libssh2": {
+      "1.11.1-1+deb13u2": {
+        "libssh2_1.11.1-1+deb13u2.debian.tar.xz": "df9b9e0ab4548a6fb65d1a8a656b43d5f5a4f28e",
+        "libssh2_1.11.1-1+deb13u2.dsc": "69e72fe5f7d7b989fb9ca76f32ee3e3e62b779be",
+        "libssh2_1.11.1.orig.tar.gz": "61c721696f08bf91d23dd59b766bac65e9a78b04",
+        "libssh2_1.11.1.orig.tar.gz.asc": "d1d810ea2c4807fe71b0b66c784bd874ad5b9c67"
+      }
+    },
+    "libtasn1-6": {
+      "4.20.0-2+deb13u1": {
+        "libtasn1-6_4.20.0-2+deb13u1.debian.tar.xz": "fa7965b3141871d5556df3b87ce7af13ad4f0e41",
+        "libtasn1-6_4.20.0-2+deb13u1.dsc": "2783dd78e3576d56d88d38d12ee89f4e4ba6d903",
+        "libtasn1-6_4.20.0.orig.tar.gz": "ef6a358e16e056476b4be121ed2fb2ce11d791ed",
+        "libtasn1-6_4.20.0.orig.tar.gz.asc": "b59bd89f65680b9da67ebea07982c4d763188170"
+      }
+    },
+    "libthai": {
+      "0.1.29-2": {
+        "libthai_0.1.29-2.debian.tar.xz": "c429085b780b2a68f4288b85c862896d5f61b2a8",
+        "libthai_0.1.29-2.dsc": "37022ee270dd5f6a7aefabaedf99853176a3081c",
+        "libthai_0.1.29.orig.tar.xz": "068f6a0e17f34f9c22515eb63a5c4858b71453dd"
+      }
+    },
+    "libtool": {
+      "2.5.4-4": {
+        "libtool_2.5.4-4.debian.tar.xz": "4c0011842fc1d8b8dac29487b965ca3ad7d6285a",
+        "libtool_2.5.4-4.dsc": "95a195933f218b91cd22fe2ddfe82a9aa33e921f",
+        "libtool_2.5.4.orig.tar.xz": "655cf056bd161ca022523abdfc0111d6100477f1"
+      }
+    },
+    "libunistring": {
+      "1.3-2": {
+        "libunistring_1.3-2.debian.tar.xz": "296a2e0fb41c78ece677214334d35dc9538ddd28",
+        "libunistring_1.3-2.dsc": "fccacc11ee45d9a30933cb8fac837a72524b4a04",
+        "libunistring_1.3.orig.tar.xz": "55a0c8607ee3753a0cf716135b95f87482946e5b",
+        "libunistring_1.3.orig.tar.xz.asc": "ef6aece774a9b4a55e5110a5452ed6ef146f663b"
+      }
+    },
+    "libwebp": {
+      "1.5.0-0.1": {
+        "libwebp_1.5.0-0.1.debian.tar.xz": "ad7c0373bae8b823d24a727033727fb61774b0de",
+        "libwebp_1.5.0-0.1.dsc": "6be33eef7f20445350c243a3ab420662aa3d49b8",
+        "libwebp_1.5.0.orig.tar.gz": "b21aa842136dc59a72a38776a5aa73f4d0b00ac5",
+        "libwebp_1.5.0.orig.tar.gz.asc": "cbb4308c782cd6cef07e4b840eb4ab97fd53270a"
+      }
+    },
+    "libx11": {
+      "2:1.8.12-1": {
+        "libx11_1.8.12-1.diff.gz": "96cc13126f82c3af9c357673a3b13642500fcecf",
+        "libx11_1.8.12-1.dsc": "49f4c7c48fdffa94a1460e1d56dfd3db95c4ef78",
+        "libx11_1.8.12.orig.tar.gz": "5600992b00e875f72ad24b8962b5c62f3744a117",
+        "libx11_1.8.12.orig.tar.gz.asc": "69a0f8cda07d26b22fa7e635b4b67f5c51f70b37"
+      }
+    },
+    "libxau": {
+      "1:1.0.11-1": {
+        "libxau_1.0.11-1.diff.gz": "2d8ba0fb2b06e1478ac7c1f69f1c993731705d41",
+        "libxau_1.0.11-1.dsc": "8db0f14ee3ab862b913760723a67df0abdbbb109",
+        "libxau_1.0.11.orig.tar.gz": "04415dc4640acb6a2acfa9858be36d7802704eaa",
+        "libxau_1.0.11.orig.tar.gz.asc": "fd93500acfdcc89c875d2e6c00ccad55688d1d7c"
+      }
+    },
+    "libxcb": {
+      "1.17.0-2": {
+        "libxcb_1.17.0-2.diff.gz": "365b0f86925e0bb58f8ea27a6090a12d0278c516",
+        "libxcb_1.17.0-2.dsc": "a4c891dace6227bdd9663f24161ddf57cb1c4706",
+        "libxcb_1.17.0.orig.tar.gz": "220ec81181bcd8bf5a8367610858673e8de6e705"
+      }
+    },
+    "libxcomposite": {
+      "1:0.4.6-1": {
+        "libxcomposite_0.4.6-1.diff.gz": "5bdd285167f9f6892a966154e951b0f85526b3de",
+        "libxcomposite_0.4.6-1.dsc": "21f5b0bec72c043a043902fab1bf9580a2184c57",
+        "libxcomposite_0.4.6.orig.tar.gz": "138c7529a9e8db72471e9dc5c3402d79ce4da919",
+        "libxcomposite_0.4.6.orig.tar.gz.asc": "4039e52f75c66384e36b5dde262f9ac0f5a9452b"
+      }
+    },
+    "libxcursor": {
+      "1:1.2.3-1": {
+        "libxcursor_1.2.3-1.debian.tar.xz": "77855a4e3e2865c03a0e35bfb08f058c14769fa0",
+        "libxcursor_1.2.3-1.dsc": "ac1318e330b846c90746ffe0bb3554d5953a6bfe",
+        "libxcursor_1.2.3.orig.tar.gz": "144e28af88d204b6884ffc4f71f688f782b1178b"
+      }
+    },
+    "libxdamage": {
+      "1:1.1.6-1": {
+        "libxdamage_1.1.6-1.debian.tar.xz": "9961229fb8cca4ab8520221a2e1d5846af258bb4",
+        "libxdamage_1.1.6-1.dsc": "497f563178802334628078821f3d77965e1f483e",
+        "libxdamage_1.1.6.orig.tar.gz": "a5b16c77b86236b6974e35128c4615334bcf3fd5"
+      }
+    },
+    "libxdmcp": {
+      "1:1.1.5-1": {
+        "libxdmcp_1.1.5-1.diff.gz": "8c979892e20d8c5e7aed60c51bdfea5a8acfe9fd",
+        "libxdmcp_1.1.5-1.dsc": "e21b280e178810e34c51d2cf8538046e43d6ae50",
+        "libxdmcp_1.1.5.orig.tar.gz": "f4252223246b2cf8e3ef627c027409a397f32ebd",
+        "libxdmcp_1.1.5.orig.tar.gz.asc": "d3417a0844c48c4b77155ef29528fd78d10969d4"
+      }
+    },
+    "libxext": {
+      "2:1.3.4-1": {
+        "libxext_1.3.4-1.diff.gz": "90f84e25cdce0d282beab63887b008cf6b15fbdf",
+        "libxext_1.3.4-1.dsc": "27ab2762de9b14b0dc24ceaf65f6e75003bce100",
+        "libxext_1.3.4.orig.tar.gz": "b783a0c17a6cb9105ab0f95fef898904accbcc19"
+      }
+    },
+    "libxfixes": {
+      "1:6.0.0-2": {
+        "libxfixes_6.0.0-2.diff.gz": "87e4f9694c4a168b886257ef9ae4e7e1f7ba2482",
+        "libxfixes_6.0.0-2.dsc": "278e1b04346e6aca46e1c567bdc9a22425c6a51a",
+        "libxfixes_6.0.0.orig.tar.gz": "cc423279168f3d39bc69bfb224bf72235bc6b6a3",
+        "libxfixes_6.0.0.orig.tar.gz.asc": "7603cb0756687192f68085b6fb11b28f68483753"
+      }
+    },
+    "libxi": {
+      "2:1.8.2-1": {
+        "libxi_1.8.2-1.diff.gz": "d19441d2abe2112e99786edada3c19f7930c33fb",
+        "libxi_1.8.2-1.dsc": "0070009579a9b10fd4276a0dc7ad0a1ad54bde42",
+        "libxi_1.8.2.orig.tar.gz": "cb3919313236256481bcb542eae3abb608af4ef0",
+        "libxi_1.8.2.orig.tar.gz.asc": "ecbf69f998287ed91054e5946254f921e2001505"
+      }
+    },
+    "libxinerama": {
+      "2:1.1.4-3": {
+        "libxinerama_1.1.4-3.diff.gz": "e2a7e0335829f68b45d1c59a55a60bc4b1eeeb68",
+        "libxinerama_1.1.4-3.dsc": "3fe3e1b6a59807c248853b70007375c996682fcd",
+        "libxinerama_1.1.4.orig.tar.gz": "5d9b9e6a8f92c4588b69c2e5d9597e153f443280"
+      }
+    },
+    "libxkbcommon": {
+      "1.7.0-2": {
+        "libxkbcommon_1.7.0-2.debian.tar.xz": "361645b91d7ff5cb838929a756165a5e2ea46512",
+        "libxkbcommon_1.7.0-2.dsc": "1902040d16d9cb2d3d76a2e3a98a24ff73e7f01a",
+        "libxkbcommon_1.7.0.orig.tar.xz": "6c9b00437feb6389470bb6dbce66f6f7d16f09bc"
+      }
+    },
+    "libxml2": {
+      "2.12.7+dfsg+really2.9.14-2.1+deb13u3": {
+        "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.debian.tar.xz": "1d87d64579a19726bc00c1dd2d25dc85384d9586",
+        "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.dsc": "37c391a7c000ea7515c9745db1a2b286186f8f50",
+        "libxml2_2.12.7+dfsg+really2.9.14.orig.tar.xz": "b41615e638174b4e36845c68d4b305dd6a6b541f"
+      }
+    },
+    "libxrandr": {
+      "2:1.5.4-1": {
+        "libxrandr_1.5.4-1.diff.gz": "ef72ecaca2554dfc8349fe7cbcf94c443ba16eac",
+        "libxrandr_1.5.4-1.dsc": "c53c60372be798b7ec9bd9274502734d6f1f15c5",
+        "libxrandr_1.5.4.orig.tar.gz": "3468fa3b6cb054a848b00bc7fd6237e653fd68dc",
+        "libxrandr_1.5.4.orig.tar.gz.asc": "079248b6b202e550247aab290556f179cbe0c946"
+      }
+    },
+    "libxrender": {
+      "1:0.9.12-1": {
+        "libxrender_0.9.12-1.diff.gz": "c13d65825ccf74257b0eb04fe2b21c9b260de6c4",
+        "libxrender_0.9.12-1.dsc": "4838d870a045ddda776650fb0d5c3c766ceaa50b",
+        "libxrender_0.9.12.orig.tar.gz": "d88cb1675496ebbe85d72a5e3fe58303173d5651",
+        "libxrender_0.9.12.orig.tar.gz.asc": "389c73bed638df9ed6ff4ec0885e8bd2b816e355"
+      }
+    },
+    "libxslt": {
+      "1.1.35-1.2+deb13u3": {
+        "libxslt_1.1.35-1.2+deb13u3.debian.tar.xz": "bdf023304828b4089ee09c51120669ad37f04965",
+        "libxslt_1.1.35-1.2+deb13u3.dsc": "db68beeffc96e9086596e3dfc657ad5924ba7315",
+        "libxslt_1.1.35.orig.tar.xz": "9e4e7f884f8ac88c17df0f9475201bef985d42e4"
+      }
+    },
+    "libxtst": {
+      "2:1.2.5-1": {
+        "libxtst_1.2.5-1.diff.gz": "6faf8766904a609df7a568ebc426f69d26c25d12",
+        "libxtst_1.2.5-1.dsc": "f4c412c89caecbe5f59b6249327477514f235e4d",
+        "libxtst_1.2.5.orig.tar.gz": "b5171b2da872bc418a744d0c0b832b7ed2bf5f32",
+        "libxtst_1.2.5.orig.tar.gz.asc": "b5a7c5e9905a60c9d84149bfd56915b675c5a543"
+      }
+    },
+    "libyuv": {
+      "0.0.1904.20250204-1": {
+        "libyuv_0.0.1904.20250204-1.debian.tar.xz": "14419e45727c9d20e899f4a95b329ddc0314fce8",
+        "libyuv_0.0.1904.20250204-1.dsc": "e875108fdaf5693fea956b6a891a92b0a1397a00",
+        "libyuv_0.0.1904.20250204.orig.tar.xz": "f59a1ab5d7eaea990743d7a6b62efadceec78077"
+      }
+    },
+    "libzstd": {
+      "1.5.7+dfsg-1": {
+        "libzstd_1.5.7+dfsg-1.debian.tar.xz": "899c78a644062eefb4cb056a23e22c5aed8cd4f4",
+        "libzstd_1.5.7+dfsg-1.dsc": "5882e87bb6e8f39c83044b4aefa3b819b1310e67",
+        "libzstd_1.5.7+dfsg.orig.tar.xz": "232037627d9d8bd80033e4316bdb62f737c9968f"
+      }
+    },
+    "mbedtls": {
+      "3.6.6-0.1~deb13u1": {
+        "mbedtls_3.6.6-0.1~deb13u1.debian.tar.xz": "e16fc47218071d472de8da50ca9ce99fe720074a",
+        "mbedtls_3.6.6-0.1~deb13u1.dsc": "ea4cf9fc3e2c34b5349b65bc35e7ef1829b2a25c",
+        "mbedtls_3.6.6.orig.tar.bz2": "71dd91cc76e77a0dcf0d8020377523ed7e703d8e"
+      }
+    },
+    "mesa": {
+      "25.0.7-2+deb13u1": {
+        "mesa_25.0.7-2+deb13u1.debian.tar.xz": "13cef7c45f92afe7b1b06f603df04461e3e5dbc8",
+        "mesa_25.0.7-2+deb13u1.dsc": "6ff3559b9b2291e2a56a7003692f58b6bd8b9457",
+        "mesa_25.0.7.orig.tar.xz": "7f98eca4670fe20cebb327a0d78f01d76332f861",
+        "mesa_25.0.7.orig.tar.xz.asc": "92f64958f5332c57f7f248755706b7a483c4567e"
+      }
+    },
+    "nettle": {
+      "3.10.1-1": {
+        "nettle_3.10.1-1.debian.tar.xz": "a893d45b20ec91e65f1a8645e50619e788e277b7",
+        "nettle_3.10.1-1.dsc": "9f8922b81b23705fcacf6c8f5dcd6727523250b2",
+        "nettle_3.10.1.orig.tar.gz": "7b2881587b42d0748de55a39491c14f96adde821"
+      }
+    },
+    "nghttp2": {
+      "1.64.0-1.1+deb13u1": {
+        "nghttp2_1.64.0-1.1+deb13u1.debian.tar.xz": "3edbadb61b38b529ba29b86c566523d8f778c36d",
+        "nghttp2_1.64.0-1.1+deb13u1.dsc": "2bace9a54aa2669f85232c8967da5895d06e9127",
+        "nghttp2_1.64.0.orig.tar.gz": "422ab3102d4d22ff363fbababe9f66e2ae38db45"
+      }
+    },
+    "nghttp3": {
+      "1.8.0-1": {
+        "nghttp3_1.8.0-1.debian.tar.xz": "517335e8b99fb935c83e1f1539e42ed7a33afcc5",
+        "nghttp3_1.8.0-1.dsc": "9add331c308c2b7d75de6b9d6aedd4326f310469",
+        "nghttp3_1.8.0.orig.tar.xz": "fe62ddc33fdcfde3be1ea71159c25be73707cde0",
+        "nghttp3_1.8.0.orig.tar.xz.asc": "b37831e95a6c305cada10abe0ae8f70c11b566cf"
+      }
+    },
+    "ngtcp2": {
+      "1.11.0-1+deb13u1": {
+        "ngtcp2_1.11.0-1+deb13u1.debian.tar.xz": "e053e30efb46e5b65aac402dab3b7c751c9ae21f",
+        "ngtcp2_1.11.0-1+deb13u1.dsc": "639fe60a33efbc8b2f927dabc837436484cc954b",
+        "ngtcp2_1.11.0.orig.tar.xz": "adcdbb69d93488640aadf30fb977c58123c80238",
+        "ngtcp2_1.11.0.orig.tar.xz.asc": "dfab8f6aab7a6a34a3ea5b1ae48bf76f4e4a011d"
+      }
+    },
+    "nng": {
+      "1.10.1-2": {
+        "nng_1.10.1-2.debian.tar.xz": "e58d813c19a135f36c7193d92a3425c94276b38d",
+        "nng_1.10.1-2.dsc": "1972f590b81499be6e6703cd1a6de97e012139c8",
+        "nng_1.10.1.orig.tar.gz": "a5520afd8ba9acd72c18986c71b0d66a66ec7a8f"
+      }
+    },
+    "nspr": {
+      "2:4.36-1": {
+        "nspr_4.36-1.debian.tar.xz": "b5fd3020bc89bb9c3404a7054232fffed5707f02",
+        "nspr_4.36-1.dsc": "3a091907bbaa92aafba1ec39152a079d88c485c1",
+        "nspr_4.36.orig.tar.gz": "3c4bdb5ea668cfd005ba8f6116fb1275524a65b6"
+      }
+    },
+    "nss": {
+      "2:3.110-1+deb13u4": {
+        "nss_3.110-1+deb13u4.debian.tar.xz": "a339127501905524ead2450624fd6a5845c67f4f",
+        "nss_3.110-1+deb13u4.dsc": "30f25e7a81dee7ec585c632d8fab2a56b86a2078",
+        "nss_3.110.orig.tar.gz": "1bb4acafd3fcadc344d57c66da872516db80a0dc"
+      }
+    },
+    "onetbb": {
+      "2022.1.0-1+deb13u1": {
+        "onetbb_2022.1.0-1+deb13u1.debian.tar.xz": "7cb4c87c233b92462025e91432b7c59ea7b1452b",
+        "onetbb_2022.1.0-1+deb13u1.dsc": "e7cb9086cae5fe7778aa2365c642cf374c45f9b7",
+        "onetbb_2022.1.0.orig.tar.xz": "ae5ef877697384497a81327667da9c5b17eabd7a"
+      }
+    },
+    "opencascade": {
+      "7.8.1+dfsg1-3": {
+        "opencascade_7.8.1+dfsg1-3.debian.tar.xz": "832e590575d1410ee8014d46dae75c7e5379232b",
+        "opencascade_7.8.1+dfsg1-3.dsc": "97f20ca79c6a318e9ff5c204b9ccbe6fa8f74a7e",
+        "opencascade_7.8.1+dfsg1.orig.tar.xz": "082daada5fbcb4405af56f516165428eb0ddbee8"
+      }
+    },
+    "openexr": {
+      "3.1.13-2": {
+        "openexr_3.1.13-2.debian.tar.xz": "ded13d8bf8446badbf1434bd583a26f157630494",
+        "openexr_3.1.13-2.dsc": "0b3e294306e51304132201c27e740ae65c93ee97",
+        "openexr_3.1.13.orig.tar.gz": "016f86a9110b0158c1269d49abe2c9224fbd8765"
+      }
+    },
+    "openjpeg2": {
+      "2.5.3-2.1~deb13u2": {
+        "openjpeg2_2.5.3-2.1~deb13u2.debian.tar.xz": "89f74c6930ae2c5445dfd22ebf4be5a8c4de84c4",
+        "openjpeg2_2.5.3-2.1~deb13u2.dsc": "20b80b0d3fbb45061c7525dc7859d545e72aac59",
+        "openjpeg2_2.5.3.orig.tar.xz": "8a421c5c7de353693c39468144429ee28ff4c718"
+      }
+    },
+    "openldap": {
+      "2.6.10+dfsg-1": {
+        "openldap_2.6.10+dfsg-1.debian.tar.xz": "15c0b615a0d3c06e26ea75e80b68f2203d69bba2",
+        "openldap_2.6.10+dfsg-1.dsc": "c1d91b58b5793b65781128f929818b16a7c31519",
+        "openldap_2.6.10+dfsg.orig.tar.xz": "fedb1576cd4dcfe9838d6ac4b00592698a97b086"
+      }
+    },
+    "openssl": {
+      "3.5.7-1~deb13u3": {
+        "openssl_3.5.7-1~deb13u3.debian.tar.xz": "11a6b388b1ce45f8c60021ed66f8772f7c963c62",
+        "openssl_3.5.7-1~deb13u3.dsc": "db56cd5070f847d98b8fec3dde05ce8ee276ba64",
+        "openssl_3.5.7.orig.tar.gz": "53d331880fbde8e6fe25870d5325a61201f6264d",
+        "openssl_3.5.7.orig.tar.gz.asc": "9408998095f984b36591732286ef1df1ba7ce492"
+      }
+    },
+    "orc": {
+      "1:0.4.41-1": {
+        "orc_0.4.41-1.debian.tar.xz": "0230d7f8b7d2a52c0f6f6e6f4cc241b4627c0270",
+        "orc_0.4.41-1.dsc": "cdee19a1848beb75a7b9ac9b58542aa3e5726cff",
+        "orc_0.4.41.orig.tar.xz": "42b9a2c07d42888cc34a5c0aeef4c9298ea54c5e",
+        "orc_0.4.41.orig.tar.xz.asc": "f54460aced465c4d1d49c2c7699754cbde1bc680"
+      }
+    },
+    "p11-kit": {
+      "0.25.5-3": {
+        "p11-kit_0.25.5-3.debian.tar.xz": "f87543129b0f9879d2c2e2d9d85ce82a70e7304e",
+        "p11-kit_0.25.5-3.dsc": "793354334de312a68b5c0dfc3e36eb93a731333d",
+        "p11-kit_0.25.5.orig.tar.xz": "c3a1607be931656bbc8a9e2ba3209ee1d3314f99",
+        "p11-kit_0.25.5.orig.tar.xz.asc": "e4a151a95afd2daeaff936bb3ea4752557644e69"
+      }
+    },
+    "pango1.0": {
+      "1.56.3-1": {
+        "pango1.0_1.56.3-1.debian.tar.xz": "ab43c7a2ffab277a672e93932d666b9dec4752c7",
+        "pango1.0_1.56.3-1.dsc": "b38fa3c06bd3887ce70de7abbc9c70547a5c8c59",
+        "pango1.0_1.56.3.orig.tar.xz": "28aae214737eb4344c8dab5fbd728c83a5427504"
+      }
+    },
+    "pcre2": {
+      "10.46-1~deb13u3": {
+        "pcre2_10.46-1~deb13u3.diff.gz": "205a17397d764e25a8b4e86af9d70263e74eff66",
+        "pcre2_10.46-1~deb13u3.dsc": "e5fb135d6cf0465aa05ebdd5b5e72c3eb700a52b",
+        "pcre2_10.46.orig.tar.gz": "6858f0eb287c8285f53a038c8a95dc43ba51c653"
+      }
+    },
+    "pixman": {
+      "0.44.0-3": {
+        "pixman_0.44.0-3.diff.gz": "ed90cdd4e9b6c86ae2b3e557cf549b2de6768fb0",
+        "pixman_0.44.0-3.dsc": "0339b6398b3ffa7de7f6349960c6efb72bde6b0a",
+        "pixman_0.44.0.orig.tar.gz": "e8a04db7a76bdbe3668650822da524110e42467f"
+      }
+    },
+    "poppler": {
+      "25.03.0-5+deb13u4": {
+        "poppler_25.03.0-5+deb13u4.debian.tar.xz": "4bb39d042134f5ed6c742bbab4d6efcaf6ff923a",
+        "poppler_25.03.0-5+deb13u4.dsc": "93dfba16e2153d049c68b9b5ac7fcdda22badd22",
+        "poppler_25.03.0.orig.tar.xz": "ee5041be2a6bd6b6e5627776c7c82b788e238f58"
+      }
+    },
+    "protobuf": {
+      "3.21.12-11+deb13u1": {
+        "protobuf_3.21.12-11+deb13u1.debian.tar.xz": "d57d3335b1e1f0d5a9258c23ff0c860090bb040e",
+        "protobuf_3.21.12-11+deb13u1.dsc": "ab88f63d8d42af219a219db2b9d3f0d26a980769",
+        "protobuf_3.21.12.orig.tar.gz": "7aec582dff3ab784ca7d2a2c99e59c64e8866fb5"
+      }
+    },
+    "python3.13": {
+      "3.13.5-2+deb13u5": {
+        "python3.13_3.13.5-2+deb13u5.debian.tar.xz": "412b8df93c26d980ddcb4407728ec93504a898fa",
+        "python3.13_3.13.5-2+deb13u5.dsc": "c6d5fe11260ea54c96caeda6dbf817983980fff0",
+        "python3.13_3.13.5.orig.tar.xz": "dbf3aed444cbb2221eabfb52688aa371423aa0ba",
+        "python3.13_3.13.5.orig.tar.xz.asc": "c41a1ec1f69513d48f9f1ac8e0aaa6614d9511c0"
+      }
+    },
+    "rtmpdump": {
+      "2.4+20151223.gitfa8646d.1-2": {
+        "rtmpdump_2.4+20151223.gitfa8646d.1-2.debian.tar.xz": "f057d66580d48b4ce069e0470c49e4b976803060",
+        "rtmpdump_2.4+20151223.gitfa8646d.1-2.dsc": "18a5f721af485184ba7344af8ac78d46e778d065",
+        "rtmpdump_2.4+20151223.gitfa8646d.1.orig.tar.gz": "de95f3e73c8a2b0b6dc3985bf1b6de326a7b535f"
+      }
+    },
+    "rust-rav1e": {
+      "0.7.1-9": {
+        "rust-rav1e_0.7.1-9.debian.tar.xz": "0483b5205ef40ca4db1f5ab42d97f16c863055d9",
+        "rust-rav1e_0.7.1-9.dsc": "c0e9ff84bde10e7e820d3d81132aba75eea62bb9",
+        "rust-rav1e_0.7.1.orig.tar.gz": "db5bbba29eb6c8d49fb2d468bbbe51102f9f866c"
+      }
+    },
+    "sqlite3": {
+      "3.46.1-7+deb13u2": {
+        "sqlite3_3.46.1-7+deb13u2.debian.tar.xz": "9df0075462130032e1641d6646c01e691dbe0a40",
+        "sqlite3_3.46.1-7+deb13u2.dsc": "e9d9d4e7b5c82a96d3f233e46eb23a35376700eb",
+        "sqlite3_3.46.1.orig-www.tar.xz": "17c0f982c06df44a531d8ef3aef8b226b65cf6cd",
+        "sqlite3_3.46.1.orig.tar.xz": "0a1dee600409dded148a8595d8f8b7b7c6a3c2a9"
+      }
+    },
+    "svt-av1": {
+      "2.3.0+dfsg-1": {
+        "svt-av1_2.3.0+dfsg-1.debian.tar.xz": "7796a41fb4e4e310a13ed334473ef033cab35e59",
+        "svt-av1_2.3.0+dfsg-1.dsc": "3e9066c0fe49d36d521707a212e13dfe04630109",
+        "svt-av1_2.3.0+dfsg.orig.tar.xz": "278eceb4f3a222b4590f58d6d23bcf922be77834"
+      }
+    },
+    "systemd": {
+      "257.13-1~deb13u1": {
+        "systemd_257.13-1~deb13u1.debian.tar.xz": "6f9f1a95623f849371303ee6fd11b95c2b7a2493",
+        "systemd_257.13-1~deb13u1.dsc": "fc07f2628e44c0ddbcc964768730cab7b094d627",
+        "systemd_257.13.orig.tar.gz": "a30ac2421a76ec05eeb4627e19d94f653279dff0"
+      }
+    },
+    "tiff": {
+      "4.7.0-3+deb13u3": {
+        "tiff_4.7.0-3+deb13u3.debian.tar.xz": "7189a4f61dbaa8e9bc60ee72c63e335be7008d62",
+        "tiff_4.7.0-3+deb13u3.dsc": "f3d03d9c9d01c0dde179979004ce2d29889acdbc",
+        "tiff_4.7.0.orig.tar.bz2": "e1a3bd15b0298feecafa4029ea527189732a073f"
+      }
+    },
+    "unixodbc": {
+      "2.3.12-2+deb13u1": {
+        "unixodbc_2.3.12-2+deb13u1.debian.tar.xz": "03007a3c180a1ee928da74999669b70bdb15c518",
+        "unixodbc_2.3.12-2+deb13u1.dsc": "222a3aa9c1a66e9d772e66f756fb3302dd6a2e68",
+        "unixodbc_2.3.12.orig.tar.gz": "0920b3c4ef6568b7e5563faae4aed3fffcd5fc62"
+      }
+    },
+    "util-linux": {
+      "2.41.5-0+deb13u1": {
+        "util-linux_2.41.5-0+deb13u1.debian.tar.xz": "44d5f01ef357eca57a89f86125392fed89a8b14b",
+        "util-linux_2.41.5-0+deb13u1.dsc": "af0f23320ed30c50ca540273f6f659b152be2c6f",
+        "util-linux_2.41.5.orig.tar.xz": "aad638b4dea74be6227238f5e6398a8f54daefb4"
+      }
+    },
+    "wayland": {
+      "1.23.1-3": {
+        "wayland_1.23.1-3.diff.gz": "c43221b9d7f88cfd072a84c2c54252b6149d711b",
+        "wayland_1.23.1-3.dsc": "b29134902150b90ffef04e277654abfb75245adf",
+        "wayland_1.23.1.orig.tar.gz": "56a55eb419f3ecf8a7ebdc726db43d2d734e5632"
+      }
+    },
+    "webkit2gtk": {
+      "2.54.0-1~deb13u2": {
+        "webkit2gtk_2.54.0-1~deb13u2.debian.tar.xz": "aa708de0c8bacc7d24ca916a36a0fe8683af07c6",
+        "webkit2gtk_2.54.0-1~deb13u2.dsc": "ff465e10a7d33fd06a7a28f0b41697b709e05ca6",
+        "webkit2gtk_2.54.0.orig.tar.xz": "b88ab91c9a464da226492eb553f4b0f136ffc98a",
+        "webkit2gtk_2.54.0.orig.tar.xz.asc": "8a9b73f708a5a7bc92ab50648a24449788fccaa9"
+      }
+    },
+    "wxwidgets3.2": {
+      "3.2.8+dfsg-2": {
+        "wxwidgets3.2_3.2.8+dfsg-2.debian.tar.xz": "c8ab2040dade9cefeffc5d2239c9b15454016389",
+        "wxwidgets3.2_3.2.8+dfsg-2.dsc": "e4f260bb978a49687c212d587c2b5f5284aca87e",
+        "wxwidgets3.2_3.2.8+dfsg.orig.tar.xz": "c4b24f27899adb74aa55220cfdf915befc37f77e"
+      }
+    },
+    "xz-utils": {
+      "5.8.1-1+deb13u1": {
+        "xz-utils_5.8.1-1+deb13u1.debian.tar.xz": "a4388b86149165bb1ae1010d54cf89f2fddfbfcc",
+        "xz-utils_5.8.1-1+deb13u1.dsc": "81bd81b15c3e5c9965ecebece5a3a2cc99354516",
+        "xz-utils_5.8.1.orig.tar.xz": "c29df8058b6279bfab2744f3e79b2940229207a3",
+        "xz-utils_5.8.1.orig.tar.xz.asc": "3658f92b0eec052a58ca69fa3c12c5b095a05fc6"
+      }
+    },
+    "zlib": {
+      "1:1.3.dfsg+really1.3.1-1": {
+        "zlib_1.3.dfsg+really1.3.1-1.debian.tar.xz": "8b454f72def33b4a329489b8dcb2568ba0ccac69",
+        "zlib_1.3.dfsg+really1.3.1-1.dsc": "f1d41173a0d8586644be4a5b9ee6185a794a767c",
+        "zlib_1.3.dfsg+really1.3.1.orig.tar.gz": "3b19b81105d3436095134a648c521b678905eaac"
+      }
+    }
+  },
+  "provenance": {
+    "sha256": "58f371047e357f91e8e4a8f818de90895763c6eedf1c1506c744ca54b27dbd39",
+    "url": "https://github.com/simee-ai/kicad/releases/download/cli-10.0.7-2/kicad-cli-10.0.7-linux-x86_64-sources.tar"
+  }
+}

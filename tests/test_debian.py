@@ -1,6 +1,7 @@
 import hashlib
 import json
 import tarfile
+import urllib.error
 
 import pytest
 
@@ -30,6 +31,11 @@ Package: gone
 Status: deinstall ok config-files
 Version: 1.0
 """
+
+
+@pytest.fixture(autouse=True)
+def isolated_source_pins(monkeypatch):
+    monkeypatch.setattr(debian, "SOURCE_FILES", {}, raising=False)
 
 
 def test_packages_reads_installed_packages_and_their_source_version():
@@ -72,7 +78,7 @@ def test_provenance_maps_files_to_their_packages_and_lists_the_rest(tmp_path):
 
 def test_srcfiles_url_quotes_the_version():
     assert debian.srcfiles_url("gmp", "2:6.3.0+dfsg-3") == \
-        "https://snapshot.debian.org/mr/package/gmp/2%3A6.3.0%2Bdfsg-3/srcfiles?fileinfo=1"
+        "https://snapshot.debian.org/mr/package/gmp/2%3A6.3.0%2Bdfsg-3/srcfiles?fileinfo=0"
 
 
 def test_source_files_names_each_file_by_its_hash():
@@ -84,7 +90,7 @@ def test_source_files_names_each_file_by_its_hash():
 
 
 def _fake_snapshot(files: dict[str, bytes]):
-    """A fetch() serving one source package's srcfiles reply and its files by sha1."""
+    """Snapshot's expanded query times out; the hashes and individual file records still work (#53)."""
     by_hash = {hashlib.sha1(data).hexdigest(): (name, data) for name, data in files.items()}
     reply = {"result": [{"hash": h} for h in by_hash],
              "fileinfo": {h: [{"name": name, "archive_name": "debian"}] for h, (name, _) in by_hash.items()}}
@@ -93,7 +99,12 @@ def _fake_snapshot(files: dict[str, bytes]):
     def fetch(url: str) -> bytes:
         calls.append(url)
         if url.endswith("srcfiles?fileinfo=1"):
-            return json.dumps(reply).encode()
+            raise urllib.error.HTTPError(url, 504, "Gateway Timeout", None, None)
+        if url.endswith("srcfiles?fileinfo=0"):
+            return json.dumps({"result": reply["result"]}).encode()
+        if url.endswith("/info"):
+            digest = url.rsplit("/", 2)[1]
+            return json.dumps({"hash": digest, "result": reply["fileinfo"][digest]}).encode()
         return by_hash[url.rsplit("/", 1)[1]][1]
 
     return fetch, calls
@@ -111,15 +122,44 @@ def test_sources_archive_holds_each_source_package_once_and_caches_files(tmp_pat
         assert tar.extractfile("bundle-sources/cairo_1.18.4-1/cairo_1.18.4-1.dsc").read() == b"dsc"
     downloads = len(calls)
     debian.sources_archive(srcs, tmp_path / "again.tar", tmp_path / "cache", fetch=fetch)
-    assert len(calls) == downloads + 1  # only the srcfiles listing again
+    assert len(calls) == downloads + 3  # refresh the listing and both file records; reuse the archives
 
 
 def test_sources_archive_rejects_a_corrupt_download(tmp_path):
     fetch, _ = _fake_snapshot({"cairo_1.18.4-1.dsc": b"dsc"})
 
     def corrupt(url: str) -> bytes:
-        return fetch(url) if url.endswith("fileinfo=1") else b"tampered"
+        return fetch(url) if "/mr/" in url else b"tampered"
 
     with pytest.raises(RuntimeError, match="sha1"):
         debian.sources_archive({("cairo", "1.18.4-1")}, tmp_path / "s.tar", tmp_path / "cache", fetch=corrupt)
     assert not list((tmp_path / "cache").rglob("*.dsc"))
+
+
+def test_sources_archive_rejects_an_empty_source_listing(tmp_path):
+    out = tmp_path / "s.tar"
+    with pytest.raises(RuntimeError, match="cairo 1.18.4-1:.*no source files"):
+        debian.sources_archive({("cairo", "1.18.4-1")}, out, tmp_path / "cache",
+                               fetch=lambda url: b'{"result": []}')
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_pinned_source_metadata_avoids_the_api_and_still_checks_downloads(tmp_path, monkeypatch, corrupt):
+    data = b"source descriptor"
+    digest = hashlib.sha1(data).hexdigest()
+    monkeypatch.setattr(debian, "SOURCE_FILES", {"test-source": {"1:1.0-1": {"test-source_1.0-1.dsc": digest}}})
+
+    def fetch(url):
+        assert url == f"https://snapshot.debian.org/file/{digest}", "pinned sources must need no metadata API"
+        return b"tampered" if corrupt else data
+
+    out = tmp_path / "s.tar"
+    if corrupt:
+        with pytest.raises(RuntimeError, match="sha1"):
+            debian.sources_archive({("test-source", "1:1.0-1")}, out, tmp_path / "cache", fetch=fetch)
+        assert not out.exists()
+    else:
+        debian.sources_archive({("test-source", "1:1.0-1")}, out, tmp_path / "cache", fetch=fetch)
+        with tarfile.open(out) as tar:
+            assert tar.extractfile("s/test-source_1.0-1/test-source_1.0-1.dsc").read() == data
