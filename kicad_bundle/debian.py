@@ -83,6 +83,8 @@ def source_files(reply: dict) -> list[tuple[str, str]]:
 
 def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
     reply = json.loads(fetch(srcfiles_url(source, version)))
+    if not reply["result"]:
+        raise RuntimeError(f"{source} {version}: Snapshot returned no source files")
     # The expanded srcfiles?fileinfo=1 query can time out while these smaller queries work (#53).
     # Keep the exact same hashes and filenames, resolved through Snapshot's per-file API.
     reply["fileinfo"] = {

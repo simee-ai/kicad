@@ -129,3 +129,11 @@ def test_sources_archive_rejects_a_corrupt_download(tmp_path):
     with pytest.raises(RuntimeError, match="sha1"):
         debian.sources_archive({("cairo", "1.18.4-1")}, tmp_path / "s.tar", tmp_path / "cache", fetch=corrupt)
     assert not list((tmp_path / "cache").rglob("*.dsc"))
+
+
+def test_sources_archive_rejects_an_empty_source_listing(tmp_path):
+    out = tmp_path / "s.tar"
+    with pytest.raises(RuntimeError, match="cairo 1.18.4-1:.*no source files"):
+        debian.sources_archive({("cairo", "1.18.4-1")}, out, tmp_path / "cache",
+                               fetch=lambda url: b'{"result": []}')
+    assert not out.exists()
