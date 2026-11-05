@@ -33,6 +33,11 @@ Version: 1.0
 """
 
 
+@pytest.fixture(autouse=True)
+def isolated_source_pins(monkeypatch):
+    monkeypatch.setattr(debian, "SOURCE_FILES", {}, raising=False)
+
+
 def test_packages_reads_installed_packages_and_their_source_version():
     pkgs = debian.packages(STATUS)
     assert pkgs == {
@@ -137,3 +142,24 @@ def test_sources_archive_rejects_an_empty_source_listing(tmp_path):
         debian.sources_archive({("cairo", "1.18.4-1")}, out, tmp_path / "cache",
                                fetch=lambda url: b'{"result": []}')
     assert not out.exists()
+
+
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_pinned_source_metadata_avoids_the_api_and_still_checks_downloads(tmp_path, monkeypatch, corrupt):
+    data = b"source descriptor"
+    digest = hashlib.sha1(data).hexdigest()
+    monkeypatch.setattr(debian, "SOURCE_FILES", {"test-source": {"1:1.0-1": {"test-source_1.0-1.dsc": digest}}})
+
+    def fetch(url):
+        assert url == f"https://snapshot.debian.org/file/{digest}", "pinned sources must need no metadata API"
+        return b"tampered" if corrupt else data
+
+    out = tmp_path / "s.tar"
+    if corrupt:
+        with pytest.raises(RuntimeError, match="sha1"):
+            debian.sources_archive({("test-source", "1:1.0-1")}, out, tmp_path / "cache", fetch=fetch)
+        assert not out.exists()
+    else:
+        debian.sources_archive({("test-source", "1:1.0-1")}, out, tmp_path / "cache", fetch=fetch)
+        with tarfile.open(out) as tar:
+            assert tar.extractfile("s/test-source_1.0-1/test-source_1.0-1.dsc").read() == data

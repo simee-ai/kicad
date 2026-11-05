@@ -68,7 +68,8 @@ def test_reusing_a_bottle_record_marks_all_of_it_used(tmp_path):
     assert all(f.stat().st_mtime > time.time() - DAY for f in info.iterdir())
 
 
-def test_reusing_a_cached_debian_source_marks_it_used(tmp_path):
+def test_reusing_a_cached_debian_source_marks_it_used(tmp_path, monkeypatch):
+    monkeypatch.setattr(debian, "SOURCE_FILES", {})
     data = b"dsc"
     sha1 = hashlib.sha1(data).hexdigest()
     def fetch(url):

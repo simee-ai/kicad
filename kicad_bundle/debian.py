@@ -15,6 +15,7 @@ from kicad_bundle.fetch import Fetch, add_dir, cached_file, fetch_url
 DPKG_STATUS = "var/lib/dpkg/status"
 DPKG_INFO = "var/lib/dpkg/info"
 SNAPSHOT = "https://snapshot.debian.org"
+SOURCE_FILES = json.loads(Path(__file__).with_name("debian-sources.json").read_text(encoding="utf-8"))["packages"]
 
 
 @dataclass(frozen=True)
@@ -82,16 +83,20 @@ def source_files(reply: dict) -> list[tuple[str, str]]:
 
 
 def _source_package(source: str, version: str, cache: Path, fetch: Fetch) -> list[Path]:
-    reply = json.loads(fetch(srcfiles_url(source, version)))
-    if not reply["result"]:
+    pinned = SOURCE_FILES.get(source, {}).get(version)
+    if pinned is None:
+        reply = json.loads(fetch(srcfiles_url(source, version)))
+        # The expanded query can time out while these smaller queries work (#53).
+        reply["fileinfo"] = {
+            r["hash"]: json.loads(fetch(f"{SNAPSHOT}/mr/file/{r['hash']}/info"))["result"]
+            for r in reply["result"]
+        }
+        files = source_files(reply)
+    else:
+        files = sorted(pinned.items())
+    if not files:
         raise RuntimeError(f"{source} {version}: Snapshot returned no source files")
-    # The expanded srcfiles?fileinfo=1 query can time out while these smaller queries work (#53).
-    # Keep the exact same hashes and filenames, resolved through Snapshot's per-file API.
-    reply["fileinfo"] = {
-        r["hash"]: json.loads(fetch(f"{SNAPSHOT}/mr/file/{r['hash']}/info"))["result"]
-        for r in reply["result"]
-    }
-    return [cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1") for name, sha1 in source_files(reply)]
+    return [cached_file(name, f"{SNAPSHOT}/file/{sha1}", sha1, cache, fetch, "sha1") for name, sha1 in files]
 
 
 def sources_archive(sources: Iterable[tuple[str, str]], dest: Path, cache: Path,
