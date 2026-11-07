@@ -58,6 +58,20 @@ def test_slices_name_the_homebrew_kegs_each_architecture_was_built_in():
     assert slices(tiny_macho.thin("arm64", "7ad804a6-c91b-3a8f-81db-2e0726d3d42e"))["arm64"].kegs == frozenset()
 
 
+def test_slices_read_a_librarys_own_version_and_the_libraries_it_links():
+    # KiCad's relinked x86_64 libgit2 1.9.7_2 (simee-kicad#58): what it links tells the formula revision apart
+    lib = tiny_macho.thin("x86_64", "00000000-0000-0000-0000-000000000001", (15, 0),
+                          dylib=("@rpath/libgit2.1.9.dylib", "1.9.7"),
+                          deps=("@rpath/libssl.4.dylib", "@executable_path/../Frameworks/libcrypto.4.dylib",
+                                "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+                                "/usr/lib/libSystem.B.dylib"))
+    found = slices(lib)["x86_64"]
+    assert found.version == "1.9.7"
+    assert found.dylibs == frozenset({"libssl.4.dylib", "libcrypto.4.dylib", "Security", "libSystem.B.dylib"})
+    plain = slices(tiny_macho.thin("arm64", "7ad804a6-c91b-3a8f-81db-2e0726d3d42e"))["arm64"]
+    assert (plain.version, plain.dylibs) == (None, frozenset())
+
+
 OTOOL_L = """/x/kicad-cli:
 Load command 12
           cmd LC_LOAD_DYLIB

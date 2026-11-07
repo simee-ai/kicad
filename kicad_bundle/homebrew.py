@@ -161,15 +161,16 @@ def bottle_at(name: str, tag: str, until: str, cache: Path, fetch: Fetch) -> Bot
 
 
 def _bottle_info(name: str, sha256: str, cache: Path, fetch: Fetch) -> Path:
-    """cache/<sha256>/: uuids.json (UUID of each Mach-O file in the bottle -> its path in the keg),
-    version, formula.rb (the formula it was built from) and sbom.spdx.json (if it has one). The bottle isn't kept."""
+    """cache/<sha256>/: uuids.json (UUID of each Mach-O file in the bottle -> its path in the keg), libs.json
+    (file name -> [own version, the libraries it links] of each of its Mach-O images), version, formula.rb
+    (the formula it was built from) and sbom.spdx.json (if it has one). The bottle isn't kept."""
     info = cache / sha256
-    if (info / "uuids.json").exists():
+    if (info / "libs.json").exists():  # written last
         for f in info.iterdir():
             f.touch()  # marks it used, so cache.prune keeps it
         return info
     data = _blob(name, sha256, fetch)
-    uuids, extra = {}, {}
+    uuids, libs, extra = {}, {}, {}
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for member in tar:
             parts = member.name.split("/")
@@ -184,67 +185,118 @@ def _bottle_info(name: str, sha256: str, cache: Path, fetch: Fetch) -> Path:
             elif rel.startswith("lib/"):
                 for s in macho.slices(tar.extractfile(member).read()).values():
                     uuids[s.uuid] = rel
+                    libs.setdefault(parts[-1], []).append(_linked(s))
     for file, content in extra.items():
         write_atomically(info / file, lambda f: f.write(content))
     write_atomically(info / "uuids.json", lambda f: f.write(json.dumps(uuids, indent=1).encode()))
+    write_atomically(info / "libs.json", lambda f: f.write(json.dumps(libs, indent=1).encode()))
     return info
 
 
+def _linked(s: Slice) -> list:
+    """[own version, the libraries it links]: as libs.json holds it."""
+    return [s.version, sorted(s.dylibs)]
+
+
 def _walk(name: str, until: str, cache: Path, fetch: Fetch, tags: Callable[[str, dict[str, str]], list[str]],
-          accept: Callable[[Path], bool]) -> tuple[Bottle | None, int]:
+          accept: Callable[[Path], bool],
+          enough: Callable[[list[Bottle], list[Path]], bool] | None = None) -> tuple[list[Bottle], int]:
     """Walk the formula's history back from until, trying the bottles of tags(formula text, its bottle
     shas) at each commit, until accept(bottle info) holds; returns that bottle at the commit that added
-    it (None if none did) and how many bottles were tried. Later commits may still name it (a version
+    it (none if none did) and how many bottles were tried. Later commits may still name it (a version
     bump keeps the old bottle block until Homebrew's separate "update bottle" commit) while their
-    formula and patch files already belong to the next version."""
-    tried, found = [], None
+    formula and patch files already belong to the next version. With enough, the walk goes on past the
+    first bottle accepted, collecting every one accepted (newest first), until enough(them, the infos of
+    the bottles tried and not accepted since the first) holds."""
+    tried, found, rejected = [], [], []
     for commit, rb in _history(name, until, fetch):
         shas = bottle_shas(rb)
-        if found:
-            if shas.get(found.tag) != found.sha256:
-                break
-            found = replace(found, commit=commit)
+        if found and shas.get(found[-1].tag) == found[-1].sha256:
+            found[-1] = replace(found[-1], commit=commit)
             continue
+        if (found and (enough is None or enough(found, rejected))) or len(tried) == MAX_BOTTLES:
+            break
         for tag in tags(rb, shas):
             if (sha := shas[tag]) in tried or len(tried) == MAX_BOTTLES:
                 continue
             tried.append(sha)
             info = _bottle_info(name, sha, cache, fetch)
             if accept(info):
-                found = Bottle(name, (info / "version").read_text(), tag, sha, commit, info)
+                found.append(Bottle(name, (info / "version").read_text(), tag, sha, commit, info))
                 break
-        if not found and len(tried) == MAX_BOTTLES:
-            break
+            if found:
+                rejected.append(info)
     return found, len(tried)
 
 
 def _from_source(name: str, tag: str, libs: dict[str, Slice], until: str, cache: Path, fetch: Fetch,
                  tried: int) -> Bottle:
     """For libraries no bottle holds: Homebrew built their keg from source (no bottle for tag, e.g. on an
-    Intel Mac since Homebrew stopped bottling for them in September 2026), which left the keg's path
-    (Cellar/<formula>/<version>/) in them. The newest bottle of that keg version for another tag (the
-    other architecture's first) stands in: same formula and source, and the same headers."""
+    Intel Mac since Homebrew stopped bottling for them in September 2026). The newest bottle of that keg
+    version for another tag (the other architecture's first) stands in: same formula and source, and the
+    same headers. The keg version is the one its path (Cellar/<formula>/<version>/) left in them, or, when
+    they name none (libgit2, built with CMake), the one whose bottles have files of their names, versions
+    and linked libraries (_by_links)."""
+    twin = tag.removeprefix("arm64_") if tag.startswith("arm64_") else f"arm64_{tag}"
+
+    def tags(rb: str, shas: dict[str, str]) -> list[str]:
+        others = sorted(t for t in shas if t not in (tag, twin) and not t.endswith("_linux"))
+        return [t for t in (tag, twin, *others) if t in shas]
+
     versions = {v for s in libs.values() for f, v in s.kegs if f == name}
+    if not versions and all(s.version for s in libs.values()):
+        return _by_links(name, tag, libs, until, cache, fetch, tried, tags)
     if len(versions) != 1:
         kegs = f"{len(versions)} {name} kegs {sorted(versions)}" if versions else f"no {name} keg"
         raise RuntimeError(f"{name}: no {tag} bottle before {until} holds {sorted(libs)} (tried {tried}), and they "
                            f"name {kegs} (Cellar/{name}/<version>/) to tell which one Homebrew built from source, "
                            f"so their source is unknown")
     version = versions.pop()
-    twin = tag.removeprefix("arm64_") if tag.startswith("arm64_") else f"arm64_{tag}"
 
-    def tags(rb: str, shas: dict[str, str]) -> list[str]:
-        if version.split("_")[0] not in rb:  # another version's formula: its bottles aren't that version
-            return []
-        others = sorted(t for t in shas if t not in (tag, twin) and not t.endswith("_linux"))
-        return [t for t in (tag, twin, *others) if t in shas]
+    def of_version(rb: str, shas: dict[str, str]) -> list[str]:
+        # another version's formula: its bottles aren't that version
+        return tags(rb, shas) if version.split("_")[0] in rb else []
 
-    found, standins = _walk(name, until, cache, fetch, tags, lambda info: (info / "version").read_text() == version)
+    found, standins = _walk(name, until, cache, fetch, of_version,
+                            lambda info: (info / "version").read_text() == version)
     if found:
-        return replace(found, built_for=tag)
+        return replace(found[0], built_for=tag)
     raise RuntimeError(f"{name} {version} in {sorted(libs)} was built from source (no {tag} bottle holds them), "
                        f"but there is no bottle of that version before {until} for any macOS (tried {standins}) "
                        f"to take its formula and headers from")
+
+
+def _by_links(name: str, tag: str, libs: dict[str, Slice], until: str, cache: Path, fetch: Fetch, tried: int,
+              tags: Callable[[str, dict[str, str]], list[str]]) -> Bottle:
+    """The keg libraries built from source that name no keg were built as: the one whose bottles (one per
+    commit, tags' first) have files of the same names, own versions and linked libraries. The formula
+    revisions of one version share its source but may link different libraries (libgit2 1.9.7:
+    Security.framework, then openssl@3, then openssl@4), so the walk goes on to the first bottle of an
+    older version that doesn't match, and more than one keg version matching is refused."""
+    want = {file: _linked(s) for file, s in libs.items()}
+
+    def accept(info: Path) -> bool:
+        have = json.loads((info / "libs.json").read_text())
+        return all(linked in have.get(file, []) for file, linked in want.items())
+
+    def base(version: str) -> str:
+        return version.split("_")[0]
+
+    def enough(found: list[Bottle], rejected: list[Path]) -> bool:
+        return any(base((i / "version").read_text()) not in {base(b.version) for b in found} for i in rejected)
+
+    found, standins = _walk(name, until, cache, fetch, lambda rb, shas: tags(rb, shas)[:1], accept, enough)
+    kegs = sorted({b.version for b in found})
+    if len(kegs) == 1:
+        return replace(found[0], built_for=tag)
+    if kegs:
+        raise RuntimeError(f"{name} in {sorted(libs)} was built from source for {tag} (no bottle holds them) and "
+                           f"names no keg; their names, versions and linked libraries match builds of {name} {kegs}, "
+                           f"so which formula and patches built them is unknown")
+    raise RuntimeError(f"{name}: no {tag} bottle before {until} holds {sorted(libs)} (tried {tried}), they name no "
+                       f"{name} keg (Cellar/{name}/<version>/) to tell which one Homebrew built from source, and no "
+                       f"{name} bottle for another macOS has files of their names, versions and linked libraries "
+                       f"(tried {standins}), so their source is unknown")
 
 
 def match(name: str, arch: str, libs: dict[str, Slice], until: str, cache: Path, fetch: Fetch) -> Bottle:
@@ -257,7 +309,7 @@ def match(name: str, arch: str, libs: dict[str, Slice], until: str, cache: Path,
     tag, uuids = tags.pop(), {s.uuid for s in libs.values()}
     found, tried = _walk(name, until, cache, fetch, lambda rb, shas: [tag] if tag in shas else [],
                          lambda info: uuids <= json.loads((info / "uuids.json").read_text()).keys())
-    return found or _from_source(name, tag, libs, until, cache, fetch, tried)
+    return found[0] if found else _from_source(name, tag, libs, until, cache, fetch, tried)
 
 
 def sources(bottle: Bottle, cache: Path, fetch: Fetch) -> list[tuple[str, Path]]:
