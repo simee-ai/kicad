@@ -46,12 +46,16 @@ inline patch
 '''
 
 
-def _bottle(version: str, uuid: str, sbom: bool = True, rb: str | None = None) -> bytes:
+def _bottle(version: str, uuid: str, sbom: bool = True, rb: str | None = None, links: tuple[str, ...] | None = None,
+            dylib_version: str = "8803.0.0") -> bytes:
+    """links: what its libglib links (then it has an LC_ID_DYLIB of dylib_version too)."""
     keg = f"glib/{version}"
+    lib = tiny_macho.thin("arm64", uuid) if links is None else tiny_macho.thin(
+        "arm64", uuid, (15, 0), ("@@HOMEBREW_PREFIX@@/opt/glib/lib/libglib-2.0.0.dylib", dylib_version), links)
     sbom_present, sbom = sbom, {"packages": [{"SPDXID": "SPDXRef-Archive-glib-src", "versionInfo": version,
-                          "downloadLocation": f"https://download.gnome.org/sources/glib/2.88/glib-{version}.tar.xz",
+                          "downloadLocation": f"https://download.gnome.org/sources/glib/2.88/glib-{version.split('_')[0]}.tar.xz",
                           "checksums": [{"algorithm": "SHA256", "checksumValue": hashlib.sha256(SOURCE).hexdigest()}]}]}
-    files = {f"{keg}/lib/libglib-2.0.0.dylib": tiny_macho.thin("arm64", uuid),
+    files = {f"{keg}/lib/libglib-2.0.0.dylib": lib,
              f"{keg}/lib/pkgconfig/glib-2.0.pc": b"prefix=x",
              f"{keg}/bin/gdbus": tiny_macho.thin("arm64", "99999999-9999-9999-9999-999999999999"),
              f"{keg}/sbom.spdx.json": json.dumps(sbom).encode(),
@@ -83,13 +87,14 @@ class FakeWeb:
         self.blobs = {hashlib.sha256(b).hexdigest(): b for b in (_bottle("2.88.4", NEW), _bottle("2.88.3", OLD))}
         new, old = list(self.blobs)
         self.rb = {"c3": _rb(new, "2.88.4"), "c2": _rb(old, "2.88.4"), "c1": _rb(old)}
+        self.history = ["c3", "c2", "c1"]
         self.calls: list[str] = []
 
     def __call__(self, url: str) -> bytes:
         self.calls.append(url)
         if url.startswith("https://api.github.com/repos/Homebrew/homebrew-core/commits?path=Formula/g/glib.rb&"):
             assert "until=2026-08-29T15:43:28Z" in url
-            return json.dumps([{"sha": c} for c in ("c3", "c2", "c1")]).encode()
+            return json.dumps([{"sha": c} for c in self.history]).encode()
         if url.startswith("https://raw.githubusercontent.com/Homebrew/homebrew-core/"):
             commit, path = url.split("/", 6)[5:]
             if path == "Formula/g/glib.rb":
@@ -210,6 +215,74 @@ def test_a_library_no_bottle_holds_that_names_no_keg_fails(tmp_path):
     libs = {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (14, 0))}
     with pytest.raises(RuntimeError, match="no sonoma bottle .* name no glib keg"):
         homebrew.match("glib", "x86_64", libs, "2026-08-29T15:43:28Z", tmp_path, _no_intel_bottles())
+
+
+SECURE_TRANSPORT = ("/System/Library/Frameworks/Security.framework/Versions/A/Security",
+                    "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation", "/usr/lib/libz.1.dylib")
+OPENSSL3 = ("@@HOMEBREW_PREFIX@@/opt/openssl@3/lib/libssl.3.dylib",
+            "@@HOMEBREW_PREFIX@@/opt/openssl@3/lib/libcrypto.3.dylib", "/usr/lib/libz.1.dylib")
+OPENSSL4 = ("@@HOMEBREW_PREFIX@@/opt/openssl@4/lib/libssl.4.dylib",
+            "@@HOMEBREW_PREFIX@@/opt/openssl@4/lib/libcrypto.4.dylib", "/usr/lib/libz.1.dylib")
+
+
+def _revisions(links_1: tuple[str, ...] = OPENSSL3) -> FakeWeb:
+    """KiCad 10.0.8's libgit2 (simee-kicad#58), as glib: three builds of one version before the release, each
+    formula revision linking something else (2.88.3: Security.framework, _1: openssl@3, _2: openssl@4), then
+    older versions. Only Apple silicon bottles (Homebrew bottles no Intel tags since September 2026);
+    each revision bump still names the previous bottle until Homebrew's "update bottle" commit."""
+    web = FakeWeb()
+    kegs = {"2.88.3_2": OPENSSL4, "2.88.3_1": links_1, "2.88.3": SECURE_TRANSPORT,
+            "2.88.2": SECURE_TRANSPORT, "2.88.1": SECURE_TRANSPORT}
+    shas = {}
+    web.blobs = {}
+    for i, (keg, links) in enumerate(kegs.items()):
+        version = "8802.0.0" if keg == "2.88.2" else "8801.0.0" if keg == "2.88.1" else "8803.0.0"
+        blob = _bottle(keg, f"{i:08d}-0000-0000-0000-000000000000", rb=f"formula {keg}\n", links=links,
+                       dylib_version=version)
+        shas[keg] = hashlib.sha256(blob).hexdigest()
+        web.blobs[shas[keg]] = blob
+    named = {"h7": "2.88.3_2", "h6": "2.88.3_1", "h5": "2.88.3_1", "h4": "2.88.3", "h3": "2.88.3",
+             "h2": "2.88.2", "h1": "2.88.2", "h0": "2.88.1"}
+    web.rb = {c: _rb(shas[keg]).replace("arm64_sonoma", "arm64_sequoia").replace(f'    sha256 sonoma:       "{"0" * 64}"\n', "")
+              for c, keg in named.items()}
+    web.history = list(named)
+    return web
+
+
+def _libgit2_like(links: tuple[str, ...]) -> dict[str, Slice]:
+    """KiCad's x86_64 slice, built from source for macOS 15, relinked to its Frameworks, naming no keg."""
+    return {"libglib-2.0.0.dylib": Slice("DEADBEEF-0000-0000-0000-000000000000", (15, 0), version="8803.0.0",
+                                         dylibs=frozenset(link.rsplit("/", 1)[1] for link in links))}
+
+
+@pytest.mark.parametrize("links, keg, commit", [(OPENSSL4, "2.88.3_2", "h7"), (OPENSSL3, "2.88.3_1", "h5"),
+                                                 (SECURE_TRANSPORT, "2.88.3", "h3")])
+def test_a_keg_built_from_source_that_names_no_keg_is_the_revision_linking_what_it_links(tmp_path, links, keg, commit):
+    web = _revisions()
+    bottle = homebrew.match("glib", "x86_64", _libgit2_like(links), "2026-08-29T15:43:28Z", tmp_path / "bottles", web)
+    assert (bottle.version, bottle.tag, bottle.built_for, bottle.commit) == (keg, "arm64_sequoia", "sequoia", commit)
+    files = dict(homebrew.sources(bottle, tmp_path / "sources", web))
+    assert files["glib.rb"].read_text() == f"formula {keg}\n"  # that revision's formula for the notices
+    # the walk stops at the first older version that doesn't match: 2.88.1's bottle is never fetched
+    oldest = next(s for s, b in web.blobs.items() if "glib/2.88.1/" in _members(b))
+    assert not [u for u in web.calls if u.endswith(oldest)]
+
+
+def _members(blob: bytes) -> str:
+    with tarfile.open(fileobj=io.BytesIO(blob)) as tar:
+        return " ".join(tar.getnames())
+
+
+def test_a_keg_built_from_source_that_names_no_keg_and_matches_two_revisions_fails(tmp_path):
+    web = _revisions(links_1=OPENSSL4)  # _1 and _2 link the same: nothing in the image tells them apart
+    with pytest.raises(RuntimeError, match=r"glib .*sequoia.* builds of glib \['2\.88\.3_1', '2\.88\.3_2'\]"):
+        homebrew.match("glib", "x86_64", _libgit2_like(OPENSSL4), "2026-08-29T15:43:28Z", tmp_path, web)
+
+
+def test_a_keg_built_from_source_that_names_no_keg_and_matches_no_revision_fails(tmp_path):
+    links = ("@rpath/libssl.5.dylib", "@rpath/libcrypto.5.dylib", "/usr/lib/libz.1.dylib")
+    with pytest.raises(RuntimeError, match="no sequoia bottle .* name no glib keg"):
+        homebrew.match("glib", "x86_64", _libgit2_like(links), "2026-08-29T15:43:28Z", tmp_path, _revisions())
 
 
 def test_a_keg_built_from_source_whose_version_no_bottle_has_fails(tmp_path):

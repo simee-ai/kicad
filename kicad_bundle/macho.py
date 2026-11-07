@@ -69,28 +69,45 @@ class Slice:
     # (formula, keg version) of each Homebrew keg path the image names (Cellar/<formula>/<version>/, in
     # directories compiled in): tells which keg a library no bottle holds was built from source as
     kegs: frozenset[tuple[str, str]] = frozenset()
+    # A library's own current version (LC_ID_DYLIB's; None for an executable or bundle) and the base name of
+    # each library it loads (relinking moves them, keeps the names): with its file name, tells which build of
+    # a keg that names none it is (homebrew._from_source)
+    version: str | None = None
+    dylibs: frozenset[str] = frozenset()
 
 
 KEG = re.compile(rb"/Cellar/([\w@+.-]+)/(\d[\w+.-]*)/")
 ARCHS = {0x0100000C: "arm64", 0x01000007: "x86_64"}
-LC_UUID, LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX = 0x1B, 0x32, 0x24
+LC_UUID, LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX, LC_ID_DYLIB = 0x1B, 0x32, 0x24, 0x0D
+# LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB
+LOADS = {0x0C, 0x80000018, 0x8000001F, 0x20, 0x80000023}
+
+
+def _dylib_name(data: bytes, at: int, size: int) -> str:
+    start = at + struct.unpack_from("<I", data, at + 8)[0]
+    return data[start:data.index(b"\0", start, at + size)].decode()
 
 
 def _slice(data: bytes, offset: int, length: int) -> tuple[str, Slice] | None:
     magic, cpu, _, _, ncmds = struct.unpack_from("<IiiII", data, offset)
     if magic != 0xFEEDFACF or cpu not in ARCHS:
         return None
-    found, minos, at = "", (0, 0), offset + 32
+    found, minos, own, dylibs, at = "", (0, 0), None, set(), offset + 32
     for _ in range(ncmds):
         cmd, size = struct.unpack_from("<II", data, at)
-        if cmd == LC_UUID:
+        if cmd == LC_ID_DYLIB:
+            v = struct.unpack_from("<I", data, at + 16)[0]
+            own = f"{v >> 16}.{(v >> 8) & 0xFF}.{v & 0xFF}"
+        elif cmd in LOADS:
+            dylibs.add(_dylib_name(data, at, size).rsplit("/", 1)[-1])
+        elif cmd == LC_UUID:
             found = str(uuid.UUID(bytes=data[at + 8:at + 24])).upper()
         elif cmd in (LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX):
             version = struct.unpack_from("<I", data, at + (12 if cmd == LC_BUILD_VERSION else 8))[0]
             minos = (version >> 16, (version >> 8) & 0xFF)
         at += size
     kegs = frozenset((f.decode(), v.decode()) for f, v in KEG.findall(data, offset, offset + length))
-    return ARCHS[cpu], Slice(found, minos, kegs)
+    return ARCHS[cpu], Slice(found, minos, kegs, own, frozenset(dylibs))
 
 
 def _ranges(data: bytes) -> list[tuple[int, int]]:
@@ -102,7 +119,8 @@ def _ranges(data: bytes) -> list[tuple[int, int]]:
 
 
 def slices(data: bytes) -> dict[str, Slice]:
-    """Each architecture of a 64-bit Mach-O image (thin or fat) -> its UUID, minimum macOS and kegs."""
+    """Each architecture of a 64-bit Mach-O image (thin or fat) -> its UUID, minimum macOS, kegs, own version
+    and linked libraries."""
     return dict(s for o, length in _ranges(data) if len(data) >= o + 32 and (s := _slice(data, o, length)))
 
 

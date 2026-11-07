@@ -62,7 +62,7 @@ def test_reusing_a_bottle_record_marks_all_of_it_used(tmp_path):
     from kicad_bundle import homebrew
 
     info = tmp_path / "ab12"
-    for name in ("uuids.json", "version", "formula.rb", "sbom.spdx.json"):
+    for name in ("uuids.json", "libs.json", "version", "formula.rb", "sbom.spdx.json"):
         os.utime(_file(info / name), (0, 0))
     homebrew._bottle_info("glib", "ab12", tmp_path, fetch=None)
     assert all(f.stat().st_mtime > time.time() - DAY for f in info.iterdir())
