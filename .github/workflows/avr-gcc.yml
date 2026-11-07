@@ -16,8 +16,10 @@ permissions:
 
 jobs:
   macos:  # arm64 natively, then x86_64 cross-built with it and checked under Rosetta
-    runs-on: macos-14
-    timeout-minutes: 180
+    runs-on: macos-15
+    # GitHub's maximum: on macos-14 the two hosts took about two hours; on macos-15 (simee-kicad#57) the
+    # arm64 one alone took 93 minutes, and the job passed 180.
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

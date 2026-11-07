@@ -67,7 +67,7 @@ jobs:
     if: contains(format(' {0} ', inputs.platforms), ' macos ')
     env:
       SIMEE_SHA: ${{ needs.ref.outputs.sha }}
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -86,8 +86,9 @@ jobs:
           restore-keys: macos-sources-
       - name: Build tools (KiCad's own files are built from simee_ref)
         if: needs.ref.outputs.sha != ''
-        # Xcode 16.2 (macOS 15.2 SDK), which the official 10.0.x build used. The image's default,
-        # 15.4, lacks C++20 library features KiCad 10 needs (std::views::join).
+        # Xcode 16.2 (macOS 15.2 SDK), which the official 10.0.x build used; macos-15 is the newest image that
+        # has it (macos-26 has only Xcode 26). macos-14's default, 15.4, lacked C++20 library features KiCad 10
+        # needs (std::views::join).
         run: |
           sudo xcode-select -s /Applications/Xcode_16.2.app
           brew install swig ninja

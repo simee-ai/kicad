@@ -39,7 +39,7 @@ jobs:
           compression-level: 0  # archives already
 
   macos-x86_64:  # host programs cross-built from Arm's sources on arm64, checked under Rosetta
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {host: macos-arm64, runner: macos-14}
+          - {host: macos-arm64, runner: macos-15}
           - {host: linux-x86_64, runner: ubuntu-latest}
           - {host: linux-arm64, runner: ubuntu-24.04-arm}
           - {host: windows-x86_64, runner: windows-2022}

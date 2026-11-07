@@ -1,6 +1,8 @@
 import stat
 from pathlib import Path
 
+import pytest
+import tiny_macho
 from kicad_bundle import gnu_build
 
 CONFIGURE = """#!/bin/sh
@@ -34,3 +36,13 @@ def test_cross_building_names_both_machines():
     assert gnu_build.host_args("x86_64-apple-darwin", "aarch64-apple-darwin25") == [
         "--build=aarch64-apple-darwin25", "--host=x86_64-apple-darwin"]
     assert gnu_build.host_args("x86_64-apple-darwin", None) == []
+
+
+def test_check_macos_min_refuses_a_program_for_a_newer_macos_than_the_toolchains_minimum(tmp_path):
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "avr-gcc").write_bytes(tiny_macho.thin("x86_64", "11111111-1111-1111-1111-111111111111", (11, 0)))
+    (tmp_path / "bin" / "avr-cc").symlink_to("avr-gcc")
+    gnu_build.check_macos_min(tmp_path)
+    (tmp_path / "bin" / "avr-as").write_bytes(tiny_macho.thin("x86_64", "22222222-2222-2222-2222-222222222222", (15, 0)))
+    with pytest.raises(RuntimeError, match="avr-as"):
+        gnu_build.check_macos_min(tmp_path)

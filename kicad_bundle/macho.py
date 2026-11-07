@@ -6,6 +6,7 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 SYSTEM_PREFIXES = ("/System/", "/usr/lib/")
 
@@ -119,6 +120,16 @@ def is_macho(path: Path) -> bool:
     if head[:4] == b"\xca\xfe\xba\xbe":  # fat, unless it's a Java class file (same magic, then its version)
         return len(head) == 8 and 0 < struct.unpack(">I", head[4:])[0] < 32
     return head[:4] in (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf")
+
+
+def check_minos(files: Iterable[Path], minimum: tuple[int, int]) -> None:
+    """Every Mach-O image among files runs on macOS minimum: a newer runner or SDK must not raise the macOS
+    what simee ships needs (simee-kicad#57). Files that aren't Mach-O are skipped."""
+    newer = [f"{f} ({arch}): {s.minos[0]}.{s.minos[1]}"
+             for f in files if f.is_file() and not f.is_symlink() and is_macho(f)
+             for arch, s in slices(f.read_bytes()).items() if s.minos > minimum]
+    if newer:
+        raise RuntimeError(f"built for a newer macOS than {minimum[0]}.{minimum[1]}:\n" + "\n".join(newer))
 
 
 def thin(path: Path, arch: str) -> None:

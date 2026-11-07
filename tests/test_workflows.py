@@ -92,3 +92,17 @@ def test_each_release_job_can_publish():
     for workflow in ("package.yml", "arm-gcc.yml", "avr-gcc.yml"):
         lines = _jobs((WORKFLOWS / workflow).read_text())["release"]
         assert "contents: write" in (_block(lines, "permissions", 4) or []), workflow
+
+
+def _runners():
+    for workflow in sorted(WORKFLOWS.glob("*.yml")):
+        for label in re.findall(r"(?:runs-on|runner):\s*([\w.-]+)", workflow.read_text()):
+            yield workflow.name, label
+
+
+def test_macos_jobs_run_on_macos_15():
+    # macos-14 was retired on 2026-11-02 (kicad-sync's 10.0.8 packaging was cancelled, simee-kicad#57). macos-15
+    # (arm64) is the newest image that still has Xcode 16.2, which the official KiCad 10.0.x build used: macos-26
+    # carries only Xcode 26.
+    macos = {(name, label) for name, label in _runners() if label.startswith("macos")}
+    assert macos and {label for _, label in macos} == {"macos-15"}, sorted(macos)

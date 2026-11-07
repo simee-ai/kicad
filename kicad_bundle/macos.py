@@ -52,6 +52,7 @@ def _overlay(app_contents: Path, built: dict[str, Path], arch: str) -> None:
         shutil.copy2(path, dest)
         macho.thin(dest, arch)
         macos_build.relink(dest, official)
+        macho.check_minos([dest], macho.slices(official.read_bytes())[arch].minos)  # the DMG's deployment target
         official.unlink()
         macho.adhoc_sign(dest)
     macos_build.check_imports(app_contents, [app_contents / rel for rel in built], arch)

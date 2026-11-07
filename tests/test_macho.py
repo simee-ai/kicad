@@ -1,7 +1,8 @@
 from pathlib import Path
 
+import pytest
 import tiny_macho
-from kicad_bundle.macho import Slice, is_macho, make_resolver, parse_install_id, parse_otool, parse_rpaths, slices
+from kicad_bundle.macho import Slice, check_minos, is_macho, make_resolver, parse_install_id, parse_otool, parse_rpaths, slices
 
 OTOOL = """/x/KiCad.app/Contents/MacOS/kicad-cli:
 \t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)
@@ -89,3 +90,22 @@ def test_is_macho_tells_a_fat_binary_from_a_java_class_file(tmp_path):
     java.write_bytes(b"\xca\xfe\xba\xbe\x00\x00\x00\x34" + b"\0" * 32)  # same magic, then the class file version
     assert is_macho(fat)
     assert not is_macho(java)
+
+
+def test_check_minos_accepts_images_for_the_minimum_or_older(tmp_path):
+    (tmp_path / "older").write_bytes(tiny_macho.thin("arm64", "11111111-1111-1111-1111-111111111111", (11, 0)))
+    (tmp_path / "same").write_bytes(tiny_macho.fat(
+        ("arm64", tiny_macho.thin("arm64", "22222222-2222-2222-2222-222222222222", (11, 6))),
+        ("x86_64", tiny_macho.thin("x86_64", "33333333-3333-3333-3333-333333333333", (10, 15)))))
+    (tmp_path / "notes.txt").write_text("not a Mach-O file")
+    check_minos(tmp_path.iterdir(), (11, 6))
+
+
+def test_check_minos_names_each_image_built_for_a_newer_macos(tmp_path):
+    (tmp_path / "ok").write_bytes(tiny_macho.thin("arm64", "11111111-1111-1111-1111-111111111111", (11, 0)))
+    (tmp_path / "cc1").write_bytes(tiny_macho.fat(
+        ("arm64", tiny_macho.thin("arm64", "22222222-2222-2222-2222-222222222222", (11, 0))),
+        ("x86_64", tiny_macho.thin("x86_64", "33333333-3333-3333-3333-333333333333", (15, 2)))))
+    with pytest.raises(RuntimeError, match=r"(?s)macOS than 11\.0.*/cc1 \(x86_64\): 15\.2") as raised:
+        check_minos(sorted(tmp_path.iterdir()), (11, 0))
+    assert "/ok " not in str(raised.value) and "(arm64)" not in str(raised.value)

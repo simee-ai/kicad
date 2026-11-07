@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from kicad_bundle import macho
+
 REPO = "https://github.com/simee-ai/kicad"
 BUGURL = f"{REPO}/issues"  # for the toolchains simee builds
 MACOS_MIN = "11.0"  # the first macOS on Apple silicon
@@ -23,6 +25,11 @@ def macos_compilers(arch: str) -> dict[str, str]:
 
 def this_machine() -> tuple[str, str]:
     return sys.platform, platform.machine()
+
+
+def check_macos_min(root: Path) -> None:
+    """Every program and library under root runs on MACOS_MIN, whatever macOS and Xcode built it."""
+    macho.check_minos(root.rglob("*"), tuple(map(int, MACOS_MIN.split("."))))
 
 
 def host_args(triple: str, cross_from: str | None) -> list[str]:

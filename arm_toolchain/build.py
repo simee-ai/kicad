@@ -166,6 +166,7 @@ def build(arm_archive: Path, snapshot: Path, work: Path, jobs: int) -> Path:
                    ("all-gcc", "all-lto-plugin"), MAKE_VARS)
     root = assemble(arm, stage, top / components.name(HOST))
     bundle.remove(top / "stage")
+    gnu_build.check_macos_min(root)
     return root
 
 

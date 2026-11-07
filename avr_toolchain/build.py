@@ -131,6 +131,8 @@ def build(host: Host, archives: dict[str, Path], work: Path, jobs: int, build_to
     for docs in ("share/info", "share/man"):  # manuals in formats nothing reads from here
         if (root / docs).exists():
             bundle.remove(root / docs)
+    if host.os == "darwin":
+        gnu_build.check_macos_min(root)
     return root
 
 
