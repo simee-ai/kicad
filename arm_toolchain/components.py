@@ -37,17 +37,20 @@ def _binary(arm_host: str, ext: str, sha256: str) -> Binary:
 
 
 # Arm builds no macOS x86_64 toolchain after 14.2.rel1: simee builds that one (arm_toolchain/build.py).
+# Arm re-uploaded every 15.3.rel2 file on 2026-10-12, a day after arm-gcc-15.3.rel2-1 (simee-kicad#59): the
+# same sources and configure, rebuilt as "Build arm-15.181" so the programs' version string says 15.3.Rel2
+# (the first upload's said "15.3.Rel1 (Build arm-15.180)"); these are the re-uploaded files' SHA256s.
 BINARIES = {
-    "macos-arm64": _binary("darwin-arm64", "tar.xz", "b6ccf805aa4fb8c50406256f99cf802385894b86c0cb6c0185dc0e2b5f8288b9"),
-    "linux-x86_64": _binary("x86_64", "tar.xz", "0662b2f01e0cd8b951fd110911d339c35b05998c68a12b3530bbbb4bf6c7874e"),
-    "linux-arm64": _binary("aarch64", "tar.xz", "9fc9e6baedf2b6779bd39ce4cc458d3529e200bc92bebe28be18f8942a456ad8"),
+    "macos-arm64": _binary("darwin-arm64", "tar.xz", "f011e4832046155f06408dda6b252b21b139a8159c8529802227371f06656c60"),
+    "linux-x86_64": _binary("x86_64", "tar.xz", "463df9665c246fa13bab2102115bbf83440661b6eb70b44f3dfd4712ca30037a"),
+    "linux-arm64": _binary("aarch64", "tar.xz", "a0dc18893171d39dec82fd8d57eeab3da836fd3df4b61978db3eccbf4a6bb948"),
     "windows-x86_64": _binary("mingw-w64-x86_64", "zip",
-                              "062888d4f8a213f930e367189804910e5215c4e623e5063e64494c302f94b889"),
+                              "0daff4141d4f62ad1e9794ca8bd430ef730f07fd78f6d71d2ffdffc21db8cb9e"),
 }
 _SOURCE_ARCHIVE = f"arm-gnu-toolchain-src-snapshot-{RELEASE}.tar.xz"
 # Published unchanged as the release's source asset (GPL).
 SOURCE = Download(_SOURCE_ARCHIVE, f"{DOWNLOADS}/{_SOURCE_ARCHIVE}",
-                  "fec2f0008bbe6be5016328f9f95ec750db00499653d775d934b2330f717c274c")
+                  "59bf354b14755172eb238511542c599a6ec3540a19164b8dfe1accbe084c8089")
 
 # The snapshot's folders whose code the kept files hold: binutils, GCC (with libgcc and libstdc++),
 # newlib (libc, libm, libnosys), and GMP, MPFR, MPC, isl, libiconv and (from 15.3, in cc1 and lto1) zstd
