@@ -63,9 +63,9 @@ def _smoke(cli: list[str] | None, arch: str, simee_built: bool) -> None:
         print(f"  smoke test skipped: can't run {arch} on {platform.machine()}")
         return
     smoke.check(cli)
-    if simee_built:  # `sch import` and the Eagle board fix are simee's: only a bundle built from a simee branch has them
+    if simee_built:  # `sch import`, the Eagle board fix and `pcb tune` are simee's: only a bundle built from a simee branch has them
         imports.check(cli)
-    print(f"  smoke test passed ({arch}{', sch and pcb import of every fixture' if simee_built else ''})")
+    print(f"  smoke test passed ({arch}{', sch and pcb import of every fixture, pcb tune' if simee_built else ''})")
 
 
 def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: bool = True,

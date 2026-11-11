@@ -23,7 +23,7 @@ def main(argv=None) -> int:
     parser.add_argument("--platform", required=True, choices=sorted(PACKAGERS))
     parser.add_argument("--out", type=Path, default=Path("dist"))
     parser.add_argument("--work", type=Path, default=Path("work"))
-    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "kicad-bundle")
+    parser.add_argument("--cache", type=Path, default=cache.DEFAULT)
     parser.add_argument("--no-smoke", action="store_true", help="skip running the packaged kicad-cli")
     parser.add_argument("--simee-ref", help="build KiCad's own files from this simee-kicad branch, e.g. simee/10.0.6")
     parser.add_argument("--base-image", help="linux: build on this image instead of kicad/kicad:<version> "
