@@ -251,6 +251,6 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
         smoke.check(smoke_command(root, target), models=bool(sha))
         if sha:
             imports.check(smoke_command(root, target))
-        print(f"  smoke test passed ({SMOKE_IMAGE} {target.docker}{', sch and pcb import' if sha else ''})")
+        print(f"  smoke test passed ({SMOKE_IMAGE} {target.docker}{', sch and pcb import, pcb tune' if sha else ''})")
     bundle = archive(root, out_dir, "tar.gz")
     return [bundle, debian.sources_archive(sources, out_dir / sources_name(root), cache / DEBIAN_SOURCES), *extra]

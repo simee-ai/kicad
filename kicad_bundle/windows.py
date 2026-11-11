@@ -80,7 +80,7 @@ def package(version: str, out_dir: Path, cache: Path, work: Path, run_smoke: boo
             smoke.check([str(bundled_cli)])
             if sha:
                 imports.check([str(bundled_cli)])
-            print(f"  smoke test passed{' (sch and pcb import too)' if sha else ''}")
+            print(f"  smoke test passed{' (sch and pcb import and pcb tune too)' if sha else ''}")
         else:
             print("  smoke test skipped: needs Windows")
     return [archive(root, out_dir, "zip"), third_party.sources_archive(third.components, out_dir / sources), *extra]
