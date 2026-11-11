@@ -58,6 +58,8 @@
 #include <jobs/job_pcb_drc.h>
 #include <jobs/job_pcb_import.h>
 #include <jobs/job_pcb_upgrade.h>
+#include <jobs/job_pcb_tune.h>
+#include <pcb_tune_job.h>
 #include <eda_units.h>
 #include <footprint_library_adapter.h>
 #include <lset.h>
@@ -156,6 +158,11 @@ PCBNEW_JOBS_HANDLER::PCBNEW_JOBS_HANDLER( KIWAY* aKiway ) :
                   return dlg.ShowModal() == wxID_OK;
               } );
     Register( "upgrade", std::bind( &PCBNEW_JOBS_HANDLER::JobUpgrade, this, std::placeholders::_1 ),
+              []( JOB* job, wxWindow* aParent ) -> bool
+              {
+                  return true;
+              } );
+    Register( "pcb_tune", std::bind( &PCBNEW_JOBS_HANDLER::JobTune, this, std::placeholders::_1 ),
               []( JOB* job, wxWindow* aParent ) -> bool
               {
                   return true;
@@ -2706,6 +2713,22 @@ int PCBNEW_JOBS_HANDLER::JobUpgrade( JOB* aJob )
 
     return CLI::EXIT_CODES::SUCCESS;
 }
+
+int PCBNEW_JOBS_HANDLER::JobTune( JOB* aJob )
+{
+    JOB_PCB_TUNE* job = dynamic_cast<JOB_PCB_TUNE*>( aJob );
+
+    if( job == nullptr )
+        return CLI::EXIT_CODES::ERR_UNKNOWN;
+
+    BOARD* brd = getBoard( job->m_filename );
+
+    if( !brd )
+        return CLI::EXIT_CODES::ERR_INVALID_INPUT_FILE;
+
+    return RunPcbTune( *job, brd, getToolManager( brd ), *m_reporter, m_progressReporter );
+}
+
 
 // Most job handlers need to align the running job with the board before resolving any
 // output paths with variables in them like ${REVISION}.
