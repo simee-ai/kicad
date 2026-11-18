@@ -124,6 +124,22 @@ def slices(data: bytes) -> dict[str, Slice]:
     return dict(s for o, length in _ranges(data) if len(data) >= o + 32 and (s := _slice(data, o, length)))
 
 
+def loads(data: bytes) -> list[str]:
+    """The install names of the libraries a thin or fat Mach-O image loads (every architecture's, in order, each
+    once), read without otool so any OS can follow a closure."""
+    names: dict[str, None] = {}
+    for offset, _ in _ranges(data):
+        if len(data) < offset + 32 or struct.unpack_from("<I", data, offset)[0] != 0xFEEDFACF:
+            continue
+        at = offset + 32
+        for _ in range(struct.unpack_from("<I", data, offset + 16)[0]):
+            cmd, size = struct.unpack_from("<II", data, at)
+            if cmd in LOADS:
+                names[_dylib_name(data, at, size)] = None
+            at += size
+    return list(names)
+
+
 def extract(data: bytes, arch: str) -> bytes:
     """One architecture's image of a thin or fat Mach-O file, as `lipo -thin` writes it."""
     for o, length in _ranges(data):

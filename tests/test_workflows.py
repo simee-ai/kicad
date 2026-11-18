@@ -89,7 +89,7 @@ def test_only_a_publishing_job_gets_a_write_token():
 
 
 def test_each_release_job_can_publish():
-    for workflow in ("package.yml", "arm-gcc.yml", "avr-gcc.yml"):
+    for workflow in ("package.yml", "arm-gcc.yml", "avr-gcc.yml", "wasi-sdk.yml"):
         lines = _jobs((WORKFLOWS / workflow).read_text())["release"]
         assert "contents: write" in (_block(lines, "permissions", 4) or []), workflow
 

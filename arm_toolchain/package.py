@@ -5,12 +5,11 @@ so the trimmed root runs wherever it is copied, like the full one."""
 
 import tarfile
 import zipfile
-from fnmatch import fnmatchcase
 from pathlib import Path
 
 from arm_toolchain import components
 from arm_toolchain.components import BINARIES, CHIPS, MULTILIB_LIST, MULTILIBS, RELEASE, SHIPPED, SOURCE
-from kicad_bundle import bundle, third_party
+from kicad_bundle import bundle, third_party, toolchain_trim
 from kicad_bundle.gnu_build import REPO
 
 # What is kept, as paths below the release's top folder; a pattern naming a folder keeps all of it.
@@ -34,18 +33,7 @@ def _multilib(multilib: str) -> tuple[str, ...]:
 def kept(rel: str, multilibs: tuple[str, ...] = tuple(MULTILIBS)) -> bool:
     """Whether the file at rel (below the release's top folder) is kept: its path, or a folder above
     it, matches a pattern, one path component at a time."""
-    parts = rel.split("/")
-    for pattern in (*KEEP, *(p for m in multilibs for p in _multilib(m))):
-        wanted = pattern.split("/")
-        if len(parts) >= len(wanted) and all(map(fnmatchcase, parts, wanted)):
-            return True
-    return False
-
-
-def _top(names: list[str]) -> str:
-    """The archive's one top folder, with a trailing /, or "" (Arm's Windows zip has none)."""
-    tops = {n.partition("/")[0] for n in names}
-    return f"{tops.pop()}/" if len(tops) == 1 else ""
+    return toolchain_trim.matches(rel, (*KEEP, *(p for m in multilibs for p in _multilib(m))))
 
 
 def extract(archive: Path, work: Path, name: str) -> Path:
@@ -56,7 +44,7 @@ def extract(archive: Path, work: Path, name: str) -> Path:
     root.mkdir(parents=True)
     if zipfile.is_zipfile(archive):
         with zipfile.ZipFile(archive) as z:
-            top = _top(z.namelist())
+            top = toolchain_trim.top(z.namelist())
             for info in z.infolist():
                 rel = info.filename.removeprefix(top)
                 if not info.is_dir() and kept(rel):
@@ -65,31 +53,9 @@ def extract(archive: Path, work: Path, name: str) -> Path:
         return root
     with tarfile.open(archive) as tar:
         members = tar.getmembers()
-        top = _top([m.name for m in members])
-        tar.extractall(root, filter="tar", members=_kept_members(members, top))
+        top = toolchain_trim.top([m.name for m in members])
+        tar.extractall(root, filter="tar", members=toolchain_trim.kept_members(members, top, kept))
     return root
-
-
-def _kept_members(members: list[tarfile.TarInfo], top: str) -> list[tarfile.TarInfo]:
-    """The kept members, renamed below top. A hard link names its target by its path in the archive (a
-    symbolic one relative to itself); one whose target isn't kept (Arm's Linux arm-none-eabi-g++ links to
-    arm-none-eabi-c++ from 15.3) takes the target's data, and further links to that target link to it."""
-    by_name = {m.name: m for m in members}
-    holder: dict[str, str] = {}  # a target that isn't kept -> the kept link holding its data
-    out = []
-    for m in members:
-        rel = m.name.removeprefix(top)
-        if m.isdir() or not kept(rel):
-            continue
-        if m.islnk() and not kept(target := m.linkname.removeprefix(top)):
-            if target in holder:
-                out.append(m.replace(name=rel, linkname=holder[target], deep=False))
-            else:
-                holder[target] = rel
-                out.append(by_name[m.linkname].replace(name=rel, deep=False))
-            continue
-        out.append(m.replace(name=rel, deep=False, linkname=m.linkname.removeprefix(top) if m.islnk() else m.linkname))
-    return out
 
 
 def write_licences(snapshot: Path, root: Path) -> None:

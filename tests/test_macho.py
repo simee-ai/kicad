@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import tiny_macho
-from kicad_bundle.macho import Slice, check_minos, is_macho, make_resolver, parse_install_id, parse_otool, parse_rpaths, slices
+from kicad_bundle.macho import Slice, check_minos, is_macho, loads, make_resolver, parse_install_id, parse_otool, parse_rpaths, slices
 
 OTOOL = """/x/KiCad.app/Contents/MacOS/kicad-cli:
 \t/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa (compatibility version 1.0.0, current version 24.0.0)
@@ -123,3 +123,12 @@ def test_check_minos_names_each_image_built_for_a_newer_macos(tmp_path):
     with pytest.raises(RuntimeError, match=r"(?s)macOS than 11\.0.*/cc1 \(x86_64\): 15\.2") as raised:
         check_minos(sorted(tmp_path.iterdir()), (11, 0))
     assert "/ok " not in str(raised.value) and "(arm64)" not in str(raised.value)
+
+
+def test_loads_reads_the_full_install_names_of_every_architecture_once():
+    deps = ("@rpath/libLLVM.23.1-wasi-sdk.dylib", "/usr/lib/libc++.1.dylib")
+    arm = tiny_macho.thin("arm64", "11111111-1111-1111-1111-111111111111", deps=deps)
+    intel = tiny_macho.thin("x86_64", "22222222-2222-2222-2222-222222222222", deps=(*deps, "/usr/lib/libSystem.B.dylib"))
+    assert loads(arm) == list(deps)
+    assert loads(tiny_macho.fat(("arm64", arm), ("x86_64", intel))) == [*deps, "/usr/lib/libSystem.B.dylib"]
+    assert loads(b"#!/bin/sh\n" + b"\0" * 40) == []
