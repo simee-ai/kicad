@@ -5,6 +5,7 @@ publishes next to each download), and how the release names its assets."""
 from dataclasses import dataclass
 from pathlib import Path
 
+from kicad_bundle import cache as kicad_cache
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 
 RELEASE = "15.3.rel2"
@@ -75,7 +76,7 @@ MULTILIBS = {
 }
 CHIPS = " and the ".join(t.chip for t in MULTILIBS.values())  # "for the {CHIPS}"
 MULTILIB_LIST = " and ".join(MULTILIBS)
-SOURCES_CACHE = "arm-gcc-sources"  # under kicad-bundle's download cache
+SOURCES_CACHE = kicad_cache.ARM_GCC_SOURCES  # under kicad-bundle's download cache, pruned by cache.prune
 # The macOS x86_64 programs are built by simee (arm_toolchain/build.py), so the release also carries the
 # scripts that build them, beside Arm's snapshot they are built from.
 BUILD_SCRIPTS = f"arm-gcc-{RELEASE}-build-scripts.tar"

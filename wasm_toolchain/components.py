@@ -6,6 +6,7 @@ archives carry none)."""
 from dataclasses import dataclass
 from pathlib import Path
 
+from kicad_bundle import cache as kicad_cache
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 
 VERSION = "34.0"
@@ -15,7 +16,7 @@ DOWNLOADS = f"https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk
 LLVM_COMMIT = "895aa2c896ada719451be2e3673c83da8ddf1141"
 WASI_LIBC_COMMIT = "2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13"
 WASI_SDK_COMMIT = "5a0bf653a1a06e1c18867567c5937006d3394a69"
-SOURCES_CACHE = "wasi-sdk"  # under kicad-bundle's download cache
+SOURCES_CACHE = kicad_cache.WASI_SDK  # under kicad-bundle's download cache, pruned by cache.prune
 
 
 @dataclass(frozen=True)

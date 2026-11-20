@@ -4,7 +4,7 @@ names its assets. Every release carries these archives and the scripts that buil
 from dataclasses import dataclass
 from pathlib import Path
 
-from kicad_bundle import third_party
+from kicad_bundle import cache as kicad_cache, third_party
 from kicad_bundle.fetch import Fetch, cached_file, fetch_url
 
 GNU = "https://ftp.gnu.org/gnu"
@@ -51,7 +51,7 @@ VERSION = GCC.version
 SOURCE_ARCHIVE = f"avr-gcc-{VERSION}-source.tar"
 # The Debian sources of the C/C++ runtime the Linux and Windows binaries link statically.
 RUNTIME_SOURCES = f"avr-gcc-{VERSION}-runtime-sources.tar"
-SOURCES_CACHE = "avr-gcc-sources"  # under kicad-bundle's download cache
+SOURCES_CACHE = kicad_cache.AVR_GCC_SOURCES  # under kicad-bundle's download cache, pruned by cache.prune
 # The repo's files that build a release, beside the Python modules it imports.
 BUILD_FILES = ("pyproject.toml", "uv.lock", "avr_toolchain/smoke/blink.c")
 

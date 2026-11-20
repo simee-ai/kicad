@@ -3,7 +3,12 @@ import json
 import os
 import time
 
+import pytest
+
+from arm_toolchain import components as arm_components
+from avr_toolchain import components as avr_components
 from kicad_bundle import cache, debian
+from wasm_toolchain import components as wasm_components
 
 DAY = 24 * 3600
 
@@ -105,3 +110,39 @@ def test_kicad_bundle_prunes_the_cache_after_a_build(tmp_path, monkeypatch):
     monkeypatch.setitem(cli.PACKAGERS, "macos", lambda *args: [built])
     cli.main(["--kicad-version", "10.0.6", "--platform", "macos", "--cache", str(tmp_path / "cache")])
     assert sorted(p.name for p in (tmp_path / "cache").iterdir()) == ["10.0.5", "10.0.6"]
+
+
+TOOLCHAIN_SOURCES = pytest.mark.parametrize("components", [wasm_components, arm_components, avr_components],
+                                            ids=["wasi-sdk", "arm-gcc", "avr-gcc"])
+
+
+@TOOLCHAIN_SOURCES
+def test_prune_drops_toolchain_archives_no_recent_build_used(tmp_path, components):
+    sources = tmp_path / components.SOURCES_CACHE
+    fresh = _file(sources / "ab" / "ab12" / "fresh.tar.xz", age_days=cache.SOURCES_MAX_AGE_DAYS - 1)
+    stale = _file(sources / "cd" / "cd34" / "stale.tar.xz", age_days=cache.SOURCES_MAX_AGE_DAYS + 1)
+    cache.prune(tmp_path, built="10.0.6")
+    assert fresh.exists() and not stale.exists() and not stale.parent.parent.exists()
+
+
+@TOOLCHAIN_SOURCES
+def test_reusing_a_cached_toolchain_archive_marks_it_used(tmp_path, monkeypatch, components):
+    data = b"archive"
+    digest = hashlib.sha256(data).hexdigest()
+
+    def offline(url):
+        raise AssertionError(f"a cached archive should not need another download: {url}")
+
+    if components is avr_components:
+        source = avr_components.Source("gmp", "6.3.0", "https://example.invalid/gmp-6.3.0.tar.xz", digest, "LGPL")
+        monkeypatch.setattr(avr_components, "SOURCES", (source,))
+        name, refetch = source.archive, lambda: avr_components.fetch(tmp_path, get=offline)
+    else:
+        download = components.Download("thing.tar.xz", "https://example.invalid/thing.tar.xz", digest)
+        name, refetch = download.archive, lambda: components.fetch(download, tmp_path, get=offline)
+    old = _file(tmp_path / components.SOURCES_CACHE / digest[:2] / digest / name)
+    old.write_bytes(data)
+    os.utime(old, (0, 0))
+    refetch()
+    cache.prune(tmp_path, built="10.0.6")
+    assert old.exists() and old.stat().st_mtime > time.time() - DAY
