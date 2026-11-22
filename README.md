@@ -5,6 +5,8 @@ Builds of [KiCad](https://www.kicad.org), published as this repository's release
 The AVR, Arm and WebAssembly compilers are built and published separately.
 [Toolchain releases](https://github.com/simee-ai/toolchains/releases)
 
+The `simee-ci` branch contains the packaging tooling. CodeQL scans its Python code and GitHub Actions workflows.
+
 ## Licences
 
 - `cli-<version>-<n>`: a trimmed `kicad-cli` from that KiCad release, with KiCad's own files built from the official
