@@ -89,9 +89,8 @@ def test_only_a_publishing_job_gets_a_write_token():
 
 
 def test_each_release_job_can_publish():
-    for workflow in ("package.yml", "arm-gcc.yml", "avr-gcc.yml", "wasi-sdk.yml"):
-        lines = _jobs((WORKFLOWS / workflow).read_text())["release"]
-        assert "contents: write" in (_block(lines, "permissions", 4) or []), workflow
+    lines = _jobs((WORKFLOWS / "package.yml").read_text())["release"]
+    assert "contents: write" in (_block(lines, "permissions", 4) or [])
 
 
 def _runners():
@@ -106,3 +105,7 @@ def test_macos_jobs_run_on_macos_15():
     # carries only Xcode 26.
     macos = {(name, label) for name, label in _runners() if label.startswith("macos")}
     assert macos and {label for _, label in macos} == {"macos-15"}, sorted(macos)
+
+
+def test_the_kicad_mirror_has_only_kicad_workflows():
+    assert {path.name for path in WORKFLOWS.glob("*.yml")} == {"package.yml", "test.yml"}

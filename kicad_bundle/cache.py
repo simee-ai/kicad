@@ -1,6 +1,5 @@
 """Keep the download cache bounded: official installers live in <cache>/<version>/ (1 to 2 GB per
-version); the Debian, macOS and Windows sources, what each Homebrew bottle holds, and the archives the AVR, Arm and
-wasm toolchains are built from, in folders of their own (mostly shared between releases)."""
+version); the Debian, macOS and Windows sources, and what each Homebrew bottle holds live in folders of their own (mostly shared between releases)."""
 
 import re
 import shutil
@@ -14,14 +13,10 @@ MACOS_SOURCES = "macos-sources"
 WINDOWS_SOURCES = "windows-sources"  # vcpkg ports' downloads and port folders
 VCPKG_REGISTRIES = "vcpkg-registries"  # treeless clones, a few MB each; not pruned
 VCPKG_BINARIES = "vcpkg-binaries"  # vcpkg's builds of the ports (simee builds on Windows); not pruned
-AVR_GCC_SOURCES = "avr-gcc-sources"  # avr_toolchain's upstream source archives
-ARM_GCC_SOURCES = "arm-gcc-sources"  # arm_toolchain's Arm snapshot
-WASI_SDK = "wasi-sdk"  # wasm_toolchain's wasi-sdk release archives, one per host (over 1 GB together)
 TEST_FIXTURES = "test-fixtures"  # boards the tests fetch and may not commit (tests/test_pcb_tune.py); not pruned
 SOURCES_MAX_AGE_DAYS = 90  # monthly builds, so a source no build used in three months is gone from KiCad's image
 # Each fetch through fetch.cached_file touches the file it reuses, so age is time since a build last used it
-SOURCES = (DEBIAN_SOURCES, HOMEBREW_BOTTLES, MACOS_SOURCES, WINDOWS_SOURCES, AVR_GCC_SOURCES, ARM_GCC_SOURCES,
-           WASI_SDK)
+SOURCES = (DEBIAN_SOURCES, HOMEBREW_BOTTLES, MACOS_SOURCES, WINDOWS_SOURCES)
 
 _VERSION = re.compile(r"\d+(\.\d+)*")
 
